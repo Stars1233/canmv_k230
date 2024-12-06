@@ -54,9 +54,14 @@
 #define TOUCH_ROTATE_DEGREE_270         (3)
 #define TOUCH_ROTATE_SWAP_XY            (4)
 
-#define TOUCH_TYPE_CST128          (1)
-#define TOUCH_TYPE_CST328          (2)
-#define TOUCH_TYPE_FT5x16          (3)
+#define TOUCH_TYPE_FT5x16               (1)
+
+#define TOUCH_TYPE_BASE_CST_SEL_CAP     (0x100)
+#define TOUCH_TYPE_BASE_CST_MUT_CAP     (0x200)
+
+#define TOUCH_TYPE_CST128               (TOUCH_TYPE_BASE_CST_MUT_CAP | 0x01)
+#define TOUCH_TYPE_CST328               (TOUCH_TYPE_BASE_CST_MUT_CAP | 0x02)
+#define TOUCH_TYPE_CST226SE             (TOUCH_TYPE_BASE_CST_MUT_CAP | 0x03)
 
 struct rt_touch_data {
     uint8_t event; /* The touch event of the data */
@@ -143,6 +148,8 @@ typedef struct {
                 mp_obj_t pin_rst;
                 mp_obj_t pin_int; // now, we can't use int in userspace
             } py_obj;
+
+            uint8_t slv_addr;
         } user;
     };
 } machine_touch_obj_t;
@@ -255,7 +262,7 @@ typedef struct {
     size_t number;
 } i2c_priv_data_t;
 
-struct cst328_point {
+struct cst3xx_point {
     uint8_t id_stat;
     uint8_t xh;
     uint8_t yh;
@@ -263,13 +270,13 @@ struct cst328_point {
     uint8_t z;
 };
 
-struct cst328_reg {
-    struct cst328_point point1;
+struct cst3xx_reg {
+    struct cst3xx_point point1;
 
     uint8_t point_num;
     uint8_t const_0xab;
 
-    struct cst328_point point2_5[4];
+    struct cst3xx_point point2_5[4];
 };
 
 STATIC int machine_touch_user_wr(machine_touch_obj_t *self, uint16_t addr,
@@ -314,35 +321,37 @@ STATIC int machine_touch_user_wr(machine_touch_obj_t *self, uint16_t addr,
     return 0;
 }
 
-STATIC void machine_touch_user_init_cst328(machine_touch_obj_t *self) {
+STATIC void machine_touch_user_init_cst3xx(machine_touch_obj_t *self) {
     uint8_t cmd[4];
     uint8_t data[24];
+
+    uint8_t slv_addr = self->user.slv_addr;
 
     // HYN_REG_MUT_DEBUG_INFO_MODE
     cmd[0] = 0xd1;
     cmd[1] = 0x01;
     cmd[2] = 0x01;
-    if(0x00 != machine_touch_user_wr(self, 0x1A, cmd, 3, NULL, 0)) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init cst328 failed"));
+    if(0x00 != machine_touch_user_wr(self, slv_addr, cmd, 3, NULL, 0)) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init cst3xx failed 1"));
     }
     mp_hal_delay_ms(1);
 
     // HYN_REG_MUT_DEBUG_INFO_FW_VERSION
     cmd[0] = 0xd2;
     cmd[1] = 0x04;
-    if(0x00 != machine_touch_user_wr(self, 0x1A, cmd, 2, data, 4)) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init cst328 failed"));
+    if(0x00 != machine_touch_user_wr(self, slv_addr, cmd, 2, data, 4)) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init cst3xx failed 2"));
     }
     uint16_t chip, proj;
     proj = (data[0] << 8) | data[1];
     chip = (data[2] << 8) | data[3];
-    mp_printf(&mp_plat_print, "CST328, ChipID: 0x%02X, ProjectID: 0x%02X\n", chip, proj);
+    mp_printf(&mp_plat_print, "CST3xx, ChipID: 0x%02X, ProjectID: 0x%02X\n", chip, proj);
 
     // HYN_REG_MUT_NORMAL_MODE 
     cmd[0] = 0xd1;
     cmd[1] = 0x09;
-    if(0x00 != machine_touch_user_wr(self, 0x1A, cmd, 2, NULL, 0)) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init cst328 failed"));
+    if(0x00 != machine_touch_user_wr(self, slv_addr, cmd, 2, NULL, 0)) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init cst3xx failed 3"));
     }
 }
 
@@ -364,6 +373,9 @@ STATIC void machine_touch_user_print(const mp_print_t *print, mp_obj_t self_in, 
     mp_print_str(print, ", i2c=");
     mp_obj_print_helper(print, self->user.py_obj.i2c, PRINT_REPR);
 
+    // Print slv_addr object
+    mp_printf(print, ", slave_addr=%u", self->user.slv_addr);
+
     // Print pin_rst object
     mp_print_str(print, ", pin_rst=");
     mp_obj_print_helper(print, self->user.py_obj.pin_rst, PRINT_REPR);
@@ -376,6 +388,8 @@ STATIC void machine_touch_user_print(const mp_print_t *print, mp_obj_t self_in, 
 }
 
 STATIC void machine_touch_user_init(machine_touch_obj_t *self, mp_int_t dev, mp_arg_val_t *args_parsed) {
+    int type = self->type;
+
     if((args_parsed[ARG_i2c].u_obj != mp_const_none) && !mp_obj_is_type(args_parsed[ARG_i2c].u_obj, &machine_i2c_type)) {
         mp_raise_TypeError(MP_ERROR_TEXT("i2c must be a I2C object"));
     }
@@ -394,16 +408,24 @@ STATIC void machine_touch_user_init(machine_touch_obj_t *self, mp_int_t dev, mp_
         mp_printf(&mp_plat_print, "now, we do't support set int pin.");
     }
 
-    self->base.type = &machine_touch_user_type;
     self->dev = 1;
+    self->base.type = &machine_touch_user_type;
+
+    if(TOUCH_TYPE_CST328 == type) {
+        self->user.slv_addr = 0x1A;
+    } else if(TOUCH_TYPE_CST226SE == type) {
+        self->user.slv_addr = 0x5A;
+    } else {
+        mp_raise_TypeError(MP_ERROR_TEXT("Unsupport type"));
+    }
 
     if(-1 == self->rotate) {
         self->rotate = 0;
 
-        if(TOUCH_TYPE_CST328 == self->type) {
+        if(TOUCH_TYPE_CST328 == type) {
             self->rotate = TOUCH_ROTATE_SWAP_XY;
-        } else {
-            mp_raise_TypeError(MP_ERROR_TEXT("Unsupport type"));
+        } else if(TOUCH_TYPE_CST226SE == type) {
+
         }
     }
 
@@ -414,8 +436,10 @@ STATIC void machine_touch_user_init(machine_touch_obj_t *self, mp_int_t dev, mp_
         mp_hal_delay_ms(30);
         machine_pin_value_set(self->user.py_obj.pin_rst, 1);
     } else {
-        if(TOUCH_TYPE_CST328 == self->type) {
-            machine_touch_user_init_cst328(self);
+        if(TOUCH_TYPE_BASE_CST_SEL_CAP == (type & TOUCH_TYPE_BASE_CST_SEL_CAP)) {
+            mp_raise_TypeError(MP_ERROR_TEXT("Unsupport type, CST SEL CAP"));
+        } else if(TOUCH_TYPE_BASE_CST_SEL_CAP == (type & TOUCH_TYPE_BASE_CST_SEL_CAP)) {
+            machine_touch_user_init_cst3xx(self);
         }
     }
 }
@@ -425,24 +449,26 @@ STATIC mp_obj_t machine_touch_user_deinit(mp_obj_t self_in) {
     return mp_const_none;
 }
 
-STATIC int machine_touch_user_read_cst328(machine_touch_obj_t *self, int *point_number, struct rt_touch_data *touch_data) {
-    struct cst328_reg reg;
+STATIC int machine_touch_user_read_cst3xx(machine_touch_obj_t *self, int *point_number, struct rt_touch_data *touch_data) {
+    struct cst3xx_reg reg;
 
     uint8_t temp, cmd[4];
 
     int pt_num = 0;
     mp_uint_t tick = 0;
 
+    uint8_t slv_addr = self->user.slv_addr;
+
     cmd[0] = 0xD0;
     cmd[1] = 0x05;
-    machine_touch_user_wr(self, 0x1A, (uint8_t *)&cmd[0], 2, &temp, 1);
+    machine_touch_user_wr(self, slv_addr, (uint8_t *)&cmd[0], 2, &temp, 1);
     pt_num = (temp & 0x0F);
 
     if((0x00 == pt_num) || (5 < pt_num)) {
         cmd[0] = 0xD0;
         cmd[1] = 0x05;
         cmd[2] = 0x00;
-        machine_touch_user_wr(self, 0x1A, (uint8_t *)&cmd[0], 3, NULL, 0);
+        machine_touch_user_wr(self, slv_addr, (uint8_t *)&cmd[0], 3, NULL, 0);
 
         *point_number = 0;
         return 0;
@@ -450,12 +476,12 @@ STATIC int machine_touch_user_read_cst328(machine_touch_obj_t *self, int *point_
 
     cmd[0] = 0xD0;
     cmd[1] = 0x00;
-    machine_touch_user_wr(self, 0x1A, (uint8_t *)&cmd[0], 2, (uint8_t *)&reg, pt_num * sizeof(struct cst328_point) + 2);
+    machine_touch_user_wr(self, slv_addr, (uint8_t *)&cmd[0], 2, (uint8_t *)&reg, pt_num * sizeof(struct cst3xx_point) + 2);
 
     cmd[0] = 0xD0;
     cmd[1] = 0x05;
     cmd[2] = 0x00;
-    machine_touch_user_wr(self, 0x1A, (uint8_t *)&cmd[0], 3, NULL, 0);
+    machine_touch_user_wr(self, slv_addr, (uint8_t *)&cmd[0], 3, NULL, 0);
 
     if ((0xAB != reg.const_0xab) || (0x80 == (reg.point_num & 0x80)/* report key */)) {
         *point_number = 0;
@@ -480,7 +506,7 @@ STATIC int machine_touch_user_read_cst328(machine_touch_obj_t *self, int *point_
 
         if(pt_num > 1) {
             for(int i = 1; i < pt_num; i++) {
-                struct cst328_point *point = &reg.point2_5[i - 1];
+                struct cst3xx_point *point = &reg.point2_5[i - 1];
 
                 temp = point->id_stat;
                 touch_data[i].event = (temp & 0x0F) == 0x06 ? RT_TOUCH_EVENT_DOWN : RT_TOUCH_EVENT_NONE;
@@ -499,11 +525,13 @@ STATIC int machine_touch_user_read_cst328(machine_touch_obj_t *self, int *point_
 STATIC int machine_touch_user_read(machine_touch_obj_t *self, int *point_number, struct rt_touch_data *touch_data) {
     int type = self->type;
 
-    if(TOUCH_TYPE_CST328 == type) {
-        return machine_touch_user_read_cst328(self, point_number, touch_data);
+    if(TOUCH_TYPE_BASE_CST_SEL_CAP == (type & TOUCH_TYPE_BASE_CST_SEL_CAP)) {
+        mp_raise_TypeError(MP_ERROR_TEXT("Unsupport CST SEL CAP"));
+    } else if(TOUCH_TYPE_BASE_CST_MUT_CAP == (type & TOUCH_TYPE_BASE_CST_MUT_CAP)) {
+        return machine_touch_user_read_cst3xx(self, point_number, touch_data);
     }
 
-    return 0;
+    return -1;
 }
 // APIs ///////////////////////////////////////////////////////////////////////
 static inline void rotate_touch_point(machine_touch_obj_t *self, struct rt_touch_data *tdata) {
@@ -630,6 +658,7 @@ STATIC const mp_rom_map_elem_t machine_touch_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ROTATE_SWAP_XY), MP_ROM_INT(TOUCH_ROTATE_SWAP_XY) },
 
     { MP_ROM_QSTR(MP_QSTR_TYPE_CST128), MP_ROM_INT(TOUCH_TYPE_CST128) },
+    { MP_ROM_QSTR(MP_QSTR_TYPE_CST226SE), MP_ROM_INT(TOUCH_TYPE_CST226SE) },
     { MP_ROM_QSTR(MP_QSTR_TYPE_CST328), MP_ROM_INT(TOUCH_TYPE_CST328) },
     { MP_ROM_QSTR(MP_QSTR_TYPE_FT5x16), MP_ROM_INT(TOUCH_TYPE_FT5x16) },
 };
