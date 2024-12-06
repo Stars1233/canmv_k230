@@ -250,6 +250,11 @@ class Display:
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X640_30FPS
                 elif _width == 480 and _height == 640:
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X640_30FPS
+                elif _width == 368 and _height == 552:
+                    cls._connector_type = ST7701_MIPI_2LANE_368X552_60FPS
+                elif _width == 552 and _height == 368:
+                    cls._ide_vo_wbc_flag = _flag
+                    cls._connector_type = ST7701_MIPI_2LANE_368X552_60FPS
                 else:
                     raise ValueError(f"ST7701 unsupoort {_width}x{_height}")
 
