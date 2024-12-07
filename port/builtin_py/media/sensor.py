@@ -120,6 +120,12 @@ class Sensor:
                     continue
                 ret = kd_mpi_vicap_init(i)
                 if ret:
+                    if sensor._framesize[chn_num] is None:
+                        print(f"sensor({sensor._dev_id}) chn({chn_num}) not call `set_framesize`, at now should reboot board to fix it.")
+
+                    if sensor._pixel_format[chn_num] is None:
+                        print(f"sensor({sensor._dev_id}) chn({chn_num}) not call `set_pixformat`, at now should reboot board to fix it.")
+
                     raise RuntimeError(f"sensor({i}) run error, vicap init failed({ret})")
 
                 sensor_attr = k_vicap_sensor_attr()
@@ -222,7 +228,8 @@ class Sensor:
         self._is_rgb565 = [False for i in range(0, VICAP_CHN_ID_MAX)]
         self._is_grayscale = [False for i in range(0, VICAP_CHN_ID_MAX)]
 
-        self._framesize = [Sensor.FRAME_SIZE_INVAILD for i in range(0, VICAP_CHN_ID_MAX)]
+        self._framesize = [None for i in range(0, VICAP_CHN_ID_MAX)]
+        self._pixel_format = [None for i in range(0, VICAP_CHN_ID_MAX)]
 
         Sensor._csis[self._csi_bus] = True
         Sensor._devs[self._dev_id] = self
@@ -533,6 +540,8 @@ class Sensor:
                 raise RuntimeError(f"sensor({self._dev_id}) chn({chn}) set_pixformat configure buffer failed({ret})")
             self._buf_init[chn] = True
 
+        self._pixel_format[chn] = pix_format
+
     def get_pixformat(self, chn = CAM_CHN_ID_0):
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
@@ -596,8 +605,6 @@ class Sensor:
         if (chn > CAM_CHN_ID_MAX - 1):
             raise AssertionError(f"invaild chn id {chn}, should < {CAM_CHN_ID_MAX - 1}")
 
-        self._framesize[chn] = framesize
-
         if 'w' in kwargs and 'h' in kwargs:
             width = kwargs.get('w', 0)
             height = kwargs.get('h', 0)
@@ -659,6 +666,8 @@ class Sensor:
             ret = MediaManager._config(config)
             if not ret:
                 raise RuntimeError(f"sensor({self._dev_id}) chn({chn}) set_framesize configure buffer failed({ret})")
+
+        self._framesize[chn] = (width, height)
 
     def get_framesize(self, chn = CAM_CHN_ID_0):
         if not self._dev_attr.dev_enable:
@@ -896,6 +905,12 @@ class Sensor:
 
         ret = kd_mpi_vicap_init(self._dev_id)
         if ret:
+            if self._framesize[chn_num] is None:
+                print(f"sensor({self._dev_id}) chn({chn_num}) not call `set_framesize`, at now should reboot board to fix it.")
+
+            if self._pixel_format[chn_num] is None:
+                print(f"sensor({self._dev_id}) chn({chn_num}) not call `set_pixformat`, at now should reboot board to fix it.")
+
             raise RuntimeError(f"sensor({self._dev_id}) run error, vicap init failed({ret})")
 
         sensor_attr = k_vicap_sensor_attr()
