@@ -29,6 +29,8 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
 #include "py/runtime.h"
 #include "py/obj.h"
@@ -93,10 +95,44 @@ STATIC mp_obj_t machine_mem_copy(mp_obj_t dst_obj, mp_obj_t src_obj, mp_obj_t si
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(machine_mem_copy_obj, machine_mem_copy);
 
+STATIC mp_obj_t machine_read_temp(void) {
+#define RT_DEVICE_TS_CTRL_SET_MODE          0x01
+#define RT_DEVICE_TS_CTRL_GET_MODE          0x02
+#define RT_DEVICE_TS_CTRL_SET_TRIM          0x03
+#define RT_DEVICE_TS_CTRL_GET_TRIM          0x04
+
+#define RT_DEVICE_TS_CTRL_MODE_SINGLE       0x01
+#define RT_DEVICE_TS_CTRL_MODE_CONTINUUOS   0x02
+
+    static int fd = -1;
+
+    double temp = 0.0f;
+
+    if(0 > fd) {
+        if(0 > (fd = open("/dev/ts", O_RDWR))) {
+            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("/dev/ts not exist."));
+        }
+
+        uint8_t mode = RT_DEVICE_TS_CTRL_MODE_CONTINUUOS;
+
+        if(0x00 != ioctl(fd, RT_DEVICE_TS_CTRL_SET_MODE, &mode)) {
+            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set ts deivce mode failed."));
+        }
+    }
+
+    read(fd, &temp, sizeof(temp));
+
+    return mp_obj_new_float_from_d(temp);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_read_temp_obj, machine_read_temp);
+
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_machine) },
+
     { MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&machine_reset_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem_copy), MP_ROM_PTR(&machine_mem_copy_obj) },
+    { MP_ROM_QSTR(MP_QSTR_temperature), MP_ROM_PTR(&machine_read_temp_obj) },
+
     { MP_ROM_QSTR(MP_QSTR_UART), MP_ROM_PTR(&machine_uart_type) },
     { MP_ROM_QSTR(MP_QSTR_PWM), MP_ROM_PTR(&machine_pwm_type) },
     { MP_ROM_QSTR(MP_QSTR_WDT), MP_ROM_PTR(&machine_wdt_type) },

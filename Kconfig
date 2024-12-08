@@ -5,7 +5,7 @@ menuconfig SDK_ENABLE_CANMV
     if SDK_ENABLE_CANMV
         config ENABLE_NETWORK_RT_LAN
             bool "Enable Network RT-Thread Lan(eth)"
-            default n
+            default y
 
         config ENABLE_NETWORK_RT_WLAN
             bool "Enable Network RT-Thread Wlan"

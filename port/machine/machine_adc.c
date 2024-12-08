@@ -38,7 +38,7 @@
 
 #include "modmachine.h"
 
-#define ADC_DEVIDE_NAME "/dev/adc"
+#define ADC_DEVICE_NAME "/dev/adc"
 #define REF_VOL         (1.8)
 #define RESOLUTION      (4096 - 1)
 #define ADC_CHANNEL_MAX 6
@@ -73,9 +73,9 @@ STATIC mp_obj_t machine_adc_make_new(const mp_obj_type_t *type, size_t n_args, s
     }
 
     if (adc_fd < 0) {
-        adc_fd = open(ADC_DEVIDE_NAME, O_RDWR);
+        adc_fd = open(ADC_DEVICE_NAME, O_RDWR);
         if (adc_fd < 0) {
-            mp_raise_OSError_with_filename(errno, ADC_DEVIDE_NAME);
+            mp_raise_OSError_with_filename(errno, ADC_DEVICE_NAME);
         }
     }
 
