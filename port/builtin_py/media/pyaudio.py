@@ -117,7 +117,7 @@ class Stream:
     def close(self):
         pass
 
-    def volume(self, channel = LEFT_RIGHT,vol = None):
+    def volume(self,vol = None, channel = LEFT_RIGHT):
         pass
 
     def enable_audio3a(self, audio3a_value):

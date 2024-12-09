@@ -39,7 +39,7 @@
 #define FUNC_FILE "ai_func_def.h"
 #include "func_def.h"
 
-STATIC mp_obj_t ai_set_vol(mp_obj_t chn_obj, mp_obj_t vol_obj) {
+STATIC mp_obj_t ai_set_vol(mp_obj_t vol_obj, mp_obj_t chn_obj) {
     int fd = -1;
     bool succ = true;
     float vol_value = 30.0f - 50.0f;

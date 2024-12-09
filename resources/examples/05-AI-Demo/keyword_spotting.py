@@ -73,6 +73,7 @@ if __name__ == "__main__":
     MediaManager.init()    #vb buffer初始化
     # 用于采集实时音频数据
     input_stream = p.open(format=FORMAT,channels=CHANNELS,rate=SAMPLE_RATE,input=True,frames_per_buffer=CHUNK)
+    input_stream.volume(vol = 100)
     # 用于播放回复音频
     output_stream = p.open(format=FORMAT,channels=CHANNELS,rate=SAMPLE_RATE,output=True,frames_per_buffer=CHUNK)
     # 初始化自定义关键词唤醒实例

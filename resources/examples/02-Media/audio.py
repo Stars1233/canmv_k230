@@ -35,8 +35,8 @@ def record_audio(filename, duration):
                         input=True,
                         frames_per_buffer=CHUNK)
 
-        stream.volume(LEFT,70)
-        stream.volume(RIGHT,85)
+        stream.volume(70, LEFT)
+        stream.volume(85, RIGHT)
         print("volume :",stream.volume())
 
         #启用音频3A功能：自动噪声抑制(ANS)
@@ -119,8 +119,8 @@ def loop_audio(duration):
                         frames_per_buffer=CHUNK)
 
         #设置音频输入流的音量
-        input_stream.volume(LEFT,70)
-        input_stream.volume(RIGHT,85)
+        input_stream.volume(70, LEFT)
+        input_stream.volume(85, RIGHT)
         print("input volume :",input_stream.volume())
 
         #启用音频3A功能：自动噪声抑制(ANS)
@@ -169,8 +169,8 @@ def audio_recorder(filename, duration):
                         input=True,
                         frames_per_buffer=CHUNK)
 
-        input_stream.volume(LEFT,70)
-        input_stream.volume(RIGHT,85)
+        input_stream.volume(70, LEFT)
+        input_stream.volume(85, RIGHT)
         print("input volume :",input_stream.volume())
 
         #启用音频3A功能：自动噪声抑制(ANS)
