@@ -42,16 +42,53 @@
 #if MICROPY_PY_MACHINE
 
 STATIC mp_obj_t machine_reset(void) {
-    int fd = open("/dev/mem", O_RDWR | O_SYNC);
-    if (fd < 0)
+    int fd = -1;
+    void *mem = NULL;
+
+    if (0 > (fd = open("/dev/mem", O_RDWR | O_SYNC))) {
         mp_raise_OSError(errno);
-    void *reset_base = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x91102000);
-    if (reset_base == NULL)
+    }
+
+    if (NULL == (mem = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x91102000))) {
         mp_raise_OSError(errno);
-    *(uint32_t *)(reset_base + 0x60) = 0x10001;
+    }
+
+    *(uint32_t *)(mem + 0x60) = 0x10001;
+
+    munmap(mem, 4096);
+
+    close(fd);
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_obj, machine_reset);
+
+STATIC mp_obj_t machine_read_chipid(void) {
+    int fd = -1;
+    void *mem = NULL;
+    uint8_t *reg = NULL;
+    uint8_t chip_id[32];
+
+    if (0 > (fd = open("/dev/mem", O_RDWR | O_SYNC))) {
+        mp_raise_OSError(errno);
+    }
+
+    if (NULL == (mem = mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, 0x91213000))) {
+        mp_raise_OSError(errno);
+    }
+
+    reg = (uint8_t *)mem + 0x300;
+    for(size_t i = 0; i < sizeof(chip_id); i++) {
+        chip_id[i] = ((uint8_t *)reg)[i];
+    }
+
+    munmap(mem, 4096);
+
+    close(fd);
+
+    return mp_obj_new_bytearray(sizeof(chip_id), chip_id);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_read_chipid_obj, machine_read_chipid);
 
 void memcpy_fast(void *dst, void *src, size_t size) {
     if (((uint64_t)src & 0x7) != ((uint64_t)dst & 0x7)) {
@@ -130,6 +167,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_machine) },
 
     { MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&machine_reset_obj) },
+    { MP_ROM_QSTR(MP_QSTR_chipid), MP_ROM_PTR(&machine_read_chipid_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem_copy), MP_ROM_PTR(&machine_mem_copy_obj) },
     { MP_ROM_QSTR(MP_QSTR_temperature), MP_ROM_PTR(&machine_read_temp_obj) },
 
