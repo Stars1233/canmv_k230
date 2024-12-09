@@ -506,10 +506,10 @@ STATIC mp_uint_t network_rt_wlan_socket_recv(struct _mod_network_socket_obj_t *_
 #else
     int ret;
     mp_uint_t received = 0;
-    mp_uint_t curr_tick_ms = mp_hal_ticks_ms();
-    mp_uint_t stop_ms = curr_tick_ms + 3000; // timeout 3s
 
     do {
+        MICROPY_EVENT_POLL_HOOK
+
         ret = recv(_socket->fileno, buf + received, len - received, 0);
 
         if(0 > ret) {
@@ -518,16 +518,12 @@ STATIC mp_uint_t network_rt_wlan_socket_recv(struct _mod_network_socket_obj_t *_
             debug_printf("socket_recv() -> errno %d %d\n", *_errno, ret);
 
             if(EAGAIN == *_errno) {
-                curr_tick_ms = mp_hal_ticks_ms();
-                if(curr_tick_ms > stop_ms) {
-                    return received;
-                }
                 continue;
             }
             break;
-        } else {
-            received += ret;
         }
+        *_errno = 0;
+        received += ret;
     } while(received < len);
 
     return received;
@@ -599,10 +595,10 @@ STATIC mp_uint_t network_rt_wlan_socket_recvfrom(struct _mod_network_socket_obj_
 #else
     int ret = -1;
     mp_uint_t received = 0;
-    mp_uint_t curr_tick_ms = mp_hal_ticks_ms();
-    mp_uint_t stop_ms = curr_tick_ms + 3000; // timeout 3s
 
     do {
+        MICROPY_EVENT_POLL_HOOK
+
         ret = recvfrom(_socket->fileno, buf + received, len - received, 0, (struct sockaddr *)&addr, &server_addr_len);
 
         if(0 > ret) {
@@ -610,15 +606,12 @@ STATIC mp_uint_t network_rt_wlan_socket_recvfrom(struct _mod_network_socket_obj_
             debug_printf("socket_recvfrom() -> errno %d\n", *_errno);
 
             if(EAGAIN == *_errno) {
-                curr_tick_ms = mp_hal_ticks_ms();
-                if(curr_tick_ms > stop_ms) {
-                    return received;
-                }
                 continue;
             }
-        } else {
-            received += ret;
+            break;
         }
+        *_errno = 0;
+        received += ret;
     } while(received < len);
 
     return received;
