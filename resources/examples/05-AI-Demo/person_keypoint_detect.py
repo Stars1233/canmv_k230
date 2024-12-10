@@ -133,22 +133,17 @@ if __name__=="__main__":
     # 初始化自定义人体关键点检测实例
     person_kp=PersonKeyPointApp(kmodel_path,model_input_size=[320,320],confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     person_kp.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res=person_kp.run(img)
-                # 绘制结果到PipeLine的osd图像
-                person_kp.draw_result(pl,res)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        person_kp.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res=person_kp.run(img)
+            # 绘制结果到PipeLine的osd图像
+            person_kp.draw_result(pl,res)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    person_kp.deinit()
+    pl.destroy()
 

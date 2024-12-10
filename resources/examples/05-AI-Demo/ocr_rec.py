@@ -241,19 +241,14 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     ocr=OCRDetRec(ocr_det_kmodel_path,ocr_rec_kmodel_path,det_input_size=ocr_det_input_size,rec_input_size=ocr_rec_input_size,dict_path=dict_path,mask_threshold=mask_threshold,box_threshold=box_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                  # 获取当前帧
-                det_res,rec_res=ocr.run(img)        # 推理当前帧
-                ocr.draw_result(pl,det_res,rec_res) # 绘制当前帧推理结果
-                pl.show_image()                     # 展示当前帧推理结果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        ocr.ocr_det.deinit()
-        ocr.ocr_rec.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                  # 获取当前帧
+            det_res,rec_res=ocr.run(img)        # 推理当前帧
+            ocr.draw_result(pl,det_res,rec_res) # 绘制当前帧推理结果
+            pl.show_image()                     # 展示当前帧推理结果
+            gc.collect()
+    ocr.ocr_det.deinit()
+    ocr.ocr_rec.deinit()
+    pl.destroy()
 

@@ -299,19 +299,14 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     fp=FacePose(face_det_kmodel_path,face_pose_kmodel_path,det_input_size=face_det_input_size,pose_input_size=face_pose_input_size,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                      # 获取当前帧
-                det_boxes,pose_res=fp.run(img)          # 推理当前帧
-                fp.draw_result(pl,det_boxes,pose_res)   # 绘制推理效果
-                pl.show_image()                         # 展示推理效果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        fp.face_det.deinit()
-        fp.face_pose.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                      # 获取当前帧
+            det_boxes,pose_res=fp.run(img)          # 推理当前帧
+            fp.draw_result(pl,det_boxes,pose_res)   # 绘制推理效果
+            pl.show_image()                         # 展示推理效果
+            gc.collect()
+    fp.face_det.deinit()
+    fp.face_pose.deinit()
+    pl.destroy()
 

@@ -126,22 +126,17 @@ if __name__=="__main__":
     # 初始化自定义OCR检测实例
     ocr_det=OCRDetectionApp(kmodel_path,model_input_size=[640,640],mask_threshold=mask_threshold,box_threshold=box_threshold,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     ocr_det.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res=ocr_det.run(img)
-                # 绘制结果到PipeLine的osd图像
-                ocr_det.draw_result(pl,res)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        ocr_det.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res=ocr_det.run(img)
+            # 绘制结果到PipeLine的osd图像
+            ocr_det.draw_result(pl,res)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    ocr_det.deinit()
+    pl.destroy()
 

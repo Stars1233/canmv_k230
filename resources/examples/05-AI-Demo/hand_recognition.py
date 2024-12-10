@@ -250,19 +250,14 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     hr=HandRecognition(hand_det_kmodel_path,hand_rec_kmodel_path,det_input_size=hand_det_input_size,kp_input_size=hand_rec_input_size,labels=labels,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,nms_option=False,strides=[8,16,32],rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                              # 获取当前帧
-                hand_det_res,hand_rec_res=hr.run(img)           # 推理当前帧
-                hr.draw_result(pl,hand_det_res,hand_rec_res)    # 绘制推理结果
-                pl.show_image()                                 # 展示推理结果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        hr.hand_det.deinit()
-        hr.hand_rec.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                              # 获取当前帧
+            hand_det_res,hand_rec_res=hr.run(img)           # 推理当前帧
+            hr.draw_result(pl,hand_det_res,hand_rec_res)    # 绘制推理结果
+            pl.show_image()                                 # 展示推理结果
+            gc.collect()
+    hr.hand_det.deinit()
+    hr.hand_rec.deinit()
+    pl.destroy()
 

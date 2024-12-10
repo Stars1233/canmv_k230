@@ -591,20 +591,15 @@ if __name__=="__main__":
     pl.create()
     # 自定义动态手势识别任务实例
     dg=DynamicGesture(hand_det_kmodel_path,hand_kp_kmodel_path,gesture_kmodel_path,det_input_size=hand_det_input_size,kp_input_size=hand_kp_input_size,gesture_input_size=gesture_input_size,labels=labels,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,nms_option=False,strides=[8,16,32],rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                 # 获取当前帧
-                output1,output2=dg.run(img)        # 推理当前帧
-                dg.draw_result(pl,output1,output2) # 绘制推理结果
-                pl.show_image()                    # 展示推理结果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        dg.hand_det.deinit()
-        dg.hand_kp.deinit()
-        dg.dg.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                 # 获取当前帧
+            output1,output2=dg.run(img)        # 推理当前帧
+            dg.draw_result(pl,output1,output2) # 绘制推理结果
+            pl.show_image()                    # 展示推理结果
+            gc.collect()
+    dg.hand_det.deinit()
+    dg.hand_kp.deinit()
+    dg.dg.deinit()
+    pl.destroy()
 

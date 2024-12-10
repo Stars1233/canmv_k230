@@ -102,25 +102,17 @@ if __name__=="__main__":
     # 初始化自定义目标检测实例
     ob_det=ObjectDetectionApp(kmodel_path,labels=labels,model_input_size=[224,224],max_boxes_num=max_boxes_num,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     ob_det.config_preprocess()
-    fps = time.clock()
-    try:
-        while True:
-            os.exitpoint()
-            fps.tick()
-            with ScopedTiming("total",0):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res=ob_det.run(img)
-                # 绘制结果到PipeLine的osd图像
-                ob_det.draw_result(pl,res)
-                # 显示当前的绘制结果
-                pl.show_image()
-                print("fps",fps.fps())
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        ob_det.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res=ob_det.run(img)
+            # 绘制结果到PipeLine的osd图像
+            ob_det.draw_result(pl,res)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    ob_det.deinit()
+    pl.destroy()
 

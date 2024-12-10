@@ -227,19 +227,14 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     fp=FaceParse(face_det_kmodel_path,face_parse_kmodel_path,det_input_size=face_det_input_size,parse_input_size=face_parse_input_size,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                      # 获取当前帧
-                det_boxes,parse_res=fp.run(img)         # 推理当前帧
-                fp.draw_result(pl,det_boxes,parse_res)  # 绘制当前帧推理结果
-                pl.show_image()                         # 展示推理效果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        fp.face_det.deinit()
-        fp.face_parse.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                      # 获取当前帧
+            det_boxes,parse_res=fp.run(img)         # 推理当前帧
+            fp.draw_result(pl,det_boxes,parse_res)  # 绘制当前帧推理结果
+            pl.show_image()                         # 展示推理效果
+            gc.collect()
+    fp.face_det.deinit()
+    fp.face_parse.deinit()
+    pl.destroy()
 

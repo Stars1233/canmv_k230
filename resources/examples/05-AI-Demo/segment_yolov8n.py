@@ -128,22 +128,17 @@ if __name__=="__main__":
     # 初始化自定义YOLOV8分割示例
     seg=SegmentationApp(kmodel_path,labels=labels,model_input_size=[320,320],confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,mask_threshold=mask_threshold,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     seg.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                seg_res=seg.run(img)
-                # 绘制结果到PipeLine的osd图像
-                seg.draw_result(pl,seg_res)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        seg.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            seg_res=seg.run(img)
+            # 绘制结果到PipeLine的osd图像
+            seg.draw_result(pl,seg_res)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    seg.deinit()
+    pl.destroy()
 

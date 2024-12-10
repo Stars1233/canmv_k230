@@ -83,5 +83,4 @@ class AIBase:
             del self.tensors
             gc.collect()
             nn.shrink_memory_pool()
-            os.exitpoint(os.EXITPOINT_ENABLE_SLEEP)
             time.sleep_ms(100)

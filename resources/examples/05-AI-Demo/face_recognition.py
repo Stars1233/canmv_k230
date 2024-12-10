@@ -358,19 +358,14 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     fr=FaceRecognition(face_det_kmodel_path,face_reg_kmodel_path,det_input_size=face_det_input_size,reg_input_size=face_reg_input_size,database_dir=database_dir,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,face_recognition_threshold=face_recognition_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total", 1):
-                img=pl.get_frame()                      # 获取当前帧
-                det_boxes,recg_res=fr.run(img)          # 推理当前帧
-                fr.draw_result(pl,det_boxes,recg_res)   # 绘制推理结果
-                pl.show_image()                         # 展示推理效果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        fr.face_det.deinit()
-        fr.face_reg.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total", 1):
+            img=pl.get_frame()                      # 获取当前帧
+            det_boxes,recg_res=fr.run(img)          # 推理当前帧
+            fr.draw_result(pl,det_boxes,recg_res)   # 绘制推理结果
+            pl.show_image()                         # 展示推理效果
+            gc.collect()
+    fr.face_det.deinit()
+    fr.face_reg.deinit()
+    pl.destroy()
 

@@ -94,22 +94,17 @@ if __name__=="__main__":
     body_seg=BodySegmentationApp(kmodel_path,num_class,model_input_size=[512,512],rgb888p_size=[512,512],display_size=display_size)
     # 配置预处理过程
     body_seg.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧
-                img=pl.get_frame()
-                # 获得mask结果
-                mask=body_seg.run(img)
-                # 绘制mask结果到osd上
-                body_seg.draw_result(pl,mask)
-                # 显示绘制结果
-                pl.show_image()
-                gc.collect()
-    except BaseException as e:
-        sys.print_exception(e)
-    finally:
-        body_seg.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧
+            img=pl.get_frame()
+            # 获得mask结果
+            mask=body_seg.run(img)
+            # 绘制mask结果到osd上
+            body_seg.draw_result(pl,mask)
+            # 显示绘制结果
+            pl.show_image()
+            gc.collect()
+    body_seg.deinit()
+    pl.destroy()
 

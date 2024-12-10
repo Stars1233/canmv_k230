@@ -170,19 +170,15 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     lr=LicenceRec(licence_det_kmodel_path,licence_rec_kmodel_path,det_input_size=licence_det_input_size,rec_input_size=licence_rec_input_size,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                  # 获取当前帧
-                det_res,rec_res=lr.run(img)         # 推理当前帧
-                lr.draw_result(pl,det_res,rec_res)  # 绘制当前帧推理结果
-                pl.show_image()                     # 展示推理结果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        lr.licence_det.deinit()
-        lr.licence_rec.deinit()
-        pl.destroy()
+    
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                  # 获取当前帧
+            det_res,rec_res=lr.run(img)         # 推理当前帧
+            lr.draw_result(pl,det_res,rec_res)  # 绘制当前帧推理结果
+            pl.show_image()                     # 展示推理结果
+            gc.collect()
+    lr.licence_det.deinit()
+    lr.licence_rec.deinit()
+    pl.destroy()
 
