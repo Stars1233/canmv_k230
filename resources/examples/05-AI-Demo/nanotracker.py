@@ -379,20 +379,15 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     track=NanoTracker(track_crop_kmodel_path,track_src_kmodel_path,tracker_kmodel_path,crop_input_size=track_crop_input_size,src_input_size=track_src_input_size,threshold=threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()              # 获取当前帧
-                output=track.run(img)           # 推理当前帧
-                track.draw_result(pl,output)    # 绘制当前帧推理结果
-                pl.show_image()                 # 展示推理结果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        track.track_crop.deinit()
-        track.track_src.deinit()
-        track.tracker.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()              # 获取当前帧
+            output=track.run(img)           # 推理当前帧
+            track.draw_result(pl,output)    # 绘制当前帧推理结果
+            pl.show_image()                 # 展示推理结果
+            gc.collect()
+    track.track_crop.deinit()
+    track.track_src.deinit()
+    track.tracker.deinit()
+    pl.destroy()
 

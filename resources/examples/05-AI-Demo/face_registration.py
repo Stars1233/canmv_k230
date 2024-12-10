@@ -289,23 +289,19 @@ if __name__=="__main__":
     feature_num = 128                    #人脸识别特征维度
 
     fr=FaceRegistration(face_det_kmodel_path,face_reg_kmodel_path,det_input_size=face_det_input_size,reg_input_size=face_reg_input_size,database_dir=database_dir,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold)
-    try:
-        # 获取图像列表
-        img_list = os.listdir(database_img_dir)
-        for img_file in img_list:
-            #本地读取一张图像
-            full_img_file = database_img_dir + img_file
-            print(full_img_file)
-            img = image.Image(full_img_file)
-            img.compress_for_ide()
-            # 转rgb888的chw格式
-            rgb888p_img_ndarry = fr.image2rgb888array(img)
-            # 人脸注册
-            fr.run(rgb888p_img_ndarry,img_file)
-            gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        fr.face_det.deinit()
-        fr.face_reg.deinit()
+    # 获取图像列表
+    img_list = os.listdir(database_img_dir)
+    for img_file in img_list:
+        #本地读取一张图像
+        full_img_file = database_img_dir + img_file
+        print(full_img_file)
+        img = image.Image(full_img_file)
+        img.compress_for_ide()
+        # 转rgb888的chw格式
+        rgb888p_img_ndarry = fr.image2rgb888array(img)
+        # 人脸注册
+        fr.run(rgb888p_img_ndarry,img_file)
+        gc.collect()
+    fr.face_det.deinit()
+    fr.face_reg.deinit()
 

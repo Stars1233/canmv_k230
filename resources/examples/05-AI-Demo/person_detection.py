@@ -130,22 +130,17 @@ if __name__=="__main__":
     # 初始化自定义人体检测实例
     person_det=PersonDetectionApp(kmodel_path,model_input_size=[640,640],labels=labels,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,nms_option=False,strides=[8,16,32],rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     person_det.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res=person_det.run(img)
-                # 绘制结果到PipeLine的osd图像
-                person_det.draw_result(pl,res)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        person_det.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res=person_det.run(img)
+            # 绘制结果到PipeLine的osd图像
+            person_det.draw_result(pl,res)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    person_det.deinit()
+    pl.destroy()
 

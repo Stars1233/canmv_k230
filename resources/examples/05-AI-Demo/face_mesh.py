@@ -281,21 +281,16 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     fm=FaceMesh(face_det_kmodel_path,face_mesh_kmodel_path,face_mesh_post_kmodel_path,det_input_size=face_det_input_size,mesh_input_size=face_mesh_input_size,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                      # 获取当前帧
-                det_boxes,mesh_res=fm.run(img)          # 推理当前帧
-                fm.draw_result(pl,det_boxes,mesh_res)   # 绘制推理结果
-                pl.show_image()                         # 显示推理效果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        fm.face_det.deinit()
-        fm.face_mesh.deinit()
-        fm.face_mesh_post.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                      # 获取当前帧
+            det_boxes,mesh_res=fm.run(img)          # 推理当前帧
+            fm.draw_result(pl,det_boxes,mesh_res)   # 绘制推理结果
+            pl.show_image()                         # 显示推理效果
+            gc.collect()
+    fm.face_det.deinit()
+    fm.face_mesh.deinit()
+    fm.face_mesh_post.deinit()
+    pl.destroy()
 
 

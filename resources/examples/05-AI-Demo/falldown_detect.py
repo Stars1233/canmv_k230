@@ -116,17 +116,12 @@ if __name__ == "__main__":
     # 初始化自定义跌倒检测实例
     fall_det = FallDetectionApp(kmodel_path, model_input_size=[640, 640], labels=labels, anchors=anchors, confidence_threshold=confidence_threshold, nms_threshold=nms_threshold, nms_option=False, strides=[8,16,32], rgb888p_size=rgb888p_size, display_size=display_size, debug_mode=0)
     fall_det.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()                                  # 检查是否有退出信号
-            with ScopedTiming("total",1):
-                img = pl.get_frame()                        # 获取当前帧数据
-                res = fall_det.run(img)                     # 推理当前帧
-                fall_det.draw_result(pl, res)               # 绘制结果到PipeLine的osd图像
-                pl.show_image()                             # 显示当前的绘制结果
-                gc.collect()                                # 垃圾回收
-    except Exception as e:
-        sys.print_exception(e)                              # 打印异常信息
-    finally:
-        fall_det.deinit()                                   # 反初始化
-        pl.destroy()                                        # 销毁PipeLine实例
+    while True:
+        with ScopedTiming("total",1):
+            img = pl.get_frame()                        # 获取当前帧数据
+            res = fall_det.run(img)                     # 推理当前帧
+            fall_det.draw_result(pl, res)               # 绘制结果到PipeLine的osd图像
+            pl.show_image()                             # 显示当前的绘制结果
+            gc.collect()                                # 垃圾回收
+    fall_det.deinit()                                   # 反初始化
+    pl.destroy()                                        # 销毁PipeLine实例

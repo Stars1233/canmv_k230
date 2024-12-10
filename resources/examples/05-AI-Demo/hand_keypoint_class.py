@@ -315,19 +315,14 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     hkc=HandKeyPointClass(hand_det_kmodel_path,hand_kp_kmodel_path,det_input_size=hand_det_input_size,kp_input_size=hand_kp_input_size,labels=labels,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,nms_option=False,strides=[8,16,32],rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                          # 获取当前帧
-                det_boxes,gesture_res=hkc.run(img)          # 推理当前帧
-                hkc.draw_result(pl,det_boxes,gesture_res)   # 绘制当前帧推理结果
-                pl.show_image()                             # 展示推理结果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        hkc.hand_det.deinit()
-        hkc.hand_kp.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                          # 获取当前帧
+            det_boxes,gesture_res=hkc.run(img)          # 推理当前帧
+            hkc.draw_result(pl,det_boxes,gesture_res)   # 绘制当前帧推理结果
+            pl.show_image()                             # 展示推理结果
+            gc.collect()
+    hkc.hand_det.deinit()
+    hkc.hand_kp.deinit()
+    pl.destroy()
 

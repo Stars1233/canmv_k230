@@ -48,7 +48,6 @@ class PipeLine:
     # PipeLine初始化函数
     def create(self,sensor=None,hmirror=None,vflip=None,fps=60):
         with ScopedTiming("init PipeLine",self.debug_mode > 0):
-            os.exitpoint(os.EXITPOINT_ENABLE)
             nn.shrink_memory_pool()
             # 初始化并配置sensor
             brd=os.uname()[-1]

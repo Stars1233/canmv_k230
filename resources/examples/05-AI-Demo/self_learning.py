@@ -170,29 +170,24 @@ if __name__=="__main__":
     # 初始化自学习实例
     sl=SelfLearningApp(kmodel_path,model_input_size=model_input_size,labels=labels,top_k=top_k,threshold=threshold,database_path=database_path,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     sl.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res=sl.run(img)
-                # 绘制结果到PipeLine的osd图像
-                sl.draw_result(pl,res)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        # 删除features文件夹
-        stat_info = os.stat(database_path)
-        if (stat_info[0] & 0x4000):
-            list_files = os.listdir(database_path)
-            for l in list_files:
-                os.remove(database_path + l)
-        os.rmdir(database_path)
-        sl.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res=sl.run(img)
+            # 绘制结果到PipeLine的osd图像
+            sl.draw_result(pl,res)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    # 删除features文件夹
+    stat_info = os.stat(database_path)
+    if (stat_info[0] & 0x4000):
+        list_files = os.listdir(database_path)
+        for l in list_files:
+            os.remove(database_path + l)
+    os.rmdir(database_path)
+    sl.deinit()
+    pl.destroy()
 

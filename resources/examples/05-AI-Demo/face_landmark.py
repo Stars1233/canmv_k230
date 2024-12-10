@@ -295,20 +295,16 @@ if __name__=="__main__":
     pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
     pl.create()
     flm=FaceLandMark(face_det_kmodel_path,face_landmark_kmodel_path,det_input_size=face_det_input_size,landmark_input_size=face_landmark_input_size,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                img=pl.get_frame()                          # 获取当前帧
-                det_boxes,landmark_res=flm.run(img)         # 推理当前帧
-                flm.draw_result(pl,det_boxes,landmark_res)  # 绘制推理结果
-                pl.show_image()                             # 展示推理效果
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        flm.face_det.deinit()
-        flm.face_landmark.deinit()
-        pl.destroy()
+    while True:
+        os.exitpoint()
+        with ScopedTiming("total",1):
+            img=pl.get_frame()                          # 获取当前帧
+            det_boxes,landmark_res=flm.run(img)         # 推理当前帧
+            flm.draw_result(pl,det_boxes,landmark_res)  # 绘制推理结果
+            pl.show_image()                             # 展示推理效果
+            gc.collect()
+    flm.face_det.deinit()
+    flm.face_landmark.deinit()
+    pl.destroy()
 
 
