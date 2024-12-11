@@ -99,6 +99,18 @@ CFLAGS += -DHAVE_CCONFIG_H
 CXXFLAGS += -fopenmp -march=rv64imafdcv -mabi=lp64d -mcmodel=medany
 CXXFLAGS += $(INC) $(COPT) $(NNCASEINC) -std=c++20
 
+# remove some python project source files
+PY_O_EXCLUDE = \
+	$(addprefix $(BUILD)/,\
+		extmod/vfs_posix.o \
+	)
+PY_O := $(filter-out $(PY_O_EXCLUDE),$(PY_O))
+
+SRC_QSTR_EXCLUDE = \
+		extmod/vfs_posix.c \
+
+SRC_QSTR := $(filter-out $(SRC_QSTR_EXCLUDE),$(SRC_QSTR))
+
 # source files
 SRC_C += \
 	core/main.c \
@@ -128,6 +140,8 @@ MODULES_SRC_C += $(wildcard modules/*/*.c)
 OMV_SRC_C = $(wildcard omv/*.c)
 OMV_SRC_C += $(wildcard omv/*/*.c)
 MULTIMEDIA_SRC_C = $(wildcard multi_media/*.c)
+OVERLAY_SRC_C = $(wildcard overlay/*.c)
+OVERLAY_SRC_C += $(wildcard overlay/*/*.c)
 
 NETWORK_SRC_C :=
 ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LAN)),)
@@ -180,7 +194,8 @@ SRC_C += \
 	${MODULES_SRC_C} \
 	${LVGL_SRC_C} \
 	${FREETYPE_C} \
-	${MULTIMEDIA_SRC_C}
+	${MULTIMEDIA_SRC_C} \
+	${OVERLAY_SRC_C}
 
 KPU_SRC_CXX = $(wildcard kpu/*.cpp)
 AICUBE_SRC_CXX = $(wildcard ai_cube/*.cpp)
