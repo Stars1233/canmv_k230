@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/select.h>
+#include <sys/random.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -178,4 +179,8 @@ void mp_hal_stdout_tx_str(const char *str) {
 
 void mp_hal_stdout_tx_str_cooked(const char* str) {
     mp_hal_stdout_tx_strn_cooked(str, strlen(str));
+}
+
+void mp_hal_get_random(size_t n, void *buf) {
+    getrandom(buf, n, GRND_RANDOM);
 }

@@ -240,14 +240,16 @@ extern const struct _mp_print_t mp_stderr_print;
 
 // Configure the "os" module with extra unix features.
 #define MICROPY_PY_OS_INCLUDEFILE      "core/modos.c"
-#define MICROPY_PY_OS_ERRNO            (1)
-#define MICROPY_PY_OS_GETENV_PUTENV_UNSETENV (1)
+
+#define MICROPY_PY_OS_GETENV_PUTENV_UNSETENV (0)
 #define MICROPY_PY_OS_SEP              (1)
-#define MICROPY_PY_OS_SYSTEM           (1)
-#define MICROPY_PY_OS_URANDOM          (0)
+#define MICROPY_PY_OS_SYNC             (0)
+#define MICROPY_PY_OS_SYSTEM           (0)
 #define MICROPY_PY_OS_UNAME            (1)
+#define MICROPY_PY_OS_URANDOM          (1)
 #define MICROPY_PY_OS_STATVFS          (1)
 #define MICROPY_PY_OS_DUPTERM          (1)
+#define MICROPY_PY_OS_ERRNO            (1)
 
 // Enable the unix-specific "time" module.
 #define MICROPY_EPOCH_IS_1970          (1)
