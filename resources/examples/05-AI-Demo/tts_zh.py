@@ -92,8 +92,8 @@ class HifiGanApp(AIBase):
     # 自定义声码器预处理，返回模型输入tensor列表
     def preprocess(self,dec_output_np,durition_sum):
         with ScopedTiming("hifigan preprocess", self.debug_mode > 0):
-            self.subvector_num=durition_sum//100;
-            remaining=durition_sum%100;
+            self.subvector_num=durition_sum//100
+            remaining=durition_sum%100
             if remaining>0:
                 self.subvector_num+=1
             self.hifi_input=np.zeros((1,80,self.subvector_num*100),dtype=np.float)
