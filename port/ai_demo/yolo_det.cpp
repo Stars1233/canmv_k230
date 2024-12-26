@@ -122,17 +122,28 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
 	std::vector<int> nms_result;
 	nms(results, conf_thresh, nms_thresh, nms_result);
 
-	*box_cnt = MIN(nms_result.size(),max_box_cnt);
+	// *box_cnt = MIN(nms_result.size(),max_box_cnt);
+	// YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
+	// for (int i = 0; i < *box_cnt; i++)
+	// {
+    //     int idx=nms_result[i];
+	// 	yolo_det_res[i].confidence = results[idx].confidence;
+	// 	yolo_det_res[i].index = results[idx].index;
+	// 	yolo_det_res[i].x = results[idx].box.x;
+	// 	yolo_det_res[i].y = results[idx].box.y;
+	// 	yolo_det_res[i].w = results[idx].box.width;
+	// 	yolo_det_res[i].h = results[idx].box.height;
+	// }
+    *box_cnt = MIN(results.size(),max_box_cnt);
 	YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
 	for (int i = 0; i < *box_cnt; i++)
 	{
-        int idx=nms_result[i];
-		yolo_det_res[i].confidence = results[idx].confidence;
-		yolo_det_res[i].index = results[idx].index;
-		yolo_det_res[i].x = results[idx].box.x;
-		yolo_det_res[i].y = results[idx].box.y;
-		yolo_det_res[i].w = results[idx].box.width;
-		yolo_det_res[i].h = results[idx].box.height;
+		yolo_det_res[i].confidence = results[i].confidence;
+		yolo_det_res[i].index = results[i].index;
+		yolo_det_res[i].x = results[i].box.x;
+		yolo_det_res[i].y = results[i].box.y;
+		yolo_det_res[i].w = results[i].box.width;
+		yolo_det_res[i].h = results[i].box.height;
 	}
 	return yolo_det_res;
 }
