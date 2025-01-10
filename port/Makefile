@@ -139,8 +139,6 @@ CANMV_SRC_C += $(wildcard core/*.c)
 CANMV_SRC_C += $(wildcard $(BOARD_DIR)/*.c)
 # machine
 CANMV_SRC_C += $(wildcard machine/*.c)
-# network
-CANMV_SRC_C += $(wildcard network/*.c)
 # mpp
 CANMV_SRC_C += $(wildcard builtin_py/mpp_binding/*.c)
 # kpu
