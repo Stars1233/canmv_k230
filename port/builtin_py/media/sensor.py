@@ -412,7 +412,7 @@ class Sensor:
             img_fmt = image.YUV420
         elif fmt == PIXEL_FORMAT_RGB_888:
             img_fmt = image.RGB888
-        elif fmt == PIXEL_FORMAT_RGB_888_PLANAR:
+        elif fmt == PIXEL_FORMAT_RGB_888_PLANAR or fmt == PIXEL_FORMAT_BGR_888_PLANAR: # FIXME: remove BGR888P
             img_fmt = image.RGBP888
         else:
             raise RuntimeError(f"sensor({self._dev_id}) snapshot chn({chn}) not support pixelformat({fmt})")

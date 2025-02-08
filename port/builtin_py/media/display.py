@@ -110,13 +110,12 @@ class Display:
     _is_inited = False
     _osd_layer_num = 1
     _write_back_to_ide = False
-    _ide_vo_wbc_flag = 0
+    _panel_flag = None
 
     _width = 0
     _height = 0
     _connector_info = None
     _connector_type = None
-    _connector_is_st7701 = False
 
     _layer_cfgs = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
     _layer_bind_cfg = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
@@ -210,7 +209,7 @@ class Display:
         cls._osd_layer_num = osd_num
         cls._write_back_to_ide = to_ide
 
-        cls._ide_vo_wbc_flag = 0
+        cls._panel_flag = None
 
         if _type >= Display.DEBUGGER:
             if _type == Display.LT9611:
@@ -241,27 +240,25 @@ class Display:
                     _height = height if height is not None else 480
                     _flag = flag if flag is not None else Display.FLAG_ROTATION_90
 
-                cls._connector_is_st7701 = True
-
                 if _width == 800 and _height == 480:
-                    cls._ide_vo_wbc_flag = _flag
+                    cls._panel_flag = _flag
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X800_30FPS
                 elif _width == 480 and _height == 800:
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X800_30FPS
                 elif _width == 854 and _height == 480:
-                    cls._ide_vo_wbc_flag = _flag
+                    cls._panel_flag = _flag
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X854_30FPS
                 elif _width == 480 and _height == 854:
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X854_30FPS
                 elif _width == 640 and _height == 480:
-                    cls._ide_vo_wbc_flag = _flag
+                    cls._panel_flag = _flag
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X640_30FPS
                 elif _width == 480 and _height == 640:
                     cls._connector_type = ST7701_V1_MIPI_2LAN_480X640_30FPS
                 elif _width == 368 and _height == 552:
                     cls._connector_type = ST7701_MIPI_2LANE_368X552_60FPS
                 elif _width == 552 and _height == 368:
-                    cls._ide_vo_wbc_flag = _flag
+                    cls._panel_flag = _flag
                     cls._connector_type = ST7701_MIPI_2LANE_368X552_60FPS
                 else:
                     raise ValueError(f"ST7701 unsupoort {_width}x{_height}")
@@ -321,7 +318,7 @@ class Display:
             # config.comm_pool[1].mode = VB_REMAP_MODE_NOCACHE
 
             # for vo_wbc rotate
-            # if cls._ide_vo_wbc_flag != 0:
+            # if cls._panel_flag != None:
             #     config.max_pool_cnt = 3
             #     config.comm_pool[2].blk_size = cls._width * cls._height * 2
             #     config.comm_pool[2].blk_cnt = 1
@@ -404,11 +401,10 @@ class Display:
 
         cls._osd_layer_num = 1
         cls._write_back_to_ide = False
-        cls._ide_vo_wbc_flag = 0
+        cls._panel_flag = None
 
         cls._connector_info = None
         cls._connector_type = None
-        cls._connector_is_st7701 = False
 
         cls._width = 0
         cls._height = 0
@@ -419,7 +415,13 @@ class Display:
     @classmethod
     def width(cls, layer = None):
         if layer == None:
-            return cls._width
+            if cls._panel_flag is not None:
+                if cls._panel_flag == Display.FLAG_ROTATION_90 or cls._panel_flag == Display.FLAG_ROTATION_270:
+                    return cls._height
+                else:
+                    return cls._width
+            else:
+                return cls._width
         else:
             if layer > K_VO_MAX_CHN_NUMS:
                 raise IndexError(f"layer({layer}) out of range")
@@ -434,7 +436,13 @@ class Display:
     @classmethod
     def height(cls, layer = None):
         if layer == None:
-            return cls._height
+            if cls._panel_flag is not None:
+                if cls._panel_flag == Display.FLAG_ROTATION_90 or cls._panel_flag == Display.FLAG_ROTATION_270:
+                    return cls._width
+                else:
+                    return cls._height
+            else:
+                return cls._height
         else:
             if layer > K_VO_MAX_CHN_NUMS:
                 raise IndexError(f"layer({layer}) out of range")
@@ -447,13 +455,16 @@ class Display:
 
     @classmethod
     def fps(cls, layer = None):
-        htotal = cls._connector_info.resolution.htotal
-        vtotal = cls._connector_info.resolution.vtotal
-        pclk = cls._connector_info.resolution.pclk
+        if cls._connector_type == VIRTUAL_DISPLAY_DEVICE:
+            return cls._connector_info.resolution.pclk
+        else:
+            htotal = cls._connector_info.resolution.htotal
+            vtotal = cls._connector_info.resolution.vtotal
+            pclk = cls._connector_info.resolution.pclk
 
-        fps = pclk * 1000 // htotal // vtotal
+            fps = pclk * 1000 // htotal // vtotal
 
-        return fps if fps < 200 else 0
+            return fps if fps < 200 else 0
 
     @classmethod
     def _disable_layer(cls, layer):
@@ -499,9 +510,8 @@ class Display:
         if height == 0:
             height = cls._height
 
-        if cls._connector_is_st7701:
-            if layer_config.flag == 0:
-                layer_config.flag = cls._ide_vo_wbc_flag
+        if cls._panel_flag is not None:
+            layer_config.flag = cls._panel_flag
 
         if layer_config.flag & Display.FLAG_ROTATION_90 == Display.FLAG_ROTATION_90 or layer_config.flag & Display.FLAG_ROTATION_270 == Display.FLAG_ROTATION_270:
             if layer_config.layer == Display.LAYER_VIDEO2:
@@ -623,7 +633,7 @@ class Display:
     # alpha
     # flag
     @classmethod
-    def show_image(cls, img, x = 0, y = 0, layer = None, alpha = 255, flag = 0):
+    def show_image(cls, img, x = 0, y = 0, layer = None, alpha = 255, flag = None):
         if layer == None:
             layer = Display.LAYER_OSD0
         if not (Display.LAYER_OSD0 <= layer <= Display.LAYER_OSD3):
@@ -679,9 +689,11 @@ class Display:
             # finally:
             #     print(f"get disp buffer {cls._layer_disp_buffers[layer]}")
 
-        if cls._connector_is_st7701:
-            if flag == 0 and cls._ide_vo_wbc_flag != 0:
-                flag = cls._ide_vo_wbc_flag
+        if flag is None:
+            flag = 0
+
+            if cls._panel_flag is not None:
+                flag = cls._panel_flag
 
         if flag != 0:
             if cls._layer_rotate_buffer == None:
