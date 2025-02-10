@@ -67,7 +67,7 @@ class Display:
     DEBUGGER = const(300)
     VIRT = const(301)
     LT9611 = const(302)
-    HX8377 = const(303)
+    HX8399 = const(303)
 
     # ST7701s
     ST7701 = const(400)
@@ -227,8 +227,22 @@ class Display:
 
                 _width = None
                 _height = None
-            elif _type == Display.HX8377:
-                cls._connector_type = HX8377_V2_MIPI_4LAN_1080X1920_30FPS
+            elif _type == Display.HX8399:
+                _width = width if width is not None else 1920
+                _height = height if height is not None else 1080
+                _flag = flag if flag is not None else Display.FLAG_ROTATION_270
+
+                if _width == 1920 and _height == 1080:
+                    cls._panel_flag = _flag
+                    cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
+                elif _width == 1080 and _height == 1920:
+                    cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
+                else:
+                    raise ValueError(f"HX8399 unsupoort {_width}x{_height}")
+
+                _width = None
+                _height = None
+                _flag = None
             elif _type == Display.ST7701:
                 brd = os.uname()[-1]
                 if brd == "k230d_canmv_atk_dnk230d":

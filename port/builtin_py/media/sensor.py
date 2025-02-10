@@ -120,11 +120,11 @@ class Sensor:
                     continue
                 ret = kd_mpi_vicap_init(i)
                 if ret:
-                    if sensor._framesize[chn_num] is None:
-                        print(f"sensor({sensor._dev_id}) chn({chn_num}) not call `set_framesize`, at now should reboot board to fix it.")
+                    # if sensor._framesize[chn_num] is None:
+                    #     print(f"sensor({sensor._dev_id}) chn({chn_num}) not call `set_framesize`, at now should reboot board to fix it.")
 
-                    if sensor._pixel_format[chn_num] is None:
-                        print(f"sensor({sensor._dev_id}) chn({chn_num}) not call `set_pixformat`, at now should reboot board to fix it.")
+                    # if sensor._pixel_format[chn_num] is None:
+                    #     print(f"sensor({sensor._dev_id}) chn({chn_num}) not call `set_pixformat`, at now should reboot board to fix it.")
 
                     raise RuntimeError(f"sensor({i}) run error, vicap init failed({ret})")
 
@@ -905,11 +905,11 @@ class Sensor:
 
         ret = kd_mpi_vicap_init(self._dev_id)
         if ret:
-            if self._framesize[chn_num] is None:
-                print(f"sensor({self._dev_id}) chn({chn_num}) not call `set_framesize`, at now should reboot board to fix it.")
+            # if self._framesize[chn_num] is None:
+            #     print(f"sensor({self._dev_id}) chn({chn_num}) not call `set_framesize`, at now should reboot board to fix it.")
 
-            if self._pixel_format[chn_num] is None:
-                print(f"sensor({self._dev_id}) chn({chn_num}) not call `set_pixformat`, at now should reboot board to fix it.")
+            # if self._pixel_format[chn_num] is None:
+            #     print(f"sensor({self._dev_id}) chn({chn_num}) not call `set_pixformat`, at now should reboot board to fix it.")
 
             raise RuntimeError(f"sensor({self._dev_id}) run error, vicap init failed({ret})")
 
