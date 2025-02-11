@@ -6,8 +6,58 @@ import image
 import machine
 import os
 
-
 class Display:
+    VIRT            = const(300)
+    DEBUGGER        = const(301)
+    ST7701          = const(302)
+    HX8399          = const(303)
+    ILI9806         = const(304)
+    LT9611          = const(305)
+
+    # define VO channel
+    LAYER_VIDEO1 = K_VO_DISPLAY_CHN_ID1
+    LAYER_VIDEO2 = K_VO_DISPLAY_CHN_ID2
+    LAYER_OSD0 = K_VO_DISPLAY_CHN_ID3
+    LAYER_OSD1 = K_VO_DISPLAY_CHN_ID4
+    LAYER_OSD2 = K_VO_DISPLAY_CHN_ID5
+    LAYER_OSD3 = K_VO_DISPLAY_CHN_ID6
+
+    # osd layer support rotate and mirror
+    # video layer 1 support all
+    # video layer 2 not support any
+    FLAG_ROTATION_0        = K_ROTATION_0
+    FLAG_ROTATION_90       = K_ROTATION_90
+    FLAG_ROTATION_180      = K_ROTATION_180
+    FLAG_ROTATION_270      = K_ROTATION_270
+    FLAG_MIRROR_NONE       = K_VO_MIRROR_NONE
+    FLAG_MIRROR_HOR        = K_VO_MIRROR_HOR
+    FLAG_MIRROR_VER        = K_VO_MIRROR_VER
+    FLAG_MIRROR_BOTH       = K_VO_MIRROR_BOTH
+
+    # osd layer not support
+    FLAG_GRAY_ENABLE       = K_VO_GRAY_ENABLE
+    FLAG_GRAY_DISABLE      = K_VO_GRAY_DISABLE
+
+    # only video0 support, but we can't use it
+    # FLAG_VO_SCALER_ENABLE  = K_VO_SCALER_ENABLE
+    # FLAG_VO_SCALER_DISABLE = K_VO_SCALER_DISABLE
+
+    _is_inited = False
+    _osd_layer_num = 1
+    _write_back_to_ide = False
+    _panel_flag = None
+
+    _width = 0
+    _height = 0
+    _connector_info = None
+    _connector_type = None
+
+    _layer_cfgs = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
+    _layer_bind_cfg = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
+
+    _layer_rotate_buffer = None
+    _layer_disp_buffers = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
+    _layer_configured = [False for i in range(0, K_VO_MAX_CHN_NUMS)]
 
     class LayerConfig:
         def __init__(self, layer, rect, pix_format, flag, alpha):
@@ -64,66 +114,6 @@ class Display:
         def __del__(self):
             self.linker.__del__()
 
-    DEBUGGER = const(300)
-    VIRT = const(301)
-    LT9611 = const(302)
-    HX8399 = const(303)
-
-    # ST7701s
-    ST7701 = const(400)
-    ST7701_800x480_LZX35IPSA00 = const(400)
-
-    ST7701_800x480_D310FPC9362 = const(401)
-
-    # ILI9806
-    ILI9806 = const(500)
-    ILI9806_480x800 = const(500)
-
-    # define VO channel
-    LAYER_VIDEO1 = K_VO_DISPLAY_CHN_ID1
-    LAYER_VIDEO2 = K_VO_DISPLAY_CHN_ID2
-    LAYER_OSD0 = K_VO_DISPLAY_CHN_ID3
-    LAYER_OSD1 = K_VO_DISPLAY_CHN_ID4
-    LAYER_OSD2 = K_VO_DISPLAY_CHN_ID5
-    LAYER_OSD3 = K_VO_DISPLAY_CHN_ID6
-
-    # osd layer support rotate and mirror
-    # video layer 1 support all
-    # video layer 2 not support any
-    FLAG_ROTATION_0        = K_ROTATION_0
-    FLAG_ROTATION_90       = K_ROTATION_90
-    FLAG_ROTATION_180      = K_ROTATION_180
-    FLAG_ROTATION_270      = K_ROTATION_270
-    FLAG_MIRROR_NONE       = K_VO_MIRROR_NONE
-    FLAG_MIRROR_HOR        = K_VO_MIRROR_HOR
-    FLAG_MIRROR_VER        = K_VO_MIRROR_VER
-    FLAG_MIRROR_BOTH       = K_VO_MIRROR_BOTH
-
-    # osd layer not support
-    FLAG_GRAY_ENABLE       = K_VO_GRAY_ENABLE
-    FLAG_GRAY_DISABLE      = K_VO_GRAY_DISABLE
-
-    # only video0 support, but we can't use it
-    # FLAG_VO_SCALER_ENABLE  = K_VO_SCALER_ENABLE
-    # FLAG_VO_SCALER_DISABLE = K_VO_SCALER_DISABLE
-
-    _is_inited = False
-    _osd_layer_num = 1
-    _write_back_to_ide = False
-    _panel_flag = None
-
-    _width = 0
-    _height = 0
-    _connector_info = None
-    _connector_type = None
-
-    _layer_cfgs = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
-    _layer_bind_cfg = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
-
-    _layer_rotate_buffer = None
-    _layer_disp_buffers = [None for i in range(0, K_VO_MAX_CHN_NUMS)]
-    _layer_configured = [False for i in range(0, K_VO_MAX_CHN_NUMS)]
-
     # src (mod, dev, layer)
     # layer
     # rect (x, y, w, h)
@@ -170,7 +160,7 @@ class Display:
         if cls._layer_bind_cfg[layer] is not None:
             cls.unbind_layer(layer)
             cls._layer_bind_cfg[layer] = None
-            print(f"bin_layer: layer({layer}) haver been bind, auto unbind it.")
+            print(f"bind_layer: layer({layer}) haver been bind, auto unbind it.")
 
         layer_config = Display.LayerConfig(layer, rect, pix_format, flag, alpha)
         cls._layer_bind_cfg[layer] = Display.BindConfig(src, dst, layer_config)
@@ -209,40 +199,14 @@ class Display:
         cls._osd_layer_num = osd_num
         cls._write_back_to_ide = to_ide
 
-        cls._panel_flag = None
+        cls._panel_flag = flag
 
-        if _type >= Display.DEBUGGER:
-            if _type == Display.LT9611:
-                _width = width if width is not None else 1920
-                _height = height if height is not None else 1080
-
-                if _width == 1920 and _height == 1080:
-                    cls._connector_type = LT9611_MIPI_4LAN_1920X1080_30FPS
-                elif _width == 1280 and _height == 720:
-                    cls._connector_type = LT9611_MIPI_4LAN_1280X720_30FPS
-                elif _width == 640 and _height == 480:
-                    cls._connector_type = LT9611_MIPI_4LAN_640X480_60FPS
-                else:
-                    raise ValueError(f"LT9611 unsupoort {_width}x{_height}")
-
-                _width = None
-                _height = None
-            elif _type == Display.HX8399:
-                _width = width if width is not None else 1920
-                _height = height if height is not None else 1080
-                _flag = flag if flag is not None else Display.FLAG_ROTATION_270
-
-                if _width == 1920 and _height == 1080:
-                    cls._panel_flag = _flag
-                    cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
-                elif _width == 1080 and _height == 1920:
-                    cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
-                else:
-                    raise ValueError(f"HX8399 unsupoort {_width}x{_height}")
-
-                _width = None
-                _height = None
-                _flag = None
+        if _type >= Display.VIRT:
+            if _type == Display.VIRT:
+                cls._write_back_to_ide = True
+                cls._connector_type = DSI_VIRTUAL_DEVICE
+            elif _type == Display.DEBUGGER:
+                cls._connector_type = DSI_DEBUGGER_DEVICE
             elif _type == Display.ST7701:
                 brd = os.uname()[-1]
                 if brd == "k230d_canmv_atk_dnk230d":
@@ -280,13 +244,63 @@ class Display:
                 _width = None
                 _height = None
                 _flag = None
+            elif _type == Display.HX8399:
+                _width = width if width is not None else 1920
+                _height = height if height is not None else 1080
+                _flag = flag if flag is not None else Display.FLAG_ROTATION_270
+
+                if _width == 1920 and _height == 1080:
+                    cls._panel_flag = _flag
+                    cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
+                elif _width == 1080 and _height == 1920:
+                    cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
+                else:
+                    raise ValueError(f"HX8399 unsupoort {_width}x{_height}")
+
+                _width = None
+                _height = None
+                _flag = None
             elif _type == Display.ILI9806:
-                cls._connector_type = ILI9806_MIPI_2LAN_480X800_30FPS
-            elif _type == Display.VIRT:
-                cls._write_back_to_ide = True
-                cls._connector_type = VIRTUAL_DISPLAY_DEVICE
-            elif _type == Display.DEBUGGER:
-                cls._connector_type = DSI_DEBUGGER_DEVICE
+                _width = width if width is not None else 800
+                _height = height if height is not None else 480
+                _flag = flag if flag is not None else Display.FLAG_ROTATION_90
+
+                if _width == 800 and _height == 480:
+                    cls._panel_flag = _flag
+                    cls._connector_type = ILI9806_MIPI_2LAN_480X800_30FPS
+                elif _width == 480 and _height == 800:
+                    cls._connector_type = ILI9806_MIPI_2LAN_480X800_30FPS
+                else:
+                    raise ValueError(f"ILI9806 unsupoort {_width}x{_height}")
+
+                _width = None
+                _height = None
+                _flag = None
+            elif _type == Display.LT9611:
+                _width = width if width is not None else 1920
+                _height = height if height is not None else 1080
+                _fps = fps if fps is not None else 30
+
+                if _width == 1920 and _height == 1080 and _fps == 60:
+                    cls._connector_type = LT9611_MIPI_4LAN_1920X1080_60FPS
+                # elif _width == 1920 and _height == 1080 and _fps == 50:
+                #     cls._connector_type = LT9611_MIPI_4LAN_1920X1080_50FPS
+                elif _width == 1920 and _height == 1080 and _fps == 30:
+                    cls._connector_type = LT9611_MIPI_4LAN_1920X1080_30FPS
+                elif _width == 1280 and _height == 720 and _fps == 60:
+                    cls._connector_type = LT9611_MIPI_4LAN_1280X720_60FPS
+                elif _width == 1280 and _height == 720 and _fps == 50:
+                    cls._connector_type = LT9611_MIPI_4LAN_1280X720_50FPS
+                elif _width == 1280 and _height == 720 and _fps == 30:
+                    cls._connector_type = LT9611_MIPI_4LAN_1280X720_30FPS
+                elif _width == 640 and _height == 480:
+                    cls._connector_type = LT9611_MIPI_4LAN_640X480_60FPS
+                else:
+                    raise ValueError(f"LT9611 unsupoort {_width}x{_height}@{_fps}")
+
+                _width = None
+                _height = None
+                _fps = None
             else:
                 raise AssertionError(f"Unsupport display type {_type}")
         else:
@@ -296,7 +310,8 @@ class Display:
         ret = kd_mpi_get_connector_info(cls._connector_type, cls._connector_info)
         if ret != 0:
             raise RuntimeError("Get display device info failed.")
-        if cls._connector_type == VIRTUAL_DISPLAY_DEVICE:
+
+        if cls._connector_type == DSI_VIRTUAL_DEVICE:
             _width = width if width is not None else 640
             _height = height if height is not None else 480
             _fps = fps if fps is not None else 90
@@ -305,6 +320,7 @@ class Display:
             cls._connector_info.resolution.hdisplay = _width
             cls._connector_info.resolution.vdisplay = _height
             cls._connector_info.resolution.pclk = _fps
+
         cls._width = cls._connector_info.resolution.hdisplay
         cls._height = cls._connector_info.resolution.vdisplay
 
@@ -469,7 +485,7 @@ class Display:
 
     @classmethod
     def fps(cls, layer = None):
-        if cls._connector_type == VIRTUAL_DISPLAY_DEVICE:
+        if cls._connector_type == DSI_VIRTUAL_DEVICE:
             return cls._connector_info.resolution.pclk
         else:
             htotal = cls._connector_info.resolution.htotal
