@@ -1,18 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
 import image
 import aidemo
-import random
-import gc
-import sys
 
 # 自定义人脸检测任务类
 class FaceDetApp(AIBase):
@@ -44,8 +39,8 @@ class FaceDetApp(AIBase):
         with ScopedTiming("set preprocess config",self.debug_mode > 0):
             # 初始化ai2d预处理配置，默认为sensor给到AI的尺寸，可以通过设置input_image_size自行修改输入尺寸
             ai2d_input_size=input_image_size if input_image_size else self.rgb888p_size
-            # 设置padding预处理
-            self.ai2d.pad(self.get_pad_param(), 0, [104,117,123])
+            top, bottom, left, right,_ =letterbox_pad_param(self.rgb888p_size,self.model_input_size) 
+            self.ai2d.pad([0, 0, 0, 0, top, bottom, left, right], 0, [104, 117, 123])  # 填充边缘
             # 设置resize预处理
             self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
             # 构建预处理流程,参数为预处理输入tensor的shape和预处理输出的tensor的shape
@@ -59,27 +54,6 @@ class FaceDetApp(AIBase):
                 return res
             else:
                 return res[0]
-
-    # 计算padding参数
-    def get_pad_param(self):
-        dst_w = self.model_input_size[0]
-        dst_h = self.model_input_size[1]
-        # 计算最小的缩放比例，等比例缩放
-        ratio_w = dst_w / self.rgb888p_size[0]
-        ratio_h = dst_h / self.rgb888p_size[1]
-        if ratio_w < ratio_h:
-            ratio = ratio_w
-        else:
-            ratio = ratio_h
-        new_w = (int)(ratio * self.rgb888p_size[0])
-        new_h = (int)(ratio * self.rgb888p_size[1])
-        dw = (dst_w - new_w) / 2
-        dh = (dst_h - new_h) / 2
-        top = (int)(round(0))
-        bottom = (int)(round(dh * 2 + 0.1))
-        left = (int)(round(0))
-        right = (int)(round(dw * 2 - 0.1))
-        return [0,0,0,0,top, bottom, left, right]
 
 # 自定义人脸关键点任务类
 class FaceLandMarkApp(AIBase):
@@ -267,10 +241,10 @@ class FaceLandMark:
 
 
 if __name__=="__main__":
-    # 显示模式，默认"hdmi",可以选择"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     # k230保持不变，k230d可调整为[640,360]
-    rgb888p_size = [1920, 1080]
+    rgb888p_size = [1280, 720]
 
     if display_mode=="hdmi":
         display_size=[1920,1080]
@@ -292,8 +266,9 @@ if __name__=="__main__":
     anchors = anchors.reshape((anchor_len,det_dim))
 
     # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     flm=FaceLandMark(face_det_kmodel_path,face_landmark_kmodel_path,det_input_size=face_det_input_size,landmark_input_size=face_landmark_input_size,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
     while True:
         os.exitpoint()

@@ -136,6 +136,7 @@ struct TtsZhOutput
     size_t len_size;
 };
 
+//*****************************for yolo_det*****************************
 struct YoloDetInfo{
 	int x;
     int y;
@@ -144,4 +145,13 @@ struct YoloDetInfo{
 	float confidence;
 	int index;
 };
+//*****************************for yunet_face_det*****************************
+struct YUNetFaceDetInfo{
+	int x;
+    int y;
+    int w;
+    int h;
+	float score;
+};
+
 #endif // _AIDEMO_TYPE_H_

@@ -1,29 +1,24 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math,uos
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
-import utime
 import image
-import random
-import gc
-import sys
 import aicube
 
 # 自定义自学习类
 class SelfLearningApp(AIBase):
-    def __init__(self,kmodel_path,model_input_size,labels,top_k,threshold,database_path,rgb888p_size=[224,224],display_size=[1920,1080],debug_mode=0):
+    def __init__(self,kmodel_path,model_input_size,labels,top_k,threshold,features_save_path,rgb888p_size=[224,224],display_size=[1920,1080],debug_mode=0):
         super().__init__(kmodel_path,model_input_size,rgb888p_size,debug_mode)
         self.kmodel_path=kmodel_path
         # 模型输入分辨率
         self.model_input_size=model_input_size
         self.labels=labels
-        self.database_path=database_path
+        self.features_save_path=features_save_path
+        self.database_path=features_save_path+"features/"
         # sensor给到AI的图像分辨率
         self.rgb888p_size=[ALIGN_UP(rgb888p_size[0],16),rgb888p_size[1]]
         # 显示分辨率
@@ -128,6 +123,13 @@ class SelfLearningApp(AIBase):
 
     #数据初始化
     def data_init(self):
+        # 删除features文件夹
+        files=os.listdir(self.features_save_path)
+        if "features" in files:
+            features_files=os.listdir(self.database_path)
+            for file in features_files:
+                os.remove(self.database_path+file)
+            os.rmdir(self.database_path)
         os.mkdir(self.database_path)
         self.crop_x_osd = int(self.crop_x / self.rgb888p_size[0] * self.display_size[0])
         self.crop_y_osd = int(self.crop_y / self.rgb888p_size[1] * self.display_size[1])
@@ -146,18 +148,13 @@ class SelfLearningApp(AIBase):
 
 
 if __name__=="__main__":
-    # 显示模式，默认"hdmi",可以选择"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     # k230保持不变，k230d可调整为[1280,720]
-    rgb888p_size=[1920,1080]
-
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
+    rgb888p_size=[1280,720]
     # 模型路径
     kmodel_path="/sdcard/examples/kmodel/recognition.kmodel"
-    database_path="/sdcard/examples/utils/features/"
+    features_save_path="/sdcard/examples/utils/"
     # 其它参数设置
     model_input_size=[224,224]
     labels=["苹果","香蕉"]
@@ -165,10 +162,11 @@ if __name__=="__main__":
     threshold=0.5
 
     # 初始化PipeLine
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # 初始化自学习实例
-    sl=SelfLearningApp(kmodel_path,model_input_size=model_input_size,labels=labels,top_k=top_k,threshold=threshold,database_path=database_path,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
+    sl=SelfLearningApp(kmodel_path,model_input_size=model_input_size,labels=labels,top_k=top_k,threshold=threshold,features_save_path=features_save_path,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     sl.config_preprocess()
     while True:
         with ScopedTiming("total",1):
@@ -181,12 +179,6 @@ if __name__=="__main__":
             # 显示当前的绘制结果
             pl.show_image()
             gc.collect()
-    # 删除features文件夹
-    stat_info = os.stat(database_path)
-    if (stat_info[0] & 0x4000):
-        list_files = os.listdir(database_path)
-        for l in list_files:
-            os.remove(database_path + l)
     os.rmdir(database_path)
     sl.deinit()
     pl.destroy()

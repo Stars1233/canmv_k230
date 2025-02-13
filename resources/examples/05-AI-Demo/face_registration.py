@@ -1,19 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
 import image
 import aidemo
-import random
-import gc
-import sys
-import math
 
 # 自定义人脸检测任务类
 class FaceDetApp(AIBase):

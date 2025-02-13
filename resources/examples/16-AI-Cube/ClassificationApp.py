@@ -1,18 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
-import utime
 import image
-import random
-import gc
-import sys
+import aicube
 
 # 自定义分类任务类
 class ClassificationApp(AIBase):
@@ -73,39 +68,31 @@ class ClassificationApp(AIBase):
 
 
 if __name__=="__main__":
-    # 添加显示模式，支持"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
     # 模型路径，需要用户自行拷贝到开发板的目录下
     kmodel_path="/sdcard/examples/ai_test_kmodel/veg_cls.kmodel"
     # 根据数据集设置，在线训练平台和AICube部署包的deploy_config.json文件中包含该字段
     labels=["菠菜","长茄子","红苋菜","胡萝卜","西红柿","西蓝花"]
     # 初始化PipeLine
-    pl=PipeLine(rgb888p_size=[1280,720],display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=[1280,720],display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # 初始化自定义分类器
     cls=ClassificationApp(kmodel_path,labels,rgb888p_size=[1280,720],display_size=display_size,debug_mode=0)
     # 配置分类任务的预处理
     cls.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res,score=cls.run(img)
-                # 绘制结果到PipeLine的osd图像
-                cls.draw_result(pl,res,score)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        cls.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res,score=cls.run(img)
+            # 绘制结果到PipeLine的osd图像
+            cls.draw_result(pl,res,score)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    cls.deinit()
+    pl.destroy()
 

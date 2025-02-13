@@ -1,20 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
-import utime
 import image
-import random
-import gc
-import sys
 import aicube
-import math
 
 # 自定义分割任务类
 class SegmentationApp(AIBase):
@@ -62,39 +55,31 @@ class SegmentationApp(AIBase):
 
 
 if __name__=="__main__":
-    # 添加显示模式，支持"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
     # kmodel路径
     kmodel_path="/sdcard/examples/ai_test_kmodel/ocular_seg.kmodel"
     # 分割类别数，设置类别数时必须包含背景，且背景为第一类
     num_class=2
     # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=[512,512],display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=[512,512],display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # 分割类实例，关注模型输入分辨率，传给AI的图像分辨率，显示的分辨率
     seg=SegmentationApp(kmodel_path,num_class,model_input_size=[512,512],rgb888p_size=[512,512],display_size=display_size)
     # 配置预处理过程
     seg.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧
-                img=pl.get_frame()
-                # 获得mask结果
-                mask=seg.run(img)
-                # 绘制mask结果到osd上
-                seg.draw_result(pl,mask)
-                # 显示绘制结果
-                pl.show_image()
-                gc.collect()
-    except BaseException as e:
-        sys.print_exception(e)
-    finally:
-        seg.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧
+            img=pl.get_frame()
+            # 获得mask结果
+            mask=seg.run(img)
+            # 绘制mask结果到osd上
+            seg.draw_result(pl,mask)
+            # 显示绘制结果
+            pl.show_image()
+            gc.collect()
+    seg.deinit()
+    pl.destroy()
 
