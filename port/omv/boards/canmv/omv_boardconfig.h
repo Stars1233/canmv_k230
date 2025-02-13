@@ -23,7 +23,7 @@
 #define JPEG_QUALITY_HIGH                     90
 
 // FB Heap Block Size
-#define OMV_UMM_BLOCK_SIZE                    256
+#define OMV_UMM_BLOCK_SIZE                    1024
 
 #define OMV_FB_ALLOC_SIZE                     (8 * 1024 * 1024) // minimum fb alloc size
 #define OMV_FB_ALLOC_BUFFER_COUNT             (256)

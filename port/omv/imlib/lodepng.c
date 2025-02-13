@@ -80,7 +80,7 @@ static void *lodepng_malloc(size_t size) {
         return 0;
     }
 #endif
-    return malloc(size);
+    return umm_malloc(size);
 }
 
 /* NOTE: when realloc returns NULL, it leaves the original memory untouched */
@@ -90,11 +90,11 @@ static void *lodepng_realloc(void *ptr, size_t new_size) {
         return 0;
     }
 #endif
-    return realloc(ptr, new_size);
+    return umm_realloc(ptr, new_size);
 }
 
 static void lodepng_free(void *ptr) {
-    free(ptr);
+    umm_free(ptr);
 }
 #else /*LODEPNG_COMPILE_ALLOCATORS*/
 /* TODO: support giving additional void* payload to the custom allocators */
