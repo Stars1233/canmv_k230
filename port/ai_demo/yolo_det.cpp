@@ -12,7 +12,7 @@ typedef struct {
 	cv::Rect box;
 	float confidence;
 	int index;
-}BBOX;
+}YoloDetBox;
 
 float get_iou(cv::Rect rect1, cv::Rect rect2)
 {
@@ -33,44 +33,16 @@ float get_iou(cv::Rect rect1, cv::Rect rect2)
 	return iou;
 }
 
-// //NMS非极大值抑制，bboxes是待处理框Bbox实例的列表，indices是NMS后剩余的bboxes框索引
-// void nms(std::vector<BBOX> &bboxes,  float confThreshold, float nmsThreshold, std::vector<int> &indices)
-// {	
-// 	sort(bboxes.begin(), bboxes.end(), [](BBOX a, BBOX b) { return a.confidence > b.confidence; });
-// 	int updated_size = bboxes.size();
-// 	for (int i = 0; i < updated_size; i++)
-// 	{
-// 		if (bboxes[i].confidence < confThreshold)
-// 			continue;
-// 		indices.push_back(i);
-// 		for (int j = i + 1; j < updated_size;)
-// 		{
-// 			float iou = get_iou(bboxes[i].box, bboxes[j].box);
-// 			if (iou > nmsThreshold)
-// 			{
-// 				bboxes.erase(bboxes.begin() + j);
-// 				updated_size = bboxes.size();
-// 			}
-//             else
-//             {
-//                 j++;    
-//             }
-// 		}
-// 	}
-// }
-
 // NMS 非极大值抑制
-void nms(std::vector<BBOX> &bboxes, float confThreshold, float nmsThreshold, std::vector<int> &indices)
+void nms(std::vector<YoloDetBox> &bboxes, float confThreshold, float nmsThreshold)
 {
     // 先排序，按照置信度降序排列
-    std::sort(bboxes.begin(), bboxes.end(), [](const BBOX &a, const BBOX &b) { return a.confidence > b.confidence; });
+    std::sort(bboxes.begin(), bboxes.end(), [](const YoloDetBox &a, const YoloDetBox &b) { return a.confidence > b.confidence; });
 
     int updated_size = bboxes.size();
     for (int i = 0; i < updated_size; i++) {
         if (bboxes[i].confidence < confThreshold)
             continue;
-        
-        indices.push_back(i);
         // 这里使用移除冗余框，而不是 erase 操作，减少内存移动的开销
         for (int j = i + 1; j < updated_size;) {
             float iou = get_iou(bboxes[i].box, bboxes[j].box);
@@ -82,7 +54,7 @@ void nms(std::vector<BBOX> &bboxes, float confThreshold, float nmsThreshold, std
     }
 
     // 移除那些置信度小于0的框
-    bboxes.erase(std::remove_if(bboxes.begin(), bboxes.end(), [](const BBOX &b) { return b.confidence < 0; }), bboxes.end());
+    bboxes.erase(std::remove_if(bboxes.begin(), bboxes.end(), [](const YoloDetBox &b) { return b.confidence < 0; }), bboxes.end());
 }
 
 YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, float nms_thresh,int max_box_cnt, int *box_cnt)
@@ -91,7 +63,7 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
     float ratio_h=input_shape.height/(frame_shape.height*1.0);
     float scale=MIN(ratio_w,ratio_h);
 
-	std::vector<BBOX> results;
+	std::vector<YoloDetBox> results;
     int f_len=class_num+4;
     int num_box=((input_shape.width/8)*(input_shape.height/8)+(input_shape.width/16)*(input_shape.height/16)+(input_shape.width/32)*(input_shape.height/32));
     for(int i=0;i<num_box;i++){
@@ -102,7 +74,7 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
         float score=*max_class_score_ptr;
         int max_class_index = max_class_score_ptr - class_scores; // 计算索引
         if(score>conf_thresh){
-            BBOX bbox;
+            YoloDetBox bbox;
             float x_=box[0]/scale*(display_shape.width/(frame_shape.width*1.0));
             float y_=box[1]/scale*(display_shape.height/(frame_shape.height*1.0));
             float w_=box[2]/scale*(display_shape.width/(frame_shape.width*1.0));
@@ -119,21 +91,7 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
         }
     }
 	//执行非最大抑制以消除具有较低置信度的冗余重叠框（NMS）
-	std::vector<int> nms_result;
-	nms(results, conf_thresh, nms_thresh, nms_result);
-
-	// *box_cnt = MIN(nms_result.size(),max_box_cnt);
-	// YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
-	// for (int i = 0; i < *box_cnt; i++)
-	// {
-    //     int idx=nms_result[i];
-	// 	yolo_det_res[i].confidence = results[idx].confidence;
-	// 	yolo_det_res[i].index = results[idx].index;
-	// 	yolo_det_res[i].x = results[idx].box.x;
-	// 	yolo_det_res[i].y = results[idx].box.y;
-	// 	yolo_det_res[i].w = results[idx].box.width;
-	// 	yolo_det_res[i].h = results[idx].box.height;
-	// }
+	nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
 	YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
 	for (int i = 0; i < *box_cnt; i++)

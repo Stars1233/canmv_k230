@@ -1,18 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
-import utime
 import image
-import random
-import gc
-import sys
+import aicube
 
 # 自定义多标签分类任务类
 class MultiLabelApp(AIBase):
@@ -74,38 +69,30 @@ class MultiLabelApp(AIBase):
 
 
 if __name__=="__main__":
-    # 添加显示模式，支持"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
     # 模型路径，需要用户自行拷贝到开发板的目录下
     kmodel_path="/sdcard/examples/ai_test_kmodel/landscape_multilabel.kmodel"
     # 根据数据集设置，在线训练平台和AICube部署包的deploy_config.json文件中包含该字段
     labels=["沙漠","山脉","海洋","阳光","树"]
     # 初始化PipeLine
-    pl=PipeLine(rgb888p_size=[1280,720],display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=[1280,720],display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # 初始化自定义多标签分类器
-    multi=MultiLabelApp(kmodel_path,labels,rgb888p_size=[1280,720],display_size=display_size)
+    multi=MultiLabelApp(kmodel_path,labels,display_size=display_size)
     # 配置预处理过程
     multi.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧数据
-                img=pl.get_frame()
-                # 推理当前帧
-                res,scores=multi.run(img)
-                # 绘制结果到PipeLine的osd图像
-                multi.draw_result(pl,res,scores)
-                # 显示当前的绘制结果
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        multi.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧数据
+            img=pl.get_frame()
+            # 推理当前帧
+            res,scores=multi.run(img)
+            # 绘制结果到PipeLine的osd图像
+            multi.draw_result(pl,res,scores)
+            # 显示当前的绘制结果
+            pl.show_image()
+            gc.collect()
+    multi.deinit()
+    pl.destroy()

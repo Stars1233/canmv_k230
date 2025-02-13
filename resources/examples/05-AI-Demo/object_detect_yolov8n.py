@@ -1,19 +1,12 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
 from libs.Utils import *
-import os
-import ujson
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
-import utime
 import image
-import random
-import gc
-import sys
 import aidemo
 
 # 自定义YOLOv8检测类
@@ -77,17 +70,10 @@ class ObjectDetectionApp(AIBase):
             else:
                 pl.osd_img.clear()
 
-
-
 if __name__=="__main__":
-    # 显示模式，默认"hdmi",可以选择"hdmi"和"lcd"
-    display_mode="lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    display_mode="hdmi"
     rgb888p_size=[224,224]
-
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
     # 模型路径
     kmodel_path="/sdcard/examples/kmodel/yolov8n_224.kmodel"
     labels = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]
@@ -95,10 +81,10 @@ if __name__=="__main__":
     confidence_threshold = 0.3
     nms_threshold = 0.4
     max_boxes_num = 30
-
     # 初始化PipeLine
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # 初始化自定义目标检测实例
     ob_det=ObjectDetectionApp(kmodel_path,labels=labels,model_input_size=[224,224],max_boxes_num=max_boxes_num,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     ob_det.config_preprocess()

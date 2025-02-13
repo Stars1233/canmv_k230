@@ -1,18 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
 import image
 import aicube
-import random
-import gc
-import sys
 
 # 自定义OCR检测任务类
 class OCRDetectionApp(AIBase):
@@ -42,8 +37,10 @@ class OCRDetectionApp(AIBase):
         with ScopedTiming("set preprocess config",self.debug_mode > 0):
             # 初始化ai2d预处理配置，默认为sensor给到AI的尺寸，您可以通过设置input_image_size自行修改输入尺寸
             ai2d_input_size=input_image_size if input_image_size else self.rgb888p_size
-            # 计算padding参数，设置padding预处理
-            self.ai2d.pad(self.get_pad_param(self.model_input_size,self.rgb888p_size), 0, [0, 0, 0])
+            # 计算padding参数
+            top,bottom,left,right,_=letterbox_pad_param(self.rgb888p_size,self.model_input_size)
+            # 配置padding预处理
+            self.ai2d.pad([0,0,0,0,top,bottom,left,right], 0, [114,114,114])
             # 设置resize预处理
             self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
             # build预处理过程，参数为输入tensor的shape和输出tensor的shape
@@ -74,17 +71,6 @@ class OCRDetectionApp(AIBase):
                 y2=all_boxes_pos[i][(2*j+3)%8]*self.display_size[1]//self.rgb888p_size[1]
                 pl.osd_img.draw_line(int(x1),int(y1),int(x2),int(y2),color=(255,255,0,0),thickness=4)
 
-    # 计算padding参数
-    def get_pad_param(self,out_img_size,input_img_size):
-        dst_w, dst_h = out_img_size
-        input_w, input_h = input_img_size
-        ratio = min(dst_w / input_w, dst_h / input_h)
-        new_w, new_h = int(input_w * ratio), int(input_h * ratio)
-        dw, dh = (dst_w - new_w) / 2, (dst_h - new_h) / 2
-        top, bottom = int(round(0)), int(round(dh * 2))
-        left, right = int(round(0)), int(round(dw * 2))
-        return [0, 0, 0, 0, top, bottom, left, right]
-
     # chw2hwc
     def chw2hwc(self,features):
         ori_shape = (features.shape[0], features.shape[1], features.shape[2])
@@ -98,37 +84,29 @@ class OCRDetectionApp(AIBase):
         return hwc_array
 
 if __name__=="__main__":
-    # 添加显示模式，支持"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
     # OCR检测kmdoel路径
     det_kmodel_path="/sdcard/examples/ai_test_kmodel/ocr_det_int16.kmodel"
     # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=[640,360],display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=[640,360],display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # OCR检测类实例，关注模型输入分辨率，传给AI的图像分辨率，显示的分辨率
     ocr_det=OCRDetectionApp(det_kmodel_path,model_input_size=[640,640],rgb888p_size=[640,360],display_size=display_size,debug_mode=0)
     # 配置预处理过程
     ocr_det.config_preprocess()
-    try:
-        while True:
-            os.exitpoint()
-            with ScopedTiming("total",1):
-                # 获取当前帧
-                img=pl.get_frame()
-                # 推理当前帧获得检测框坐标
-                boxes=ocr_det.run(img)
-                # 绘制文本检测框
-                ocr_det.draw_result(pl,boxes)
-                # 在osd上显示文本检测框
-                pl.show_image()
-                gc.collect()
-    except Exception as e:
-        sys.print_exception(e)
-    finally:
-        ocr_det.deinit()
-        pl.destroy()
+    while True:
+        with ScopedTiming("total",1):
+            # 获取当前帧
+            img=pl.get_frame()
+            # 推理当前帧获得检测框坐标
+            boxes=ocr_det.run(img)
+            # 绘制文本检测框
+            ocr_det.draw_result(pl,boxes)
+            # 在osd上显示文本检测框
+            pl.show_image()
+            gc.collect()
+    ocr_det.deinit()
+    pl.destroy()
 

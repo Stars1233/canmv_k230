@@ -1,18 +1,12 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
-import utime
 import image
-import random
-import gc
-import sys
 import aidemo
 
 # 自定义车牌检测类
@@ -71,15 +65,10 @@ class LicenceDetectionApp(AIBase):
                 pl.osd_img.clear()  # 如果没有检测结果，则清空屏幕
 
 if __name__=="__main__":
-    # 显示模式，默认"hdmi",可以选择"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     # k230保持不变，k230d可调整为[640,360]
-    rgb888p_size = [1920, 1080]
-    
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
+    rgb888p_size = [1280, 720]
     # 模型路径
     kmodel_path="/sdcard/examples/kmodel/LPD_640.kmodel"
     # 其它参数设置
@@ -87,8 +76,9 @@ if __name__=="__main__":
     nms_threshold = 0.2
 
     # 初始化PipeLine
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     # 初始化自定义车牌检测实例
     licence_det=LicenceDetectionApp(kmodel_path,model_input_size=[640,640],confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size,debug_mode=0)
     licence_det.config_preprocess()

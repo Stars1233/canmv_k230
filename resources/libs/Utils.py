@@ -1,4 +1,24 @@
 import ulab.numpy as np
+import os
+from time import *
+import time
+import utime
+import sys
+
+class ScopedTiming:
+    def __init__(self, info="", enable_profile=True):
+        self.info = info
+        self.enable_profile = enable_profile
+
+    def __enter__(self):
+        if self.enable_profile:
+            self.start_time = time.time_ns()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.enable_profile:
+            elapsed_time = time.time_ns() - self.start_time
+            print(f"{self.info} took {elapsed_time / 1000000:.2f} ms")
 
 color_four = [
     (255, 220, 20, 60),
@@ -110,6 +130,20 @@ def letterbox_pad_param(input_size,output_size):
     bottom = int(round(dh * 2 + 0.1))
     left = int(round(0))
     right = int(round(dw * 2 - 0.1))
+    return top, bottom, left, right,ratio
+
+def center_pad_param(input_size,output_size):
+    ratio_w = output_size[0] / input_size[0]  # 宽度缩放比例
+    ratio_h = output_size[1] / input_size[1]   # 高度缩放比例
+    ratio = min(ratio_w, ratio_h)  # 取较小的缩放比例
+    new_w = int(ratio * input_size[0])  # 新宽度
+    new_h = int(ratio * input_size[1])  # 新高度
+    dw = (output_size[0] - new_w) / 2  # 宽度差
+    dh = (output_size[1] - new_h) / 2  # 高度差
+    top = int(round(dh-0.1))
+    bottom = int(round(dh + 0.1))
+    left = int(round(dw-0.1))
+    right = int(round(dw - 0.1))
     return top, bottom, left, right,ratio
 
 # softmax函数

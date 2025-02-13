@@ -1,18 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
 import image
 import aidemo
-import random
-import gc
-import sys
 
 # 自定义车牌检测类
 class LicenceDetectionApp(AIBase):
@@ -148,14 +143,9 @@ class LicenceRec:
 
 
 if __name__=="__main__":
-    # 显示模式，默认"hdmi",可以选择"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     rgb888p_size = [640,360]
-
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
     # 车牌检测模型路径
     licence_det_kmodel_path="/sdcard/examples/kmodel/LPD_640.kmodel"
     # 车牌识别模型路径
@@ -167,8 +157,9 @@ if __name__=="__main__":
     nms_threshold=0.2
 
     # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     lr=LicenceRec(licence_det_kmodel_path,licence_rec_kmodel_path,det_input_size=licence_det_input_size,rec_input_size=licence_rec_input_size,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)
     
     while True:

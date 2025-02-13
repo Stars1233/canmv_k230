@@ -1,18 +1,13 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
-import os
-import ujson
+from libs.Utils import *
+import os,sys,ujson,gc,math
 from media.media import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
-import time
 import image
 import aicube
-import random
-import gc
-import sys
 
 # 自定义手掌检测任务类
 class HandDetApp(AIBase):
@@ -50,7 +45,7 @@ class HandDetApp(AIBase):
             # 初始化ai2d预处理配置，默认为sensor给到AI的尺寸，可以通过设置input_image_size自行修改输入尺寸
             ai2d_input_size = input_image_size if input_image_size else self.rgb888p_size
             # 计算padding参数并应用pad操作，以确保输入图像尺寸与模型输入尺寸匹配
-            top, bottom, left, right = self.get_padding_param()
+            top, bottom, left, right, _ =center_pad_param(self.rgb888p_size, self.model_input_size) 
             self.ai2d.pad([0, 0, 0, 0, top, bottom, left, right], 0, [114, 114, 114])
             # 使用双线性插值进行resize操作，调整图像尺寸以符合模型输入要求
             self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
@@ -63,32 +58,6 @@ class HandDetApp(AIBase):
             dets = aicube.anchorbasedet_post_process(results[0], results[1], results[2], self.model_input_size, self.rgb888p_size, self.strides, len(self.labels), self.confidence_threshold, self.nms_threshold, self.anchors, self.nms_option)
             # 返回手掌检测结果
             return dets
-
-    # 计算padding参数，确保输入图像尺寸与模型输入尺寸匹配
-    def get_padding_param(self):
-        # 根据目标宽度和高度计算比例因子
-        dst_w = self.model_input_size[0]
-        dst_h = self.model_input_size[1]
-        input_width = self.rgb888p_size[0]
-        input_high = self.rgb888p_size[1]
-        ratio_w = dst_w / input_width
-        ratio_h = dst_h / input_high
-        # 选择较小的比例因子，以确保图像内容完整
-        if ratio_w < ratio_h:
-            ratio = ratio_w
-        else:
-            ratio = ratio_h
-        # 计算新的宽度和高度
-        new_w = int(ratio * input_width)
-        new_h = int(ratio * input_high)
-        # 计算宽度和高度的差值，并确定padding的位置
-        dw = (dst_w - new_w) / 2
-        dh = (dst_h - new_h) / 2
-        top = int(round(dh - 0.1))
-        bottom = int(round(dh + 0.1))
-        left = int(round(dw - 0.1))
-        right = int(round(dw + 0.1))
-        return top, bottom, left, right
 
 # 自定义手势关键点检测任务类
 class HandKPDetApp(AIBase):
@@ -242,15 +211,10 @@ class HandKeyPointDet:
 
 
 if __name__=="__main__":
-    # 显示模式，默认"hdmi",可以选择"hdmi"和"lcd"
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     # k230保持不变，k230d可调整为[640,360]
-    rgb888p_size = [1920, 1080]
-
-    if display_mode=="hdmi":
-        display_size=[1920,1080]
-    else:
-        display_size=[800,480]
+    rgb888p_size = [1280, 720]
     # 手掌检测模型路径
     hand_det_kmodel_path="/sdcard/examples/kmodel/hand_det.kmodel"
     # 手部关键点模型路径
@@ -265,8 +229,9 @@ if __name__=="__main__":
     anchors = [26,27, 53,52, 75,71, 80,99, 106,82, 99,134, 140,113, 161,172, 245,276]
 
     # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_size=display_size,display_mode=display_mode)
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
     pl.create()
+    display_size=pl.get_display_size()
     hkd=HandKeyPointDet(hand_det_kmodel_path,hand_kp_kmodel_path,det_input_size=hand_det_input_size,kp_input_size=hand_kp_input_size,labels=labels,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,nms_option=False,strides=[8,16,32],rgb888p_size=rgb888p_size,display_size=display_size)
     while True:
         with ScopedTiming("total",1):

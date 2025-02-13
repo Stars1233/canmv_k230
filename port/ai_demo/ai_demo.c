@@ -1075,6 +1075,102 @@ STATIC mp_obj_t aidemo_yolov8_det_postprocess(size_t n_args, const mp_obj_t *arg
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aidemo_yolov8_det_postprocess_obj, 8, 8, aidemo_yolov8_det_postprocess);
 
+//*****************************for yunet postprocess*****************************
+STATIC mp_obj_t aidemo_yunet_postprocess(size_t n_args, const mp_obj_t *args) {
+    mp_obj_list_t *p_outputs_list = MP_OBJ_TO_PTR(args[0]);
+    ndarray_obj_t *p_outputs_0_ndarray = MP_ROM_PTR(p_outputs_list->items[0]);
+    float *data_0 = p_outputs_0_ndarray->array;
+    ndarray_obj_t *p_outputs_1_ndarray = MP_ROM_PTR(p_outputs_list->items[1]);
+    float *data_1 = p_outputs_1_ndarray->array;
+    ndarray_obj_t *p_outputs_2_ndarray = MP_ROM_PTR(p_outputs_list->items[2]);
+    float *data_2 = p_outputs_2_ndarray->array;
+    ndarray_obj_t *p_outputs_3_ndarray = MP_ROM_PTR(p_outputs_list->items[3]);
+    float *data_3 = p_outputs_3_ndarray->array;
+    ndarray_obj_t *p_outputs_4_ndarray = MP_ROM_PTR(p_outputs_list->items[4]);
+    float *data_4 = p_outputs_4_ndarray->array;
+    ndarray_obj_t *p_outputs_5_ndarray = MP_ROM_PTR(p_outputs_list->items[5]);
+    float *data_5 = p_outputs_5_ndarray->array;
+    ndarray_obj_t *p_outputs_6_ndarray = MP_ROM_PTR(p_outputs_list->items[6]);
+    float *data_6 = p_outputs_6_ndarray->array;
+    ndarray_obj_t *p_outputs_7_ndarray = MP_ROM_PTR(p_outputs_list->items[7]);
+    float *data_7 = p_outputs_7_ndarray->array;
+    ndarray_obj_t *p_outputs_8_ndarray = MP_ROM_PTR(p_outputs_list->items[8]);
+    float *data_8 = p_outputs_8_ndarray->array;
+    ndarray_obj_t *p_outputs_9_ndarray = MP_ROM_PTR(p_outputs_list->items[9]);
+    float *data_9 = p_outputs_9_ndarray->array;
+    ndarray_obj_t *p_outputs_10_ndarray = MP_ROM_PTR(p_outputs_list->items[10]);
+    float *data_10 = p_outputs_10_ndarray->array;
+    ndarray_obj_t *p_outputs_11_ndarray = MP_ROM_PTR(p_outputs_list->items[11]);
+    float *data_11 = p_outputs_11_ndarray->array;
+
+    float *p_outputs[12];
+    p_outputs[0] = data_0;
+    p_outputs[1] = data_1;
+    p_outputs[2] = data_2;
+    p_outputs[3] = data_3;
+    p_outputs[4] = data_4;
+    p_outputs[5] = data_5;
+    p_outputs[6] = data_6;
+    p_outputs[7] = data_7;
+    p_outputs[8] = data_8;
+    p_outputs[9] = data_9;
+    p_outputs[10] = data_10;
+    p_outputs[11] = data_11;
+
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[1]);
+    mp_obj_list_t *kmodel_input_size_mp = MP_OBJ_TO_PTR(args[2]);
+    mp_obj_list_t *display_size_mp = MP_OBJ_TO_PTR(args[3]);
+    mp_obj_list_t *strides_mp = MP_OBJ_TO_PTR(args[4]);
+
+    float conf_thres = mp_obj_get_float(args[5]);
+    float nms_thres = mp_obj_get_float(args[6]);
+    int max_box_cnt = mp_obj_get_int(args[7]);
+    int box_cnt;
+
+    FrameSize frame_shape;
+    FrameSize input_shape;
+    FrameSize display_shape;
+
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width = mp_obj_get_int(frame_size_mp->items[1]);
+    input_shape.height = mp_obj_get_int(kmodel_input_size_mp->items[0]);
+    input_shape.width = mp_obj_get_int(kmodel_input_size_mp->items[1]);
+    display_shape.height = mp_obj_get_int(display_size_mp->items[0]);
+    display_shape.width = mp_obj_get_int(display_size_mp->items[1]);
+
+    int strides[strides_mp->len];
+    for (int i = 0; i < strides_mp->len; i++) 
+    {
+        strides[i] = mp_obj_get_int(strides_mp->items[i]);
+    }
+
+    YUNetFaceDetInfo* yunet_face_det_res = yunet_postprocess(p_outputs, frame_shape, input_shape, display_shape, strides, conf_thres, nms_thres, max_box_cnt, &box_cnt);
+
+    mp_obj_list_t *results_mp_list = mp_obj_new_list(0, NULL);
+    mp_obj_list_t *results_mp_list_boxes = mp_obj_new_list(0, NULL);
+    mp_obj_list_t *results_mp_list_scores = mp_obj_new_list(0, NULL);
+
+    size_t ndarray_shape_box[4];
+    ndarray_shape_box[3] = 4;
+    for (int i = 0; i < box_cnt; i++)
+    {
+        ndarray_obj_t *box_obj = ndarray_new_ndarray(1, ndarray_shape_box, NULL, NDARRAY_INT16);
+        int16_t *box_data = (int16_t *)box_obj->array;
+        box_data[0] = yunet_face_det_res[i].x;
+        box_data[1] = yunet_face_det_res[i].y;
+        box_data[2] = yunet_face_det_res[i].w;
+        box_data[3] = yunet_face_det_res[i].h;
+        mp_obj_list_append(results_mp_list_boxes, box_obj);
+        mp_obj_list_append(results_mp_list_scores, mp_obj_new_float(yunet_face_det_res[i].score));
+    }
+    mp_obj_list_append(results_mp_list, results_mp_list_boxes);
+    mp_obj_list_append(results_mp_list, results_mp_list_scores);
+
+    free(yunet_face_det_res);
+    return MP_OBJ_FROM_PTR(results_mp_list);
+};
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aidemo_yunet_postprocess_obj, 8, 8, aidemo_yunet_postprocess);
+
 
 STATIC const mp_rom_map_elem_t aidemo_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_aidemo) },
@@ -1103,6 +1199,7 @@ STATIC const mp_rom_map_elem_t aidemo_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_yolov5_seg_postprocess), MP_ROM_PTR(&aidemo_yolov5_seg_postprocess_obj) },
     { MP_ROM_QSTR(MP_QSTR_yolov8_seg_postprocess), MP_ROM_PTR(&aidemo_yolov8_seg_postprocess_obj) },
     { MP_ROM_QSTR(MP_QSTR_yolov8_det_postprocess), MP_ROM_PTR(&aidemo_yolov8_det_postprocess_obj) },
+    { MP_ROM_QSTR(MP_QSTR_yunet_postprocess), MP_ROM_PTR(&aidemo_yunet_postprocess_obj) },
 
 };
 
