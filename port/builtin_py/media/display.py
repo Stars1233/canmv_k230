@@ -247,7 +247,7 @@ class Display:
             elif _type == Display.HX8399:
                 _width = width if width is not None else 1920
                 _height = height if height is not None else 1080
-                _flag = flag if flag is not None else Display.FLAG_ROTATION_270
+                _flag = flag if flag is not None else Display.FLAG_ROTATION_90
 
                 if _width == 1920 and _height == 1080:
                     cls._panel_flag = _flag
