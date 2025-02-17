@@ -194,7 +194,7 @@ class MediaManager:
         cls._is_inited = True
 
     @classmethod
-    def deinit(cls, force = True):
+    def deinit(cls, force = False):
         time.sleep_ms(100)
 
         cls._vb_buffer.max_pool_cnt = MAX_MEDIA_BUFFER_POOLS
