@@ -7,12 +7,13 @@ from media.media import *
 from mpp.video_struct import *
 
 class ChnAttrStr:
-    def __init__(self, payloadType, profile, picWidth, picHeight, gopLen = 30):
+    def __init__(self, payloadType, profile, picWidth, picHeight,bit_rate=4000,gopLen = 30):
         self.payload_type = payloadType
         self.profile = profile
         self.pic_width = picWidth
         self.pic_height = picHeight
         self.gop_len = gopLen
+        self.bit_rate = bit_rate
 
 class StreamData:
     def __init__(self):
@@ -70,7 +71,7 @@ class Encoder:
         venc_chn_attr.rc_attr.cbr.stats_time = 0
         venc_chn_attr.rc_attr.cbr.src_frame_rate = 30
         venc_chn_attr.rc_attr.cbr.dst_frame_rate = 30
-        venc_chn_attr.rc_attr.cbr.bit_rate = 4000
+        venc_chn_attr.rc_attr.cbr.bit_rate = chnAttr.bit_rate
 
         ret = kd_mpi_venc_create_chn(chn, venc_chn_attr)
         if ret != 0:
