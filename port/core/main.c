@@ -63,6 +63,7 @@
 #include "genhdr/mpversion.h"
 
 #include "mpp_vb_mgmt.h"
+#include "drivers/drv_canmv_misc_dev.h"
 
 // Command line options, with their defaults
 STATIC bool compile_only = false;
@@ -711,6 +712,8 @@ MP_NOINLINE int main_(int argc, char **argv) {
         }
     }
 
+    int stage = 0;
+
     extern bool ide_dbg_attach(void);
     extern void ide_dbg_on_script_start(void);
     extern void ide_dbg_on_script_end(void);
@@ -731,10 +734,18 @@ MP_NOINLINE int main_(int argc, char **argv) {
         fread(script_str, 1, script_size, script_file);
         fclose(script_file);
         script_str[script_size] = '\0';
+
         ide_dbg_on_script_start();
+        stage = STAGE_BOOTPY_START;
+        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+
         do_str(script_str);
+
         ide_dbg_on_script_end();
-        skip_bootpy:
+        stage = STAGE_BOOTPY_END;
+        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+
+skip_bootpy:
 
         // main.py
         script_file = fopen(SDCARD_MOUNT "/main.py", "r");
@@ -748,10 +759,18 @@ MP_NOINLINE int main_(int argc, char **argv) {
         fread(script_str, 1, script_size, script_file);
         fclose(script_file);
         script_str[script_size] = '\0';
+
         ide_dbg_on_script_start();
+        stage = STAGE_MAINPY_START;
+        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+
         do_str(script_str);
+
         ide_dbg_on_script_end();
-        skip_mainpy:
+        stage = STAGE_MAINPY_END;
+        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+
+skip_mainpy:
         // pass
         ;
 

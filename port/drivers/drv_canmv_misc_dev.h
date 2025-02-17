@@ -16,6 +16,7 @@
 #define MISC_DEV_CMD_GET_LOCAL_TIME     (0x1024 + 10)
 #define MISC_DEV_CMD_SET_TIMEZONE       (0x1024 + 11)
 #define MISC_DEV_CMD_GET_TIMEZONE       (0x1024 + 12)
+#define MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE (0x1024 + 13)
 
 // MISC_DEV_CMD_GET_FS_STAT
 #define FS_STAT_PATH_LENGTH 32
@@ -52,6 +53,16 @@ struct dfs_statfs {
 struct statfs_wrap {
     char path[FS_STAT_PATH_LENGTH];
     struct dfs_statfs sb;
+};
+
+// MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE
+enum {
+  STAGE_NORMAL = 1, 
+  STAGE_BOOTPY_START, 
+  STAGE_BOOTPY_END, 
+  STAGE_MAINPY_START, 
+  STAGE_MAINPY_END,
+  STAGE_MAX,
 };
 
 int canmv_misc_dev_ioctl(int cmd, void *args);
