@@ -21,11 +21,12 @@ k_connector_info_desc = {
     "bg_color": 16 | uctypes.UINT32,
     "intr_line": 20 | uctypes.UINT32,
     "pixclk_div": 24 | uctypes.UINT32,
-    "lan_num": 28 | uctypes.UINT32,
-    "work_mode": 32 | uctypes.UINT32,
-    "cmd_mode": 36 | uctypes.UINT32,
-    "phy_attr": (52, k_connectori_phy_attr_desc),
-    "resolution": (56, vo_def.k_vo_display_resolution_desc),
+    "buff_num": 28 | uctypes.UINT32,
+    "lan_num": 32 | uctypes.UINT32,
+    "work_mode": 36 | uctypes.UINT32,
+    "cmd_mode": 40 | uctypes.UINT32,
+    "phy_attr": (44, k_connectori_phy_attr_desc),
+    "resolution": (60, vo_def.k_vo_display_resolution_desc),
     "type": 108 | uctypes.UINT32,
 }
 
@@ -35,6 +36,8 @@ def k_connector_info_parse(s, kwargs):
     s.dsi_test_mode = kwargs.get("dsi_test_mode", 0)
     s.bg_color = kwargs.get("bg_color", 0)
     s.intr_line = kwargs.get("intr_line", 0)
+    s.pixclk_div = kwargs.get("pixclk_div", 0)
+    s.buff_num = kwargs.get("buff_num", 0)
     s.lan_num = kwargs.get("lan_num", 0)
     s.work_mode = kwargs.get("work_mode", 0)
     s.cmd_mode = kwargs.get("cmd_mode", 0)
