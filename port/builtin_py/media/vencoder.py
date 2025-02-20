@@ -71,8 +71,8 @@ class Encoder:
         venc_chn_attr.rc_attr.rc_mode = K_VENC_RC_MODE_CBR
         venc_chn_attr.rc_attr.cbr.gop = chnAttr.gop_len
         venc_chn_attr.rc_attr.cbr.stats_time = 0
-        venc_chn_attr.rc_attr.cbr.src_frame_rate = self.src_frame_rate
-        venc_chn_attr.rc_attr.cbr.dst_frame_rate = self.dst_frame_rate
+        venc_chn_attr.rc_attr.cbr.src_frame_rate = chnAttr.src_frame_rate
+        venc_chn_attr.rc_attr.cbr.dst_frame_rate = chnAttr.dst_frame_rate
         venc_chn_attr.rc_attr.cbr.bit_rate = chnAttr.bit_rate
 
         ret = kd_mpi_venc_create_chn(chn, venc_chn_attr)
