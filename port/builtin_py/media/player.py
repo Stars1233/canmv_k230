@@ -91,6 +91,10 @@ class Player:
 
     def _do_file_data(self):
         frame_data =  k_mp4_frame_data_s()
+        # 记录初始系统时间
+        start_system_time = time.ticks_ms()
+        # 记录初始视频时间戳
+        start_video_timestamp = 0
         while(self.play_status == PLAY_START or self.play_status == PLAY_PAUSE):
             if (self.play_status == PLAY_PAUSE):
                 time.sleep(0.1)
@@ -103,6 +107,18 @@ class Player:
                     break
 
                 if (frame_data.codec_id == K_MP4_CODEC_ID_H264 or frame_data.codec_id == K_MP4_CODEC_ID_H265):
+                    # control video play speed
+                    if (not self.audio_track):
+                        # 计算视频时间戳经历的时长
+                        video_timestamp_elapsed = frame_data.time_stamp - start_video_timestamp
+                        # 计算系统时间戳经历的时长
+                        current_system_time = time.ticks_ms()
+                        system_time_elapsed = current_system_time - start_system_time
+
+                        # 如果系统时间戳经历的时长小于视频时间戳经历的时长，进行延时
+                        if system_time_elapsed < video_timestamp_elapsed:
+                            time.sleep_ms(video_timestamp_elapsed - system_time_elapsed)
+
                     data = uctypes.bytes_at(frame_data.data,frame_data.data_length)
                     self.vdec.decode(data)
                 elif(frame_data.codec_id == K_MP4_CODEC_ID_G711A or frame_data.codec_id == K_MP4_CODEC_ID_G711U):
