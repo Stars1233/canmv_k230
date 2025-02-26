@@ -309,8 +309,11 @@ class Sensor:
         self.sensor_name = uctypes.string_at(self._dev_attr.sensor_info.name)
 
         if self.sensor_name.startswith("sc132gs_csi"):
-            self._dev_attr.pipe_ctrl.bits.ae_enable = 0 # disable ae
-            self._dev_attr.pipe_ctrl.bits.dnr3_enable = 1 # disable 3dnr
+            if self._dev_attr.sensor_info.width == 640 and self._dev_attr.sensor_info.height == 480:
+                self._dev_attr.pipe_ctrl.bits.ae_enable = 0 # disable ae
+                self._dev_attr.pipe_ctrl.bits.dnr3_enable = 1 # disable 3dnr
+            elif self._dev_attr.sensor_info.width == 1080 and self._dev_attr.sensor_info.height == 1280:
+                self._set_inbufs()
 
         Sensor._handle_mcm_device()
 
