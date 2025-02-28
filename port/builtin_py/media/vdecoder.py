@@ -101,19 +101,10 @@ class Decoder:
             raise OSError("kd_mpi_vdec_start_chn failed,channel:",self.chn)
 
     def stop(self):
-        stream_data = b'\x00\x00\x00\x01\x64'
         stream = k_vdec_stream()
         stream.end_of_stream = True
         stream.pts = 0
-
-        # blk_size = STREAM_BUF_SIZE
-        # poolid = Decoder.input_pool_id[self.chn]
-
-        # buffer = MediaManager.Buffer.get(blk_size, poolid)
-
-        # stream.len = len(stream_data)
-        # stream.phy_addr = buffer.phys_addr
-        # uctypes.bytearray_at(buffer.virt_addr, stream.len)[:] = stream_data
+        stream.len = 0
 
         poolid = Decoder.input_pool_id[self.chn]
         blk_size = STREAM_BUF_SIZE
@@ -127,8 +118,7 @@ class Decoder:
         phys_addr = kd_mpi_vb_handle_to_phyaddr(handle)
         vir_data = kd_mpi_sys_mmap(phys_addr, blk_size)
 
-        stream.len = len(stream_data)
-        uctypes.bytearray_at(vir_data, stream.len)[:] = stream_data
+
         stream.phy_addr = phys_addr
 
         kd_mpi_sys_munmap(vir_data,blk_size)
