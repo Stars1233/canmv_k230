@@ -194,7 +194,7 @@ class MediaManager:
         cls._is_inited = True
 
     @classmethod
-    def deinit(cls, force = False):
+    def deinit(cls, force = True):
         time.sleep_ms(100)
 
         cls._vb_buffer.max_pool_cnt = MAX_MEDIA_BUFFER_POOLS
@@ -327,7 +327,7 @@ class MediaManager:
             if cls._buffers[i] == buffer:
                 cls._buffers[i] = None
                 return
-        print(f"del buffer failed {buffer}") 
+        print(f"del buffer failed {buffer}")
 
     @classmethod
     def _destory_all_buffer(cls):
@@ -357,7 +357,7 @@ class MediaManager:
                     print(f"_del_link failed ret({ret})")
                 cls._links[i] = None
                 return
-        print(f"del link failed {link}") 
+        print(f"del link failed {link}")
 
     @classmethod
     def _destory_all_link(cls):
