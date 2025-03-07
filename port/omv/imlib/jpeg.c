@@ -1960,7 +1960,7 @@ void hd_jpeg_encoder_destory(void)
 {
     pthread_mutex_lock(&hd_jpeg_mutex);
     if(jpeg_encoder_created) {
-        jpeg_encoder_created = -1;
+        jpeg_encoder_created = 0;
         kd_mpi_venc_stop_chn(VENC_MAX_CHN_NUMS - 1);
         kd_mpi_venc_destroy_chn(VENC_MAX_CHN_NUMS - 1);
     }

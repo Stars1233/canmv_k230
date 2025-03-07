@@ -521,6 +521,9 @@ int ide_dbg_vo_wbc_deinit(void) {
 
     kd_display_reset();
 
+    extern void hd_jpeg_encoder_destory(void);
+    hd_jpeg_encoder_destory();
+
     return 0;
 }
 
@@ -888,7 +891,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                                     rotation270_u8(rotation_buffer.v_frame.virt_addr[0], y, frame_info.v_frame.width, frame_info.v_frame.height);
                                     kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[0], y, ysize);
                                     kd_mpi_sys_munmap(y, ysize);
-        
+
                                     // uv
                                     uint16_t* uv = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[1], uvsize);
                                     kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
@@ -904,7 +907,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                                     rotation90_u8(rotation_buffer.v_frame.virt_addr[0], y, frame_info.v_frame.width, frame_info.v_frame.height);
                                     kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[0], y, ysize);
                                     kd_mpi_sys_munmap(y, ysize);
-        
+
                                     // uv
                                     uint16_t* uv = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[1], uvsize);
                                     kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);

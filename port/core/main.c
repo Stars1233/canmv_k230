@@ -871,8 +871,8 @@ main_thread_exit:
     // }
     // jpeg_encoder_created = 0;
 
-    extern void hd_jpeg_encoder_destory(void);
-    hd_jpeg_encoder_destory();
+    // extern void hd_jpeg_encoder_destory(void);
+    // hd_jpeg_encoder_destory();
 
     extern void dma_dev_deinit(void);
     dma_dev_deinit();
