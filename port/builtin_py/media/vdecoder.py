@@ -11,8 +11,8 @@ from media.media import *
 # MAX_HEIGHT = 1920
 MAX_WIDTH = 1920
 MAX_HEIGHT = 1088
-STREAM_BUF_SIZE = MAX_WIDTH*MAX_HEIGHT//2
-FRAME_BUF_SIZE = MAX_WIDTH*MAX_HEIGHT*3//2
+STREAM_BUF_SIZE = MAX_WIDTH*MAX_HEIGHT
+FRAME_BUF_SIZE = MAX_WIDTH*MAX_HEIGHT*2
 INPUT_BUF_CNT = 4
 OUTPUT_BUF_CNT = 6
 
@@ -108,10 +108,11 @@ class Decoder:
 
         poolid = Decoder.input_pool_id[self.chn]
         blk_size = STREAM_BUF_SIZE
-        for i in range(10):
+        while True:
             handle = kd_mpi_vb_get_block(poolid, blk_size, "")
-            if (handle == -1):
-                pass
+            if (handle == 0xffffffff):
+                time.sleep(0.03)
+                continue
             else:
                 break
 
@@ -152,15 +153,10 @@ class Decoder:
         blk_size = STREAM_BUF_SIZE
         poolid = Decoder.input_pool_id[self.chn]
 
-        # buffer = MediaManager.Buffer.get(blk_size, poolid)
-
-        # stream.len = len(stream_data)
-        # stream.phy_addr = buffer.phys_addr
-        # uctypes.bytearray_at(buffer.virt_addr, stream.len)[:] = stream_data
-        for i in range(10):
+        while True:
             handle = kd_mpi_vb_get_block(poolid, blk_size, "")
-            if (handle == -1):
-                pass
+            if (handle == 0xffffffff):
+                time.sleep(0.03)
             else:
                 break
 
