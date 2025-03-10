@@ -21,3 +21,14 @@ print(r)
 b = bytearray(8)
 r = uart.readinto(b)
 print(r)
+
+while True:
+    size = uart.any()
+
+    if size:
+        print(f"size {size}")
+        r = uart.read()
+        print(r)
+    
+    import time
+    time.sleep(0.1)

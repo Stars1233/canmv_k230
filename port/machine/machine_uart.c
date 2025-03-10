@@ -32,13 +32,15 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
+#include "mpprint.h"
 #include "py/runtime.h"
 #include "py/obj.h"
 #include "py/stream.h"
 
 #include "modmachine.h"
 
-#define IOC_SET_BAUDRATE    _IOW('U', 0x40, int)
+#define IOC_SET_BAUDRATE        _IOW('U', 0x40, int)
+#define	IOC_GET_BUFFER_SIZE     _IOW('U', 0x41, int)
 
 typedef struct {
     mp_obj_base_t base;
@@ -165,6 +167,20 @@ STATIC mp_obj_t machine_uart_init(mp_uint_t n_args, const mp_obj_t *args, mp_map
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(machine_uart_init_obj, 1, machine_uart_init);
 
+STATIC mp_obj_t machine_uart_any(mp_obj_t self_in) {
+    machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+    size_t buffer_size = 0;
+
+    if(0x00 != ioctl(self->fd, IOC_GET_BUFFER_SIZE, &buffer_size)) {
+        buffer_size = 0;
+        mp_printf(&mp_plat_print, "ERROR: read uart buffer size failed.\n");
+    }
+
+    return MP_OBJ_NEW_SMALL_INT(buffer_size);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_any_obj, machine_uart_any);
+
 STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t size, int *errcode) {
     machine_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
     machine_uart_obj_check(self);
@@ -213,6 +229,7 @@ STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_uart_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&machine_uart_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&machine_uart_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_any), MP_ROM_PTR(&machine_uart_any_obj) },
     { MP_ROM_QSTR(MP_QSTR_readline), MP_ROM_PTR(&mp_stream_unbuffered_readline_obj)},
     { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&mp_stream_readinto_obj) },
     { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_stream_write_obj) },
