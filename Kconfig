@@ -3,14 +3,6 @@ menuconfig SDK_ENABLE_CANMV
     default n
 
     if SDK_ENABLE_CANMV
-        config ENABLE_NETWORK_RT_LAN
-            bool "Enable Network RT-Thread Lan(eth)"
-            default y
-
-        config ENABLE_NETWORK_RT_WLAN
-            bool "Enable Network RT-Thread Wlan"
-            default y
-        
         config ENABLE_TOUCH_DRIVER_CST_MUTCAP
             bool "Enable Touch Driver for cstxxx(mut cap)"
             default y
