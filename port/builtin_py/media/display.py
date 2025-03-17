@@ -13,6 +13,7 @@ class Display:
     HX8399          = const(303)
     ILI9806         = const(304)
     LT9611          = const(305)
+    ILI9881         = const(306)
 
     # define VO channel
     LAYER_VIDEO1 = K_VO_DISPLAY_CHN_ID1
@@ -301,6 +302,22 @@ class Display:
                 _width = None
                 _height = None
                 _fps = None
+            elif _type == Display.ILI9881:
+                _width = width if width is not None else 1280
+                _height = height if height is not None else 800
+                _flag = flag if flag is not None else Display.FLAG_ROTATION_90
+
+                if _width == 1280 and _height == 800:
+                    cls._panel_flag = _flag
+                    cls._connector_type = ILI9881_MIPI_4LAN_800X1280_60FPS
+                elif _width == 800 and _height == 1280:
+                    cls._connector_type = ILI9881_MIPI_4LAN_800X1280_60FPS
+                else:
+                    raise ValueError(f"ILI9806 unsupoort {_width}x{_height}")
+
+                _width = None
+                _height = None
+                _flag = None
             else:
                 raise AssertionError(f"Unsupport display type {_type}")
         else:
