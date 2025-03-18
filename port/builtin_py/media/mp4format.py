@@ -50,8 +50,12 @@ class Mp4Container:
     MP4_CODEC_ID_G711A = K_MP4_CODEC_ID_G711A
     MP4_CODEC_ID_G711U = K_MP4_CODEC_ID_G711U
 
-    def __init__(self,sensor_id = 0):
-        self.sensor = Sensor(id = sensor_id)
+    def __init__(self,sensor_csi_id = -1):
+        if sensor_csi_id in [0, 1, 2]:
+            self.sensor = Sensor(id=sensor_csi_id)
+        else:
+            self.sensor = Sensor()
+
         self.sensor.reset()
         self.venc = Encoder()
         self.stream_data = StreamData()

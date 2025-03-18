@@ -191,7 +191,8 @@ def mp4_muxer_test():
     width = 1280
     height = 720
     # 实例化mp4 container
-    mp4_muxer = Mp4Container(sensor_id = 0)
+    mp4_muxer = Mp4Container()
+    #mp4_muxer = Mp4Container(sensor_csi_id = 2)  # 指定探测CSI2的sensor
     mp4_cfg = Mp4CfgStr(mp4_muxer.MP4_CONFIG_TYPE_MUXER)
     if mp4_cfg.type == mp4_muxer.MP4_CONFIG_TYPE_MUXER:
         file_name = "/sdcard/examples/test.mp4"
