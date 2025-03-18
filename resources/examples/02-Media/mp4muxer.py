@@ -191,11 +191,11 @@ def mp4_muxer_test():
     width = 1280
     height = 720
     # 实例化mp4 container
-    mp4_muxer = Mp4Container()
+    mp4_muxer = Mp4Container(sensor_id = 0)
     mp4_cfg = Mp4CfgStr(mp4_muxer.MP4_CONFIG_TYPE_MUXER)
     if mp4_cfg.type == mp4_muxer.MP4_CONFIG_TYPE_MUXER:
-        file_name = "/sdcard/test.mp4"
-        mp4_cfg.SetMuxerCfg(file_name, mp4_muxer.MP4_CODEC_ID_H265, width, height, mp4_muxer.MP4_CODEC_ID_G711U,True)
+        file_name = "/sdcard/examples/test.mp4"
+        mp4_cfg.SetMuxerCfg(file_name, mp4_muxer.MP4_CODEC_ID_H265, width, height, mp4_muxer.MP4_CODEC_ID_G711U)
     # 创建mp4 muxer
     mp4_muxer.Create(mp4_cfg)
     # 启动mp4 muxer
