@@ -79,6 +79,11 @@ class Encoder:
         if ret != 0:
             raise OSError("mpi venc create chn failed.")
 
+        if (chnAttr.payload_type == K_PT_H264 or chnAttr.payload_type == K_PT_H265):
+            ret = kd_mpi_venc_enable_idr(chn, True)
+            if ret != 0:
+                raise OSError("mpi venc enable idr failed.")
+
     def Start(self, chn):
         if (chn > VENC_CHN_ID_MAX - 1):
             raise ValueError("venc Start, chn id: ", chn, " out of range 0 ~ 3")
