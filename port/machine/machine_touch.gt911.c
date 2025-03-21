@@ -212,7 +212,7 @@ STATIC void machine_touch_user_init_gt911(machine_touch_obj_t *self) {
     self->range_y = info.yResolution;
 
     memcpy(productId, info.productId, 4);
-    mp_printf(&mp_plat_print, "GT911, Product ID %s, x max %d, y max %d\n", productId, info.xResolution, info.yResolution);
+    mp_printf(&mp_plat_print, "GT911, Product ID %s, FW 0x%x x max %d, y max %d\n", productId, info.fwId, info.xResolution, info.yResolution);
 }
 
 STATIC void machine_touch_user_deinit_gt911(machine_touch_obj_t *self) {
