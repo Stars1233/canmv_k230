@@ -1,0 +1,126 @@
+from media.display import *
+from media.media import *
+from media.sensor import *
+import time, os, sys, gc
+from machine import TOUCH
+from machine import Pin
+from machine import FPIOA
+
+#显示的宽高
+DISPLAY_WIDTH = ALIGN_UP(800, 16)
+DISPLAY_HEIGHT = 480
+
+#视频分辨率
+VIDEO_WIDTH = 800
+VIDEO_HEIGHT = 480
+
+#按键GPIO Number，根据硬件修改
+PRESS_KEY_NUM = 21
+
+#保存图片的起始编号，可以修改
+save_num = 0
+
+#保存图片的位置和图片名称开头，根据需要修改
+IMG_SAVE_PATH="/sdcard/examples/data/"
+IMG_SAVE_NAME_BEGIN="1_"
+
+LOGO_FILE="/sdcard/examples/16-AI-Cube/logo.jpg"
+
+FONT_X = int(DISPLAY_WIDTH/2-100)
+FONT_Y = int(DISPLAY_HEIGHT/2-70)
+
+#sensor = None
+
+def media_init():
+    global sensor
+    # 根据硬件选择显示的方法，默认为IDE显示
+    # use LCD for display
+    Display.init(Display.ST7701, width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT, to_ide = True, osd_num=1)
+
+    # use hdmi for display
+    # Display.init(Display.LT9611, width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT, to_ide = True, osd_num=1)
+
+    # use IDE for display
+    #Display.init(Display.VIRT, width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT, fps = 60)
+
+    sensor = Sensor(fps=30)
+    sensor.reset()
+    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0)
+    sensor.set_pixformat(Sensor.RGB888)
+    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT, chn=CAM_CHN_ID_2)
+    sensor.set_pixformat(Sensor.RGBP888, chn=CAM_CHN_ID_2)
+    MediaManager.init()
+    sensor.run()
+
+def media_deinit():
+    global sensor
+    os.exitpoint(os.EXITPOINT_ENABLE_SLEEP)
+    sensor.stop()
+    time.sleep_ms(50)
+    Display.deinit()
+    MediaManager.deinit()
+
+def save_file(img_0):
+    global save_num
+    img_1 = img_0.to_jpeg()
+    img_name = IMG_SAVE_NAME_BEGIN + str(save_num) + ".jpg"
+    img_1.save(IMG_SAVE_PATH + img_name)
+    print("save img " + IMG_SAVE_PATH + img_name)
+    save_num += 1
+    gc.collect()
+    return img_name
+
+def gpio_init():
+    global KEY
+    fpioa = FPIOA()
+    fpioa.set_function(PRESS_KEY_NUM,FPIOA.GPIO21)
+    KEY=Pin(PRESS_KEY_NUM, Pin.IN, Pin.PULL_UP) #构建KEY对象
+
+def show_logo():
+    logo_img = image.Image(LOGO_FILE)
+    print("show logo w: " + str(logo_img.width()) + ", h: " + str(logo_img.height()))
+    Display.show_image(logo_img.to_rgb888())
+    time.sleep(2)
+
+
+def index_init():
+    global save_num
+    for file in os.listdir(IMG_SAVE_PATH):
+        if file is None:
+            break
+        if file.startswith(IMG_SAVE_NAME_BEGIN):
+            index = file.split('_')[1]
+            index = int(index.split('.')[0])
+            if save_num <= index:
+                save_num = index + 1
+    print("index_init start " + str(save_num))
+
+def key_handle(img):
+    global KEY
+    if KEY.value()==0:   #按键被按下
+        time.sleep_ms(10) #消除抖动
+        if KEY.value()==0: #确认按键被按下
+            print('KEY')
+            img_name = save_file(img)
+            img.draw_string_advanced(FONT_X, FONT_Y, 100, img_name, color = (0, 0, 255),)
+            Display.show_image(img)
+            time.sleep(2)
+            while not KEY.value(): #检测按键是否松开
+                pass
+    else:
+        Display.show_image(img) #显示图片
+
+try:
+    media_init()
+    gpio_init()
+    index_init()
+    show_logo()
+    while True:
+        img = sensor.snapshot() #拍摄一张图
+        key_handle(img)
+        time.sleep_ms(10)
+except BaseException as e:
+    import sys
+    sys.print_exception(e)
+media_deinit()
+gc.collect()
