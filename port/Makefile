@@ -21,10 +21,10 @@ USER_C_MODULES = 3rd-party/ulab
 include $(TOP)/py/py.mk 
 include $(TOP)/extmod/extmod.mk
 
-include $(SDK_RTSMART_SRC_DIR)/librtsmart.mk
-include $(SDK_RTSMART_SRC_DIR)/libmpp.mk
-include $(SDK_RTSMART_SRC_DIR)/libopencv.mk
-include $(SDK_RTSMART_SRC_DIR)/libnncase.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/libmpp.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/libopencv.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/libnncase.mk
 
 -include $(BUILD)/CANMV_VER
 CANMV_VER = $(shell git describe --tags --always `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
