@@ -944,6 +944,8 @@ class Sensor:
         if not is_del and not self._is_started:
             print("warning: sensor not call run()")
 
+        self._release_all_chn_image()
+
         if self._is_started:
             ret = kd_mpi_vicap_stop_stream(self._dev_id)
             if not is_del and ret:
@@ -956,7 +958,6 @@ class Sensor:
             vb_mgmt_vicap_dev_deinited(self._dev_id)
 
         self._dev_attr.dev_enable = False
-        self._release_all_chn_image()
         self._is_started = False
 
         Sensor._csis[self._csi_bus] = False
