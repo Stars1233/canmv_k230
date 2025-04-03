@@ -25,6 +25,8 @@
  * THE SOFTWARE.
  */
 
+#include "generated/autoconf.h"
+
 #include <fcntl.h>
 #include <pthread.h>
 #include <stddef.h>
@@ -880,8 +882,10 @@ main_thread_exit:
     extern void freetype_deinit(void);
     freetype_deinit();
 
+    #if defined (CONFIG_ENABLE_UVC_CAMERA)
     extern void mod_uvc_exit();
     mod_uvc_exit();
+    #endif
 
     // release all block
     vb_mgmt_deinit();
