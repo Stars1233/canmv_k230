@@ -880,6 +880,9 @@ main_thread_exit:
     extern void freetype_deinit(void);
     freetype_deinit();
 
+    extern void mod_uvc_exit();
+    mod_uvc_exit();
+
     // release all block
     vb_mgmt_deinit();
 

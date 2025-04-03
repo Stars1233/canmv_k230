@@ -158,6 +158,8 @@ CANMV_SRC_C += $(wildcard omv/*/*.c)
 CANMV_SRC_C += $(wildcard multi_media/*.c)
 # drivers
 CANMV_SRC_C += $(wildcard drivers/*.c)
+# modules
+CANMV_SRC_C += $(wildcard modules/*.c)
 
 # extmod
 CANMV_SRC_C += \
