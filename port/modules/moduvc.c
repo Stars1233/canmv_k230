@@ -205,12 +205,22 @@ STATIC mp_obj_t uvc_select_video_mode(mp_obj_t mode_in)
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(uvc_select_video_mode_obj, uvc_select_video_mode);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(uvc_select_video_mode_method, MP_ROM_PTR(&uvc_select_video_mode_obj));
 
-STATIC mp_obj_t py_uvc_start(void)
+STATIC mp_obj_t py_uvc_start(size_t n, const mp_obj_t* objs)
 {
-    int succ = uvc_start_stream();
-    return mp_obj_new_bool(succ);
+    int start_delay_ms = 0, succ = 0;
+
+    if (0x01 <= n) {
+        start_delay_ms = mp_obj_get_int(objs[0]);
+    }
+
+    succ = uvc_start_stream();
+    if((0x00 == succ) && (0x00 != start_delay_ms)) {
+        mp_hal_delay_ms(start_delay_ms);
+    }
+
+    return mp_obj_new_bool(0x00 == succ);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(uvc_start_obj, py_uvc_start);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(uvc_start_obj, 0, 1, py_uvc_start);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(uvc_start_method, MP_ROM_PTR(&uvc_start_obj));
 
 void mod_uvc_exit()
@@ -238,6 +248,10 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
 {
     int              timeout_ms = 1000;
     struct uvc_frame req_frame  = { 0 };
+
+    if(0x00 == n) {
+        timeout_ms = curr_format.frameinterval >> 11; // default timeout 4 frame
+    }
 
     if (0x01 <= n) {
         timeout_ms = mp_obj_get_int(objs[0]);
