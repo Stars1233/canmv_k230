@@ -20,14 +20,20 @@ PRESS_KEY_NUM = 21
 #保存图片的起始编号，可以修改
 save_num = 0
 
+#数据采集标准框，采集的物体最好在这个框框内
+grab_x = 0
+grab_y = 0
+grab_w = 0
+grab_h = 0
+
 #保存图片的位置和图片名称开头，根据需要修改
 IMG_SAVE_PATH="/sdcard/examples/data/"
 IMG_SAVE_NAME_BEGIN="1_"
 
 LOGO_FILE="/sdcard/examples/16-AI-Cube/logo.jpg"
 
-FONT_X = int(DISPLAY_WIDTH/2-100)
-FONT_Y = int(DISPLAY_HEIGHT/2-70)
+FONT_X = int(DISPLAY_WIDTH/2-50)
+FONT_Y = int(DISPLAY_HEIGHT/2-10)
 
 #sensor = None
 
@@ -51,6 +57,23 @@ def media_init():
     sensor.set_pixformat(Sensor.RGBP888, chn=CAM_CHN_ID_2)
     MediaManager.init()
     sensor.run()
+    cal_grab_rect()
+
+def cal_grab_rect():
+    global grab_x, grab_y, grab_w, grab_h
+
+    if VIDEO_WIDTH > VIDEO_HEIGHT:
+        grab_h = int(VIDEO_HEIGHT*6/7)
+        grab_y = int((VIDEO_HEIGHT - grab_h)/2)
+        grab_w = grab_h
+        grab_x = int((VIDEO_WIDTH - grab_w)/2)
+    else:
+        grab_w = int(VIDEO_WIDTH*6/7)
+        grab_x = int((VIDEO_WIDTH - grab_w)/2)
+        grab_h = grab_w
+        grab_y = int((VIDEO_HEIGHT - grab_h)/2)
+
+    print("cal_grab_rect x: " + str(grab_x) + ",y: " + str(grab_y) + ",w: " + str(grab_w) + ",h: " + str(grab_h))
 
 def media_deinit():
     global sensor
@@ -96,18 +119,20 @@ def index_init():
     print("index_init start " + str(save_num))
 
 def key_handle(img):
-    global KEY
+    global KEY, grab_x, grab_y, grab_w, grab_h
     if KEY.value()==0:   #按键被按下
         time.sleep_ms(10) #消除抖动
         if KEY.value()==0: #确认按键被按下
             print('KEY')
             img_name = save_file(img)
             img.draw_string_advanced(FONT_X, FONT_Y, 100, img_name, color = (0, 0, 255),)
+            img.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
             Display.show_image(img)
             time.sleep(2)
             while not KEY.value(): #检测按键是否松开
                 pass
     else:
+        img.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
         Display.show_image(img) #显示图片
 
 try:
