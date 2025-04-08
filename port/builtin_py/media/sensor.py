@@ -377,7 +377,7 @@ class Sensor:
             return self._imgs[chn]
         return None
 
-    def snapshot(self, chn = CAM_CHN_ID_0):
+    def snapshot(self, chn = CAM_CHN_ID_0,timeout = 1000):
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -395,7 +395,7 @@ class Sensor:
         cfg.dev_num = self._dev_id
         cfg.chn_num = chn
         cfg.foramt = VICAP_DUMP_YUV
-        cfg.milli_sec = 1000
+        cfg.milli_sec = timeout
 
         dumped_img = vb_mgmt_vicap_image()
 
@@ -702,7 +702,7 @@ class Sensor:
     @wrap
     def get_windowing(self):
         pass
-    
+
     @wrap
     def set_contrast(self, constrast):
         pass
@@ -838,7 +838,7 @@ class Sensor:
     @wrap
     def set_lens_correction(self, enabld, radi, coef):
         pass
-    
+
     @wrap
     def set_vsync_callback(self, cb):
         pass
@@ -854,7 +854,7 @@ class Sensor:
     @wrap
     def set_color_palette(self, palette):
         pass
-    
+
     @wrap
     def get_color_palette(self):
         pass

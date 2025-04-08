@@ -92,7 +92,7 @@ class Encoder:
         if ret != 0:
             raise OSError("mpi venc start failed.")
 
-    def GetStream(self, chn, streamData):
+    def GetStream(self, chn, streamData,timeout=-1):
         if (chn > VENC_CHN_ID_MAX - 1):
             raise ValueError("venc GetStream, chn id: ", chn, " out of range 0 ~ 3")
 
@@ -108,9 +108,10 @@ class Encoder:
         buf = bytearray(uctypes.sizeof(venc_def.k_venc_pack_desc, uctypes.NATIVE) * self.output.pack_cnt)
         self.output.pack = uctypes.addressof(buf)
 
-        ret = kd_mpi_venc_get_stream(chn, self.output, 1000)
+        ret = kd_mpi_venc_get_stream(chn, self.output, timeout)
         if ret != 0:
-            raise OSError("mpi venc get stream failed.")
+            #raise OSError("mpi venc get stream failed.")
+            return -1
 
         for pack_idx in range(0, streamData.pack_cnt):
             vir_data = kd_mpi_sys_mmap(self.output._pack[pack_idx].phys_addr, self.output._pack[pack_idx].len)
@@ -119,6 +120,8 @@ class Encoder:
             streamData.stream_type[pack_idx] = self.output._pack[pack_idx].type
             streamData.pts[pack_idx] = self.output._pack[pack_idx].pts
             streamData.phy_addr[pack_idx] = self.output._pack[pack_idx].phys_addr
+
+        return 0
 
     def ReleaseStream(self, chn, streamData):
         if (chn > VENC_CHN_ID_MAX - 1):
