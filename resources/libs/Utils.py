@@ -4,6 +4,8 @@ from time import *
 import time
 import utime
 import sys
+import ujson
+import image
 
 class ScopedTiming:
     def __init__(self, info="", enable_profile=True):
@@ -103,6 +105,27 @@ color_four = [
     (255, 191, 162, 208)
 ]
 
+def read_json(json_path):
+    try:
+        with open(json_path, 'r') as file:
+            data = ujson.load(file)
+        return data
+    except Exception as e:
+        print("Error reading JSON file:", e)
+        raise e
+
+# 从本地读入图片，并实现HWC转CHW
+def read_image(img_path):
+    img_data = image.Image(img_path)
+    img_rgb888=img_data.to_rgb888()
+    img_hwc=img_rgb888.to_numpy_ref()
+    shape=img_hwc.shape
+    img_tmp = img_hwc.reshape((shape[0] * shape[1], shape[2]))
+    img_tmp_trans = img_tmp.transpose()
+    img_res=img_tmp_trans.copy()
+    img_chw=img_res.reshape((shape[2],shape[0],shape[1]))
+    return img_chw,img_rgb888
+
 def get_colors(classes_num):
     colors = []
     num_available_colors = len(color_four)
@@ -150,3 +173,26 @@ def center_pad_param(input_size,output_size):
 def softmax(x):
     exp_x = np.exp(x - np.max(x))
     return exp_x / np.sum(exp_x)
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def chw2hwc(np_array):
+    if len(np_array.shape)!=3:
+        raise Exception("chw2hwc input shape error,shape should be chw")
+    ori_shape = (np_array.shape[0], np_array.shape[1], np_array.shape[2])
+    c_hw_ = np_array.reshape((ori_shape[0], ori_shape[1] * ori_shape[2]))
+    hw_c_ = c_hw_.transpose()
+    new_array = hw_c_.copy()
+    hwc_array = new_array.reshape((ori_shape[1], ori_shape[2], ori_shape[0]))
+    return hwc_array
+
+def hwc2chw(np_array):
+    if len(np_array.shape)!=3:
+        raise Exception("hwc2chw input shape error,shape should be hwc")
+    ori_shape = (np_array.shape[0], np_array.shape[1], np_array.shape[2])
+    hw_c_ = np_array.reshape((ori_shape[0] * ori_shape[1], ori_shape[2]))
+    c_hw_ = hw_c_.transpose()
+    new_array = c_hw_.copy()
+    chw_array = new_array.reshape((ori_shape[2], ori_shape[0], ori_shape[1]))
+    return chw_array
