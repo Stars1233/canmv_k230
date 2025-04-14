@@ -105,3 +105,53 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
 	}
 	return yolo_det_res;
 }
+
+YoloDetInfo* yolov5_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, float nms_thresh,int max_box_cnt, int *box_cnt)
+{
+    float ratio_w=input_shape.width/(frame_shape.width*1.0);
+    float ratio_h=input_shape.height/(frame_shape.height*1.0);
+    float scale=MIN(ratio_w,ratio_h);
+
+	std::vector<YoloDetBox> results;
+    int f_len=class_num+5;
+    int num_box=((input_shape.width/8)*(input_shape.height/8)+(input_shape.width/16)*(input_shape.height/16)+(input_shape.width/32)*(input_shape.height/32))*3;
+    for(int i=0;i<num_box;i++){
+        float* vec=output0+i*f_len;
+        float box[4]={vec[0],vec[1],vec[2],vec[3]};
+        float base_score=vec[4];
+        float* class_scores=vec+5;
+        float* max_class_score_ptr=std::max_element(class_scores,class_scores+class_num);
+        float score=(*max_class_score_ptr)*base_score;
+        int max_class_index = max_class_score_ptr - class_scores; // 计算索引
+        if(score>conf_thresh){
+            YoloDetBox bbox;
+            float x_=box[0]/scale*(display_shape.width/(frame_shape.width*1.0));
+            float y_=box[1]/scale*(display_shape.height/(frame_shape.height*1.0));
+            float w_=box[2]/scale*(display_shape.width/(frame_shape.width*1.0));
+            float h_=box[3]/scale*(display_shape.height/(frame_shape.height*1.0));
+            int x=int(MAX(x_-0.5*w_,0));
+            int y=int(MAX(y_-0.5*h_,0));
+            int w=int(w_);
+            int h=int(h_);
+            if (w <= 0 || h <= 0) { continue; }
+            bbox.box=cv::Rect(x,y,w,h);
+            bbox.confidence=score;
+            bbox.index=max_class_index;
+            results.push_back(bbox);
+        }
+    }
+	//执行非最大抑制以消除具有较低置信度的冗余重叠框（NMS）
+	nms(results, conf_thresh, nms_thresh);
+    *box_cnt = MIN(results.size(),max_box_cnt);
+	YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
+	for (int i = 0; i < *box_cnt; i++)
+	{
+		yolo_det_res[i].confidence = results[i].confidence;
+		yolo_det_res[i].index = results[i].index;
+		yolo_det_res[i].x = results[i].box.x;
+		yolo_det_res[i].y = results[i].box.y;
+		yolo_det_res[i].w = results[i].box.width;
+		yolo_det_res[i].h = results[i].box.height;
+	}
+	return yolo_det_res;
+}
