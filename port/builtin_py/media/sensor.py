@@ -1,6 +1,7 @@
 from mpp import *
 from mpp.vicap import *
 from media.media import *
+from _media import py_video_frame_info
 import image
 import os
 
