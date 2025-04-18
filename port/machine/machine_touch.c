@@ -219,6 +219,9 @@ STATIC void machine_touch_info_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest)
             case MP_QSTR_timestamp:
                 dest[0] = mp_obj_new_int(self->info.timestamp);
                 break;
+            default:
+                dest[1] = MP_OBJ_SENTINEL; // continue lookup in locals_dict
+                break;
         }
     }
 }
@@ -537,7 +540,7 @@ STATIC mp_obj_t machine_touch_make_new(const mp_obj_type_t *type, size_t n_args,
     mp_arg_parse_all_kw_array(n_args, n_kw, args, MP_ARRAY_SIZE(machine_touch_allowed_args), machine_touch_allowed_args, args_parsed);
 
     // Create a new instance of the Touch object
-    machine_touch_obj_t *self = m_new_obj(machine_touch_obj_t);
+    machine_touch_obj_t *self = m_new_obj_with_finaliser(machine_touch_obj_t);
 
     // Extract the dev parameter
     mp_int_t dev = args_parsed[ARG_dev].u_int;

@@ -443,6 +443,7 @@ const mp_machine_spi_p_t machine_hw_spi_p = {
     .transfer = machine_hw_spi_transfer,
 };
 
+/* clang-format off */
 MP_DEFINE_CONST_OBJ_TYPE(
     machine_spi_type,
     MP_QSTR_SPI,
@@ -451,4 +452,5 @@ MP_DEFINE_CONST_OBJ_TYPE(
     print, machine_hw_spi_print,
     protocol, &machine_hw_spi_p,
     locals_dict, &mp_machine_spi_locals_dict_k230
-    );
+);
+/* clang-format on */

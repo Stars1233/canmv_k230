@@ -1049,6 +1049,9 @@ STATIC void py_rt_wlan_info_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
             case MP_QSTR_hidden:
                 dest[0] = MP_OBJ_NEW_SMALL_INT(info->hidden);
                 break;
+            default:
+                dest[1] = MP_OBJ_SENTINEL; // continue lookup in locals_dict
+                break;
         }
     } else if(MP_OBJ_SENTINEL == dest[0]) {
         // store attribute

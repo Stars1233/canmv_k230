@@ -10,18 +10,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#define VB_MGMT_RECORD_MAX_CNT (128)
-#define VB_MGMT_RECORD_MAGIC_IN_USE (0x1234ABCD)
+// #define VB_MGMT_RECORD_MAX_CNT (128)
+// #define VB_MGMT_RECORD_MAGIC_IN_USE (0x1234ABCD)
 
-struct vb_record_t
-{
-    void *virt_addr; // self.virt_addr = virt_addr
-    k_u32 magic;
-    k_u32 size;             // self.size = size, user set
-    k_vb_blk_handle handle; // self.handle = handle
-};
+// struct vb_record_t
+// {
+//     void *virt_addr; // self.virt_addr = virt_addr
+//     k_u32 magic;
+//     k_u32 size;             // self.size = size, user set
+//     k_vb_blk_handle handle; // self.handle = handle
+// };
 
-static struct vb_record_t vb_records[VB_MGMT_RECORD_MAX_CNT];
+// static struct vb_record_t vb_records[VB_MGMT_RECORD_MAX_CNT];
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,285 +80,285 @@ k_s32 vb_mgmt_vicap_dev_deinited(k_u32 id)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-/* vb mgmt */
-static struct vb_record_t *vb_mgmt_get_block_record_by_info(vb_block_info *info)
-{
-    struct vb_record_t *record = (void *)0;
+// /* vb mgmt */
+// static struct vb_record_t *vb_mgmt_get_block_record_by_info(vb_block_info *info)
+// {
+//     struct vb_record_t *record = (void *)0;
 
-    for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
-    {
-        if (VB_MGMT_RECORD_MAGIC_IN_USE == vb_records[i].magic)
-        {
-            record = &vb_records[i];
+//     for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
+//     {
+//         if (VB_MGMT_RECORD_MAGIC_IN_USE == vb_records[i].magic)
+//         {
+//             record = &vb_records[i];
 
-            if (record->handle == info->handle)
-            {
-                if (record->size == info->size)
-                {
-                    if (record->virt_addr == info->virt_addr)
-                    {
-                        return record;
-                    }
-                }
-            }
-        }
-    }
+//             if (record->handle == info->handle)
+//             {
+//                 if (record->size == info->size)
+//                 {
+//                     if (record->virt_addr == info->virt_addr)
+//                     {
+//                         return record;
+//                     }
+//                 }
+//             }
+//         }
+//     }
 
-    return (void *)0;
-}
+//     return (void *)0;
+// }
 
-static k_s32 vb_mgmt_push_block_to_record(k_u32 index, vb_block_info *info)
-{
-    if (VB_MGMT_RECORD_MAX_CNT <= index)
-    {
-        printf("invaild index\n");
-        return -1;
-    }
+// static k_s32 vb_mgmt_push_block_to_record(k_u32 index, vb_block_info *info)
+// {
+//     if (VB_MGMT_RECORD_MAX_CNT <= index)
+//     {
+//         printf("invaild index\n");
+//         return -1;
+//     }
 
-    struct vb_record_t *record = &vb_records[index];
+//     struct vb_record_t *record = &vb_records[index];
 
-    if (VB_MGMT_RECORD_MAGIC_IN_USE == record->magic)
-    {
-        printf("this index %d is in use\n", index);
-        return -2;
-    }
+//     if (VB_MGMT_RECORD_MAGIC_IN_USE == record->magic)
+//     {
+//         printf("this index %d is in use\n", index);
+//         return -2;
+//     }
 
-    record->handle = info->handle;
-    record->size = info->size;
-    record->virt_addr = info->virt_addr;
+//     record->handle = info->handle;
+//     record->size = info->size;
+//     record->virt_addr = info->virt_addr;
 
-    record->magic = VB_MGMT_RECORD_MAGIC_IN_USE;
+//     record->magic = VB_MGMT_RECORD_MAGIC_IN_USE;
 
-    return 0;
-}
+//     return 0;
+// }
 
-static k_s32 vb_mgmt_pop_block_from_record(struct vb_record_t *record)
-{
-    k_s32 ret = 0;
+// static k_s32 vb_mgmt_pop_block_from_record(struct vb_record_t *record)
+// {
+//     k_s32 ret = 0;
 
-    if (VB_MGMT_RECORD_MAGIC_IN_USE != record->magic)
-    {
-        return -1;
-    }
+//     if (VB_MGMT_RECORD_MAGIC_IN_USE != record->magic)
+//     {
+//         return -1;
+//     }
 
-    if (0x00 != (ret += kd_mpi_vb_release_block(record->handle)))
-    {
-        printf("vb_mgmt release block failed at pop record, %d\n", record->handle);
-    }
+//     if (0x00 != (ret += kd_mpi_vb_release_block(record->handle)))
+//     {
+//         printf("vb_mgmt release block failed at pop record, %d\n", record->handle);
+//     }
 
-    if (0x00 != (ret += kd_mpi_sys_munmap(record->virt_addr, record->size)))
-    {
-        printf("vb_mgmt umap block failed at pop record, %p, %d\n", record->virt_addr, record->size);
-    }
+//     if (0x00 != (ret += kd_mpi_sys_munmap(record->virt_addr, record->size)))
+//     {
+//         printf("vb_mgmt umap block failed at pop record, %p, %d\n", record->virt_addr, record->size);
+//     }
 
-    record->magic = 0;
+//     record->magic = 0;
 
-    return ret;
-}
+//     return ret;
+// }
 
-k_s32 vb_mgmt_get_block(vb_block_info *info)
-{
-    k_u32 record_index = 0xFFFFFFFF;
+// k_s32 vb_mgmt_get_block(vb_block_info *info)
+// {
+//     k_u32 record_index = 0xFFFFFFFF;
 
-    if ((void *)0 == info)
-    {
-        return 1;
-    }
+//     if ((void *)0 == info)
+//     {
+//         return 1;
+//     }
 
-    for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
-    {
-        if (VB_MGMT_RECORD_MAGIC_IN_USE != vb_records[i].magic)
-        {
-            record_index = i;
-            break;
-        }
-    }
+//     for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
+//     {
+//         if (VB_MGMT_RECORD_MAGIC_IN_USE != vb_records[i].magic)
+//         {
+//             record_index = i;
+//             break;
+//         }
+//     }
 
-    if (0xFFFFFFFF == record_index)
-    {
-        printf("there is no free record\n");
-        return 6;
-    }
+//     if (0xFFFFFFFF == record_index)
+//     {
+//         printf("there is no free record\n");
+//         return 6;
+//     }
 
-    info->handle = kd_mpi_vb_get_block(info->pool_id, info->size, (void *)0);
-    if (VB_INVALID_HANDLE == info->handle)
-    {
-        return 2;
-    }
+//     info->handle = kd_mpi_vb_get_block(info->pool_id, info->size, (void *)0);
+//     if (VB_INVALID_HANDLE == info->handle)
+//     {
+//         return 2;
+//     }
 
-    info->pool_id = kd_mpi_vb_handle_to_pool_id(info->handle);
-    if (VB_INVALID_POOLID == info->pool_id)
-    {
-        kd_mpi_vb_release_block(info->handle);
-        return 3;
-    }
+//     info->pool_id = kd_mpi_vb_handle_to_pool_id(info->handle);
+//     if (VB_INVALID_POOLID == info->pool_id)
+//     {
+//         kd_mpi_vb_release_block(info->handle);
+//         return 3;
+//     }
 
-    info->phys_addr = kd_mpi_vb_handle_to_phyaddr(info->handle);
-    if (0x00 == info->phys_addr)
-    {
-        kd_mpi_vb_release_block(info->handle);
-        return 4;
-    }
+//     info->phys_addr = kd_mpi_vb_handle_to_phyaddr(info->handle);
+//     if (0x00 == info->phys_addr)
+//     {
+//         kd_mpi_vb_release_block(info->handle);
+//         return 4;
+//     }
 
-    info->virt_addr = kd_mpi_sys_mmap(info->phys_addr, info->size);
-    if (0x00 == info->virt_addr)
-    {
-        kd_mpi_vb_release_block(info->handle);
-        return 5;
-    }
+//     info->virt_addr = kd_mpi_sys_mmap(info->phys_addr, info->size);
+//     if (0x00 == info->virt_addr)
+//     {
+//         kd_mpi_vb_release_block(info->handle);
+//         return 5;
+//     }
 
-    if (0x00 != vb_mgmt_push_block_to_record(record_index, info))
-    {
-        printf("push vb_block_info to record failed\n");
+//     if (0x00 != vb_mgmt_push_block_to_record(record_index, info))
+//     {
+//         printf("push vb_block_info to record failed\n");
 
-        kd_mpi_vb_release_block(info->handle);
+//         kd_mpi_vb_release_block(info->handle);
 
-        return 6;
-    }
+//         return 6;
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
-k_s32 vb_mgmt_put_block(vb_block_info *info)
-{
-    struct vb_record_t *record = (void *)0;
+// k_s32 vb_mgmt_put_block(vb_block_info *info)
+// {
+//     struct vb_record_t *record = (void *)0;
 
-    if ((void *)0 == info)
-    {
-        return 1;
-    }
+//     if ((void *)0 == info)
+//     {
+//         return 1;
+//     }
 
-    if ((void *)0 == (record = vb_mgmt_get_block_record_by_info(info)))
-    {
-        return 2;
-    }
+//     if ((void *)0 == (record = vb_mgmt_get_block_record_by_info(info)))
+//     {
+//         return 2;
+//     }
 
-    if (0x00 != vb_mgmt_pop_block_from_record(record))
-    {
-        printf("vb_mgmt pop record failed");
-        return 3;
-    }
+//     if (0x00 != vb_mgmt_pop_block_from_record(record))
+//     {
+//         printf("vb_mgmt pop record failed");
+//         return 3;
+//     }
 
-    return 0;
-}
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-/* mpp link mgmt */
-#define VB_MGMT_MPP_LINK_MAX_CNT (64)
-#define VB_MGMT_MPP_LINK_MAGIC_IN_USE (0x5678DEF0)
+//     return 0;
+// }
+// ///////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////////
+// ///////////////////////////////////////////////////////////////////////////////
+// /* mpp link mgmt */
+// #define VB_MGMT_MPP_LINK_MAX_CNT (64)
+// #define VB_MGMT_MPP_LINK_MAGIC_IN_USE (0x5678DEF0)
 
-struct mpp_link_info_t
-{
-    k_u32 magic;
+// struct mpp_link_info_t
+// {
+//     k_u32 magic;
 
-    k_mpp_chn src;
-    k_mpp_chn dst;
-};
+//     k_mpp_chn src;
+//     k_mpp_chn dst;
+// };
 
-static struct mpp_link_info_t vb_mpp_links_records[VB_MGMT_MPP_LINK_MAX_CNT];
+// static struct mpp_link_info_t vb_mpp_links_records[VB_MGMT_MPP_LINK_MAX_CNT];
 
-static k_s32 vb_mgmt_push_mpp_link_to_record(k_u32 index, k_mpp_chn *src, k_mpp_chn *dst)
-{
-    struct mpp_link_info_t *info = (void *)0;
+// static k_s32 vb_mgmt_push_mpp_link_to_record(k_u32 index, k_mpp_chn *src, k_mpp_chn *dst)
+// {
+//     struct mpp_link_info_t *info = (void *)0;
 
-    if (VB_MGMT_MPP_LINK_MAX_CNT <= index)
-    {
-        printf("invaild index\n");
-        return -1;
-    }
+//     if (VB_MGMT_MPP_LINK_MAX_CNT <= index)
+//     {
+//         printf("invaild index\n");
+//         return -1;
+//     }
 
-    info = &vb_mpp_links_records[index];
-    if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == info->magic)
-    {
-        printf("this record is in use %d\n", index);
-        return -2;
-    }
+//     info = &vb_mpp_links_records[index];
+//     if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == info->magic)
+//     {
+//         printf("this record is in use %d\n", index);
+//         return -2;
+//     }
 
-    memcpy(&info->src, src, sizeof(k_mpp_chn));
-    memcpy(&info->dst, dst, sizeof(k_mpp_chn));
+//     memcpy(&info->src, src, sizeof(k_mpp_chn));
+//     memcpy(&info->dst, dst, sizeof(k_mpp_chn));
 
-    info->magic = VB_MGMT_MPP_LINK_MAGIC_IN_USE;
+//     info->magic = VB_MGMT_MPP_LINK_MAGIC_IN_USE;
 
-    return 0;
-}
+//     return 0;
+// }
 
-static k_bool is_mpp_chn_eq(k_mpp_chn *a, k_mpp_chn *b)
-{
-    if (a->mod_id != b->mod_id)
-    {
-        return K_FALSE;
-    }
-    if (a->dev_id != b->dev_id)
-    {
-        return K_FALSE;
-    }
-    if (a->chn_id != b->chn_id)
-    {
-        return K_FALSE;
-    }
+// static k_bool is_mpp_chn_eq(k_mpp_chn *a, k_mpp_chn *b)
+// {
+//     if (a->mod_id != b->mod_id)
+//     {
+//         return K_FALSE;
+//     }
+//     if (a->dev_id != b->dev_id)
+//     {
+//         return K_FALSE;
+//     }
+//     if (a->chn_id != b->chn_id)
+//     {
+//         return K_FALSE;
+//     }
 
-    return K_TRUE;
-}
+//     return K_TRUE;
+// }
 
-static k_s32 vb_mgmt_pop_mpp_link_from_record(k_mpp_chn *src, k_mpp_chn *dst)
-{
-    struct mpp_link_info_t *info = (void *)0;
+// static k_s32 vb_mgmt_pop_mpp_link_from_record(k_mpp_chn *src, k_mpp_chn *dst)
+// {
+//     struct mpp_link_info_t *info = (void *)0;
 
-    for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
-    {
-        info = &vb_mpp_links_records[i];
+//     for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
+//     {
+//         info = &vb_mpp_links_records[i];
 
-        if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == info->magic)
-        {
-            if (K_FALSE == is_mpp_chn_eq(&info->src, src))
-            {
-                continue;
-            }
+//         if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == info->magic)
+//         {
+//             if (K_FALSE == is_mpp_chn_eq(&info->src, src))
+//             {
+//                 continue;
+//             }
 
-            if (K_FALSE == is_mpp_chn_eq(&info->dst, dst))
-            {
-                continue;
-            }
+//             if (K_FALSE == is_mpp_chn_eq(&info->dst, dst))
+//             {
+//                 continue;
+//             }
 
-            if (0x0 != kd_mpi_sys_unbind(src, dst))
-            {
-                printf("unbind link failed.\n");
-            }
+//             if (0x0 != kd_mpi_sys_unbind(src, dst))
+//             {
+//                 printf("unbind link failed.\n");
+//             }
 
-            info->magic = 0;
-        }
-    }
+//             info->magic = 0;
+//         }
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
-k_s32 vb_mgmt_push_link_info(k_mpp_chn *src, k_mpp_chn *dst)
-{
-    k_u32 index = 0xFFFFFFFF;
+// k_s32 vb_mgmt_push_link_info(k_mpp_chn *src, k_mpp_chn *dst)
+// {
+//     k_u32 index = 0xFFFFFFFF;
 
-    for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
-    {
-        if (VB_MGMT_MPP_LINK_MAGIC_IN_USE != vb_mpp_links_records[i].magic)
-        {
-            index = i;
-            break;
-        }
-    }
+//     for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
+//     {
+//         if (VB_MGMT_MPP_LINK_MAGIC_IN_USE != vb_mpp_links_records[i].magic)
+//         {
+//             index = i;
+//             break;
+//         }
+//     }
 
-    if (0xFFFFFFFF == index)
-    {
-        printf("no vaild record for mpp link\n");
-        return 1;
-    }
+//     if (0xFFFFFFFF == index)
+//     {
+//         printf("no vaild record for mpp link\n");
+//         return 1;
+//     }
 
-    return vb_mgmt_push_mpp_link_to_record(index, src, dst);
-}
+//     return vb_mgmt_push_mpp_link_to_record(index, src, dst);
+// }
 
-k_s32 vb_mgmt_pop_link_info(k_mpp_chn *src, k_mpp_chn *dst)
-{
-    return vb_mgmt_pop_mpp_link_from_record(src, dst);
-}
+// k_s32 vb_mgmt_pop_link_info(k_mpp_chn *src, k_mpp_chn *dst)
+// {
+//     return vb_mgmt_pop_mpp_link_from_record(src, dst);
+// }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -584,48 +584,16 @@ k_s32 vb_mgmt_dump_vicap_frame(vb_mgmt_dump_vicap_config *cfg, vb_mgmt_vicap_ima
     k_u32 img_width = _image->vf_info.v_frame.width;
     k_u32 img_height = _image->vf_info.v_frame.height;
 
-    switch (_image->vf_info.v_frame.pixel_format)
-    {
-        case PIXEL_FORMAT_YUV_SEMIPLANAR_420:
-        case PIXEL_FORMAT_YVU_SEMIPLANAR_420:
-        case PIXEL_FORMAT_YVU_PLANAR_420:
-            _image->image_size = img_width * img_height * 3 / 2;
-            break;
+    extern k_u32 calc_video_size(k_pixel_format video_fmt, k_u16 width, k_u16 height);
+    _image->image_size = calc_video_size(_image->vf_info.v_frame.pixel_format, img_width, img_height);
 
-        case PIXEL_FORMAT_RGB_888:
-        case PIXEL_FORMAT_BGR_888:
-        case PIXEL_FORMAT_YUV_PACKAGE_444:
-        case PIXEL_FORMAT_BGR_888_PLANAR:
-        case PIXEL_FORMAT_RGB_888_PLANAR:
-        case PIXEL_FORMAT_YVU_PLANAR_444:
-            _image->image_size = img_width * img_height * 3;
-            break;
+    if(0x00 == _image->image_size) {
+        printf("unsupport image format %u\n", _image->vf_info.v_frame.pixel_format);
 
-        case PIXEL_FORMAT_RGB_565:
-        case PIXEL_FORMAT_BGR_565:
-        case PIXEL_FORMAT_RGB_565_LE:
-        case PIXEL_FORMAT_BGR_565_LE:
-        case PIXEL_FORMAT_ARGB_1555:
-        case PIXEL_FORMAT_ARGB_4444:
-        case PIXEL_FORMAT_ABGR_1555:
-        case PIXEL_FORMAT_ABGR_4444:
-            _image->image_size = img_width * img_height * 2;
-            break;
+        kd_mpi_vicap_dump_release(_image->cfg.dev_num, _image->cfg.chn_num, &_image->vf_info);
+        _image->magic = 0x00;
 
-        case PIXEL_FORMAT_ABGR_8888:
-        case PIXEL_FORMAT_BGRA_8888:
-            _image->image_size = img_width * img_height * 4;
-            break;
-
-        default:
-        {
-            printf("unsupport image format %u\n", _image->vf_info.v_frame.pixel_format);
-
-            kd_mpi_vicap_dump_release(_image->cfg.dev_num, _image->cfg.chn_num, &_image->vf_info);
-            _image->magic = 0x00;
-
-            return 4;
-        }
+        return 4;
     }
 
     _image->vf_info.v_frame.virt_addr[0] = (k_u64)kd_mpi_sys_mmap_cached(_image->vf_info.v_frame.phys_addr[0], _image->image_size);
@@ -684,28 +652,28 @@ k_s32 vb_mgmt_release_vicap_frame(vb_mgmt_vicap_image *image)
 ///////////////////////////////////////////////////////////////////////////////
 k_s32 vb_mgmt_init(void)
 {
-    for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
-    {
-        if (VB_MGMT_RECORD_MAGIC_IN_USE == vb_records[i].magic)
-        {
-            printf("maybe not call vb_mgmt_deinit, the block record %d is in use\n", i);
-            vb_mgmt_pop_block_from_record(&vb_records[i]);
-        }
+    // for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
+    // {
+    //     if (VB_MGMT_RECORD_MAGIC_IN_USE == vb_records[i].magic)
+    //     {
+    //         printf("maybe not call vb_mgmt_deinit, the block record %d is in use\n", i);
+    //         vb_mgmt_pop_block_from_record(&vb_records[i]);
+    //     }
 
-        vb_records[i].magic = 0;
-    }
+    //     vb_records[i].magic = 0;
+    // }
 
-    for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
-    {
-        if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == vb_mpp_links_records[i].magic)
-        {
-            printf("maybe not call vb_mgmt_deinit, the mpp link record %d is in use\n", i);
+    // for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
+    // {
+    //     if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == vb_mpp_links_records[i].magic)
+    //     {
+    //         printf("maybe not call vb_mgmt_deinit, the mpp link record %d is in use\n", i);
 
-            vb_mgmt_pop_mpp_link_from_record(&vb_mpp_links_records[i].src, &vb_mpp_links_records[i].dst);
-        }
+    //         vb_mgmt_pop_mpp_link_from_record(&vb_mpp_links_records[i].src, &vb_mpp_links_records[i].dst);
+    //     }
 
-        vb_mpp_links_records[i].magic = 0;
-    }
+    //     vb_mpp_links_records[i].magic = 0;
+    // }
 
     // for (int i = 0; i < VB_MGMT_PY_AT_EXIT_RECORD_MAX_CNT; i++)
     // {
@@ -749,29 +717,23 @@ k_s32 vb_mgmt_deinit(void)
 
     vb_mgmt_disable_vo_layers();
 
-    extern void ide_dbg_vo_wbc_deinit(void);
-    extern int ide_dbg_set_vo_wbc(int quality, int width, int height);
-
-    ide_dbg_set_vo_wbc(0, 0, 0);
-    ide_dbg_vo_wbc_deinit();
-
     kd_display_reset();
 
-    for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
-    {
-        if (VB_MGMT_RECORD_MAGIC_IN_USE == vb_records[i].magic)
-        {
-            vb_mgmt_pop_block_from_record(&vb_records[i]);
-        }
-    }
+    // for (int i = 0; i < VB_MGMT_RECORD_MAX_CNT; i++)
+    // {
+    //     if (VB_MGMT_RECORD_MAGIC_IN_USE == vb_records[i].magic)
+    //     {
+    //         vb_mgmt_pop_block_from_record(&vb_records[i]);
+    //     }
+    // }
 
-    for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
-    {
-        if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == vb_mpp_links_records[i].magic)
-        {
-            vb_mgmt_pop_mpp_link_from_record(&vb_mpp_links_records[i].src, &vb_mpp_links_records[i].dst);
-        }
-    }
+    // for (int i = 0; i < VB_MGMT_MPP_LINK_MAX_CNT; i++)
+    // {
+    //     if (VB_MGMT_MPP_LINK_MAGIC_IN_USE == vb_mpp_links_records[i].magic)
+    //     {
+    //         vb_mgmt_pop_mpp_link_from_record(&vb_mpp_links_records[i].src, &vb_mpp_links_records[i].dst);
+    //     }
+    // }
 
     /* not deinit py_at_exit */
 

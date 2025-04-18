@@ -673,6 +673,7 @@ STATIC const mp_machine_i2c_p_t mp_machine_i2c_p = {
     .transfer = mp_machine_i2c_transfer,
 };
 
+/* clang-format off */
 MP_DEFINE_CONST_OBJ_TYPE(
     machine_i2c_type,
     MP_QSTR_I2C,
@@ -680,4 +681,6 @@ MP_DEFINE_CONST_OBJ_TYPE(
     make_new, machine_i2c_make_new,
     print, machine_i2c_print,
     protocol, &mp_machine_i2c_p,
-    locals_dict, &mp_machine_i2c_locals_dict);
+    locals_dict, &mp_machine_i2c_locals_dict
+);
+/* clang-format on */

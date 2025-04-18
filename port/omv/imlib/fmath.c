@@ -16,6 +16,9 @@
 #define M_PI_2    1.57079632f
 #define M_PI_4    0.78539816f
 
+#include <math.h>
+#include <k230_math.h>
+
 const float __atanf_lut[4] = {
     -0.0443265554792128f,    //p7
     -0.3258083974640975f,    //p3
@@ -23,14 +26,12 @@ const float __atanf_lut[4] = {
     +0.9997878412794807f     //p1
 };
 
-#if (__ARM_ARCH < 7)
-#include <math.h>
 float OMV_ATTR_ALWAYS_INLINE fast_sqrtf(float x) {
-    return sqrtf(x);
+    return k230_sqrtf(x);
 }
 
 int OMV_ATTR_ALWAYS_INLINE fast_floorf(float x) {
-    return floorf(x);
+    return k230_floorf(x);
 }
 
 int OMV_ATTR_ALWAYS_INLINE fast_ceilf(float x) {
@@ -42,54 +43,14 @@ int OMV_ATTR_ALWAYS_INLINE fast_roundf(float x) {
 }
 
 float OMV_ATTR_ALWAYS_INLINE fast_fabsf(float x) {
-    return fabsf(x);
+    return k230_fabsf(x);
+}
+
+#if 1
+float fast_expf(float x) {
+    return k230_expf(x);
 }
 #else
-float OMV_ATTR_ALWAYS_INLINE fast_sqrtf(float x) {
-    asm volatile (
-        "vsqrt.f32  %[r], %[x]\n"
-        : [r] "=t" (x)
-        : [x] "t"  (x));
-    return x;
-}
-
-int OMV_ATTR_ALWAYS_INLINE fast_floorf(float x) {
-    int i;
-    asm volatile (
-        "vcvtm.S32.f32  %[r], %[x]\n"
-        : [r] "=t" (i)
-        : [x] "t"  (x));
-    return i;
-}
-
-int OMV_ATTR_ALWAYS_INLINE fast_ceilf(float x) {
-    int i;
-    asm volatile (
-        "vcvtp.S32.f32  %[r], %[x]\n"
-        : [r] "=t" (i)
-        : [x] "t"  (x));
-    return i;
-}
-
-int OMV_ATTR_ALWAYS_INLINE fast_roundf(float x) {
-    int i;
-    asm volatile (
-        "vcvtr.S32.F32  %[r], %[x]\n"
-        : [r] "=t" (i)
-        : [x] "t"  (x));
-    return i;
-}
-
-float OMV_ATTR_ALWAYS_INLINE fast_fabsf(float x) {
-    asm volatile (
-        "vabs.f32  %[r], %[x]\n"
-        : [r] "=t" (x)
-        : [x] "t"  (x));
-    return x;
-}
-
-#endif
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 typedef union {
@@ -111,6 +72,7 @@ float fast_expf(float x) {
     return *((float *) &packed);
 }
 #pragma GCC diagnostic pop
+#endif
 
 /*
  * From Hackers Delight:

@@ -611,6 +611,9 @@ MP_NOINLINE int main_(int argc, char **argv) {
 
     vb_mgmt_init();
 
+    extern void py_media_vbmgmt_init(void);
+    py_media_vbmgmt_init();
+
     extern void hd_jpeg_encoder_enable(void);
     hd_jpeg_encoder_enable();
     extern void dma_dev_init(void);
@@ -850,6 +853,9 @@ main_thread_exit:
     mp_thread_deinit();
     #endif
 
+    void py_media_vbmgmt_deinit_pre(void);
+    py_media_vbmgmt_deinit_pre();
+
     gc_sweep_all();
 
     mp_deinit();
@@ -876,9 +882,6 @@ main_thread_exit:
     // extern void hd_jpeg_encoder_destory(void);
     // hd_jpeg_encoder_destory();
 
-    extern void dma_dev_deinit(void);
-    dma_dev_deinit();
-
     extern void freetype_deinit(void);
     freetype_deinit();
 
@@ -887,10 +890,8 @@ main_thread_exit:
     mod_uvc_exit();
     #endif
 
-    // release all block
-    vb_mgmt_deinit();
-
-    kd_mpi_vb_exit();
+    extern void py_media_vbmgmt_deinit(void);
+    py_media_vbmgmt_deinit();
 
     // printf("total bytes = %d\n", m_get_total_bytes_allocated());
     if (process_exit) {

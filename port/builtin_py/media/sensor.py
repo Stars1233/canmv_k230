@@ -377,7 +377,7 @@ class Sensor:
             return self._imgs[chn]
         return None
 
-    def snapshot(self, chn = CAM_CHN_ID_0,timeout = 1000):
+    def snapshot(self, chn = CAM_CHN_ID_0, timeout = 1000, dump_frame = False):
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -404,6 +404,9 @@ class Sensor:
             raise RuntimeError(f"sensor({self._dev_id}) snapshot chn({chn}) failed({ret})")
 
         self._imgs[chn] = dumped_img
+
+        if dump_frame:
+            return py_video_frame_info(dumped_img.vf_info)
 
         phys_addr = dumped_img.vf_info.v_frame.phys_addr[0]
         virt_addr = dumped_img.vf_info.v_frame.virt_addr[0]

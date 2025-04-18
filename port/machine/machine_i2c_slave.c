@@ -150,10 +150,12 @@ STATIC const mp_rom_map_elem_t machine_i2c_slave_locals_dict_table[] = {
 };
 MP_DEFINE_CONST_DICT(mp_machine_i2c_slave_locals_dict, machine_i2c_slave_locals_dict_table);
 
-
+/* clang-format off */
 MP_DEFINE_CONST_OBJ_TYPE(
     machine_i2c_slave_type,
     MP_QSTR_I2C_Slave,
     MP_TYPE_FLAG_NONE,
     make_new, machine_i2c_slave_make_new,
-    locals_dict, &mp_machine_i2c_slave_locals_dict);
+    locals_dict, &mp_machine_i2c_slave_locals_dict
+);
+/* clang-format on */

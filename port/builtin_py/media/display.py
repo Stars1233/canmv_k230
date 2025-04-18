@@ -113,7 +113,7 @@ class Display:
             self.linker = MediaManager.link(self.src, self.dst)
 
         def __del__(self):
-            self.linker.__del__()
+            self.linker.destroy()
 
     # src (mod, dev, layer)
     # layer
@@ -441,12 +441,12 @@ class Display:
 
         # release all layer buffers
         if isinstance(cls._layer_rotate_buffer, MediaManager.Buffer):
-            cls._layer_rotate_buffer.__del__()
+            cls._layer_rotate_buffer.destroy()
             cls._layer_rotate_buffer = None
 
         for i in range(0, K_VO_MAX_CHN_NUMS):
             if isinstance(cls._layer_disp_buffers[i], MediaManager.Buffer):
-                cls._layer_disp_buffers[i].__del__()
+                cls._layer_disp_buffers[i].destroy()
                 cls._layer_disp_buffers[i] = None
 
         cls._osd_layer_num = 1

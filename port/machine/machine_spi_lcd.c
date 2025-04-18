@@ -777,11 +777,14 @@ STATIC void machine_spi_lcd_make_init(mp_obj_base_t *self_in, size_t n_args, con
 }
 
 STATIC mp_obj_t machine_spi_lcd_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    // create new soft I2C object
-    machine_spi_lcd_obj_t *self = mp_obj_malloc(machine_spi_lcd_obj_t, &machine_spi_lcd_type);
     mp_map_t kw_args;
+
+    machine_spi_lcd_obj_t *self = m_new_obj_with_finaliser(machine_spi_lcd_obj_t);
+    self->base.type = &machine_spi_lcd_type;
+
     mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
     machine_spi_lcd_make_init(&self->base, n_args, args, &kw_args);
+
     return MP_OBJ_FROM_PTR(self);
 }
 

@@ -143,8 +143,6 @@ STATIC mp_obj_t machine_wdt_stop(mp_obj_t self_in)
 
     machine_wdt_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
-    printf("%s->%d\n", __func__, __LINE__);
-
     if (0 <= (fd = self->wdt_fd)) {
         if (ioctl(self->wdt_fd, CTRL_WDT_RESET, NULL)) {
             mp_printf(&mp_plat_print, "reset dwt failed.\n");
@@ -170,5 +168,13 @@ STATIC const mp_rom_map_elem_t machine_wdt_locals_dict_table[] = {
 };
 STATIC MP_DEFINE_CONST_DICT(machine_wdt_locals_dict, machine_wdt_locals_dict_table);
 
-MP_DEFINE_CONST_OBJ_TYPE(machine_wdt_type, MP_QSTR_WDT, MP_TYPE_FLAG_NONE, make_new, mp_machine_wdt_make_new, print,
-                         mp_machine_wdt_print, locals_dict, &machine_wdt_locals_dict);
+/* clang-format off */
+MP_DEFINE_CONST_OBJ_TYPE(
+    machine_wdt_type,
+    MP_QSTR_WDT,
+    MP_TYPE_FLAG_NONE,
+    make_new, mp_machine_wdt_make_new,
+    print, mp_machine_wdt_print,
+    locals_dict, &machine_wdt_locals_dict
+);
+/* clang-format on */

@@ -23,30 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "generated/autoconf.h"
-
 #include "py/obj.h"
 #include "py/runtime.h"
 
 #include "py_modules.h"
 
-STATIC const mp_rom_map_elem_t media_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__media) },
+STATIC const mp_rom_map_elem_t nonai2d_module_globals_table[] = {
+    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_nonai2d) },
 
-    { MP_ROM_QSTR(MP_QSTR_py_video_frame), MP_ROM_PTR(&py_media_video_frame_type) },
-    { MP_ROM_QSTR(MP_QSTR_py_video_frame_info), MP_ROM_PTR(&py_media_video_frame_info_type) },
-    
-    { MP_ROM_QSTR(MP_QSTR__MediaManager), MP_ROM_PTR(&py_media_vbmgmt_type) },
-
-#if defined(CONFIG_ENABLE_UVC_CAMERA)
-    { MP_ROM_QSTR(MP_QSTR_UVC), MP_ROM_PTR(&py_media_uvc_type) },
-#endif // CONFIG_ENABLE_UVC_CAMERA
+    { MP_ROM_QSTR(MP_QSTR_CSC), MP_ROM_PTR(&py_nonai_2d_csc_type) },
 };
-STATIC MP_DEFINE_CONST_DICT(media_module_globals, media_module_globals_table);
+STATIC MP_DEFINE_CONST_DICT(nonai2d_module_globals, nonai2d_module_globals_table);
 
-const mp_obj_module_t media_module = {
+const mp_obj_module_t nonai2d_module = {
     .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t*)&media_module_globals,
+    .globals = (mp_obj_dict_t*)&nonai2d_module_globals,
 };
 
-MP_REGISTER_MODULE(MP_QSTR__media, media_module);
+MP_REGISTER_MODULE(MP_QSTR_nonai2d, nonai2d_module);

@@ -33,7 +33,7 @@ class Encoder:
             self._audio_frame.virt_addr = self.buffer.virt_addr
 
     def _deinit_audio_frame(self):
-        self.buffer.__del__()
+        self.buffer.destroy()
         self.buffer = None
 
     @classmethod
@@ -121,7 +121,7 @@ class Decoder:
             self._audio_stream.stream = self.buffer.virt_addr
 
     def _deinit_audio_stream(self):
-        self.buffer.__del__()
+        self.buffer.destroy()
         self.buffer = None
 
     @classmethod

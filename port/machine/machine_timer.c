@@ -258,6 +258,7 @@ STATIC const mp_rom_map_elem_t machine_timer_locals_dict_table[] = {
 };
 STATIC MP_DEFINE_CONST_DICT(machine_timer_locals_dict, machine_timer_locals_dict_table);
 
+/* clang-format off */
 MP_DEFINE_CONST_OBJ_TYPE(
     machine_timer_type,
     MP_QSTR_Timer,
@@ -265,4 +266,5 @@ MP_DEFINE_CONST_OBJ_TYPE(
     make_new, machine_timer_make_new,
     print, machine_timer_print,
     locals_dict, &machine_timer_locals_dict
-    );
+);
+/* clang-format on */
