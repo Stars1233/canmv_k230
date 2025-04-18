@@ -44,6 +44,8 @@ def server():
     print("Connect address:", addr)
     #绑定
     s.bind(addr)
+    #设置为非阻塞
+    s.settimeout(0)
     #监听
     s.listen(5)
     print("tcp server %s port:%d\n" % ((ip),8080))

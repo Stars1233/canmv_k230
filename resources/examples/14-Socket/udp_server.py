@@ -39,6 +39,8 @@ def udpserver():
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     #绑定
     s.bind(addr)
+    #设置为非阻塞
+    s.settimeout(0)
     #延时
     time.sleep(1)
     

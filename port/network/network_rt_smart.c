@@ -645,15 +645,24 @@ STATIC mp_uint_t network_rt_wlan_socket_recvfrom(struct _mod_network_socket_obj_
 
 _check_timeout:
         if(0x00 == timeout_ms) { // non blocking
+            *port = ntohs(addr.sin_port);
+            memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
+        
             return received;
         } else if((-1) == timeout_ms) { // blocking
         } else {
             curr_tick_ms = mp_hal_ticks_ms();
             if(curr_tick_ms > stop_ms) {
+                *port = ntohs(addr.sin_port);
+                memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
+            
                 return received;
             }
         }
     } while(received < len);
+
+    *port = ntohs(addr.sin_port);
+    memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
 
     return received;
 #endif
