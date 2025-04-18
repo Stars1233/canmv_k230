@@ -243,7 +243,7 @@ STATIC void py_uvc_video_mode_attr(mp_obj_t self_in, qstr attr, mp_obj_t* dest)
 }
 
 /* clang-format off */
-MP_DEFINE_CONST_OBJ_TYPE(
+STATIC MP_DEFINE_CONST_OBJ_TYPE(
     py_uvc_video_mode_type,
     MP_QSTR_uvc_video_mode,
     MP_TYPE_FLAG_NONE,
