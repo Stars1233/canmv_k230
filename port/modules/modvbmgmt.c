@@ -75,7 +75,6 @@ mp_obj_t py_media_vbmgmt_buffer_from_struct(py_media_vbmgmt_buffer_t* buffer)
     }
 
     o->is_destroyed = 0;
-    o->_cobj.handle = VB_INVALID_HANDLE;
 
     return MP_OBJ_FROM_PTR(o);
 }
@@ -376,6 +375,11 @@ void py_media_vbmgmt_deinit(void)
     ide_dbg_vo_wbc_deinit();
     dma_dev_deinit();
 
+    #if defined (CONFIG_ENABLE_UVC_CAMERA)
+    extern void mod_uvc_exit();
+    mod_uvc_exit();
+    #endif
+
     vb_mgmt_deinit();
 
     kd_mpi_vb_exit();
@@ -545,6 +549,7 @@ STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(py_media_vbmgmt_init_method, MP_ROM_PTR(
 
 STATIC mp_obj_t py_media_vbmgmt_deinit_mp(size_t n_args, const mp_obj_t* args)
 {
+    py_media_vbmgmt_deinit_pre();
     py_media_vbmgmt_deinit();
 
     return mp_const_none;

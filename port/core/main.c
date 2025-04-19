@@ -885,11 +885,6 @@ main_thread_exit:
     extern void freetype_deinit(void);
     freetype_deinit();
 
-    #if defined (CONFIG_ENABLE_UVC_CAMERA)
-    extern void mod_uvc_exit();
-    mod_uvc_exit();
-    #endif
-
     extern void py_media_vbmgmt_deinit(void);
     py_media_vbmgmt_deinit();
 
