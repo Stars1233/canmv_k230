@@ -56,6 +56,7 @@ typedef struct _machine_wdt_obj_t {
     wdt_device_number_t id;
     uint32_t            timeout;
     int                 wdt_fd;
+    int                 auto_close;
 } machine_wdt_obj_t;
 
 STATIC uint8_t used[WDT_DEVICE_MAX];
@@ -69,10 +70,11 @@ STATIC void mp_machine_wdt_print(const mp_print_t* print, mp_obj_t self_in, mp_p
 STATIC mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_args, size_t n_kw,
                                         const mp_obj_t* all_args)
 {
-    enum { ARG_id, ARG_timeout };
+    enum { ARG_id, ARG_timeout, ARG_auto_close };
     const mp_arg_t allowed_args[] = {
         { MP_QSTR_id, MP_ARG_INT, { .u_int = 1 } },
         { MP_QSTR_timeout, MP_ARG_INT, { .u_int = 5 } },
+        { MP_QSTR_auto_close, MP_ARG_BOOL | MP_ARG_KW_ONLY, { .u_bool = true } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -93,10 +95,11 @@ STATIC mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_a
 
     machine_wdt_obj_t* self = m_new_obj_with_finaliser(machine_wdt_obj_t);
 
-    self->base.type = &machine_wdt_type;
-    self->wdt_fd    = -1;
-    self->id        = args[ARG_id].u_int;
-    self->timeout   = args[ARG_timeout].u_int;
+    self->base.type  = &machine_wdt_type;
+    self->wdt_fd     = -1;
+    self->id         = args[ARG_id].u_int;
+    self->timeout    = args[ARG_timeout].u_int;
+    self->auto_close = args[ARG_auto_close].u_bool;
 
     char device_name[32];
     sprintf(device_name, "/dev/watchdog%u", self->id);
@@ -143,7 +146,7 @@ STATIC mp_obj_t machine_wdt_stop(mp_obj_t self_in)
 
     machine_wdt_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
-    if (0 <= (fd = self->wdt_fd)) {
+    if ((0 <= (fd = self->wdt_fd)) && (self->auto_close)) {
         if (ioctl(self->wdt_fd, CTRL_WDT_RESET, NULL)) {
             mp_printf(&mp_plat_print, "reset dwt failed.\n");
         }
