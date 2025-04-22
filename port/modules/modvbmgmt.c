@@ -72,6 +72,7 @@ mp_obj_t py_media_vbmgmt_buffer_from_struct(py_media_vbmgmt_buffer_t* buffer)
         mp_obj_list_append(MP_STATE_PORT(py_media_vbmgmt_buffer_list), o);
     } else {
         memset(&o->_cobj, 0x00, sizeof(py_media_vbmgmt_buffer_t));
+        o->_cobj.handle = VB_INVALID_HANDLE;
     }
 
     o->is_destroyed = 0;

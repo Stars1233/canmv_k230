@@ -38,11 +38,12 @@
 
 #include "modmachine.h"
 
+#include "drivers/drv_fpioa.h"
+
 #define MAX_PIN_NUM 64
 #define PIN_FUNC_NUM 5
 #define FUNC_ALT_PIN_NUM 4
 #define TEMP_STR_LEN 128
-#define IOMUX_REG_ADD 0X91105000
 
 typedef struct {
     mp_obj_base_t base;
@@ -480,38 +481,6 @@ static const uint8_t g_pin_func_array[][PIN_FUNC_NUM] = {
 
 #pragma pack ()
 
-static int fpioa_drv_reg_get_or_set(uint32_t pin, uint32_t *value, int set_flage) {
-    static volatile uint32_t *reg_base = NULL;
-
-    if (reg_base == NULL) {
-        int mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-        if (mem_fd < 0) {
-            return -1;
-        }
-        reg_base = (uint32_t *)mmap(NULL, 4 * MAX_PIN_NUM, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, IOMUX_REG_ADD);
-        close(mem_fd);
-        if (reg_base == NULL) {
-            return -2;
-        }
-    }
-
-    if (set_flage) {
-        *(reg_base + pin) = (*(reg_base + pin) & 0x200) | *value;
-    } else {
-        *value = *(reg_base + pin);
-    }
-
-    return 0;
-}
-
-int fpioa_drv_reg_set(uint32_t pin, uint32_t value) {
-    return fpioa_drv_reg_get_or_set(pin, &value, 1);
-}
-
-int fpioa_drv_reg_get(uint32_t pin, uint32_t *value) {
-    return fpioa_drv_reg_get_or_set(pin, value, 0);
-}
-
 static int fpioa_drv_func_2_pin_io_sel(uint32_t func, uint32_t pin) {
     for (int i = 0; i < PIN_FUNC_NUM; i++) {
         if (func == g_pin_func_array[pin][i]) {
@@ -523,14 +492,14 @@ static int fpioa_drv_func_2_pin_io_sel(uint32_t func, uint32_t pin) {
 }
 
 static int fpioa_drv_get_pin_from_func(uint32_t func) {
-    struct st_iomux_reg reg_value;
+    fpioa_iomux_cfg_t reg_value;
 
     for (int i = 0; i < MAX_PIN_NUM; i++) {
         int io_sel = fpioa_drv_func_2_pin_io_sel(func, i);
         if (io_sel < 0) {
             continue;
         }
-        if (fpioa_drv_reg_get(i, (uint32_t *)&reg_value)) {
+        if (drv_fpioa_get_pin_cfg(i, (uint32_t *)&reg_value)) {
             return -1;
         }
         if (reg_value.u.bit.io_sel == io_sel) {
@@ -562,9 +531,9 @@ static int fpioa_drv_get_pins_from_func(uint32_t func, uint8_t *pins) {
 }
 
 static int fpioa_drv_get_func_from_pin(uint32_t pin) {
-    struct st_iomux_reg reg_value;
+    fpioa_iomux_cfg_t reg_value;
 
-    if (fpioa_drv_reg_get(pin, (uint32_t *)&reg_value)) {
+    if (drv_fpioa_get_pin_cfg(pin, (uint32_t *)&reg_value)) {
         return -1;
     }
 
@@ -598,10 +567,10 @@ static char *fpioa_drv_get_pin_funcs_str(uint32_t pin, char *str, uint32_t len) 
 }
 
 static char *fpioa_drv_get_pin_func_str(uint32_t pin, char *str, uint32_t len, int detail_flage) {
-    struct st_iomux_reg reg_value;
+    fpioa_iomux_cfg_t reg_value;
     int cur_pos = 0;
 
-    if (fpioa_drv_reg_get(pin, (uint32_t *)&reg_value)) {
+    if (drv_fpioa_get_pin_cfg(pin, (uint32_t *)&reg_value)) {
         return str;
     }
 
@@ -618,7 +587,7 @@ static char *fpioa_drv_get_pin_func_str(uint32_t pin, char *str, uint32_t len, i
             "ie:%d,oe:%d,pd:%d,pu:%d,msc:%s,ds:%d,st:%d,sl:%d,di:%d",
             reg_value.u.bit.ie, reg_value.u.bit.oe, reg_value.u.bit.pd, reg_value.u.bit.pu,
             ((reg_value.u.bit.msc) ? "1-1.8v" : "0-3.3v"), reg_value.u.bit.ds, reg_value.u.bit.st,
-            reg_value.u.bit.sl, reg_value.u.bit.di);
+            reg_value.u.bit.rsv_bit10, reg_value.u.bit.di);
     }
 
     return str;
@@ -627,7 +596,7 @@ static char *fpioa_drv_get_pin_func_str(uint32_t pin, char *str, uint32_t len, i
 static uint32_t fpioa_drv_extract_cfg(mp_arg_val_t *args) {
     enum { ARG_pin, ARG_func, ARG_ie, ARG_oe, ARG_pu, ARG_pd, ARG_ds, ARG_st, ARG_sl };
     int pin, func, sel, tmp;
-    struct st_iomux_reg cfg;
+    fpioa_iomux_cfg_t cfg;
 
     pin = args[ARG_pin].u_int;
     func = args[ARG_func].u_int;
@@ -671,7 +640,7 @@ static uint32_t fpioa_drv_extract_cfg(mp_arg_val_t *args) {
     }
     tmp = args[ARG_sl].u_int;
     if (tmp != -1) {
-        cfg.u.bit.sl = tmp > 0 ? 1 : 0;
+        cfg.u.bit.rsv_bit10 = tmp > 0 ? 1 : 0;
     }
     tmp = args[ARG_ds].u_int;
     if (tmp != -1) {
@@ -728,10 +697,10 @@ STATIC mp_obj_t machine_fpioa_set_function(size_t n_args, const mp_obj_t *pos_ar
         if (pins[i] == pin || fpioa_drv_get_func_from_pin(pins[i]) != func) {
             continue;
         }
-        fpioa_drv_reg_set(pins[i], 0);
+        drv_fpioa_set_pin_cfg(pins[i], 0);
     }
 
-    fpioa_drv_reg_set(pin, cfg);
+    drv_fpioa_set_pin_cfg(pin, cfg);
 
     return mp_const_none;
 }

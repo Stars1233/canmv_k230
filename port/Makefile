@@ -172,9 +172,10 @@ CANMV_SRC_C += \
 
 CANMV_SRC_C += $(addprefix shared/,\
 	runtime/gchelper_generic.c \
+	runtime/pyexec.c \
+	runtime/mpirq.c \
 	timeutils/timeutils.c \
 	readline/readline.c \
-	runtime/pyexec.c \
 	netutils/netutils.c \
 	)
 

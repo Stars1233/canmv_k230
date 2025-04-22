@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, Canaan Bright Sight Co., Ltd
+/* Copyright (c) 2025, Canaan Bright Sight Co., Ltd
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -22,33 +22,62 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdint.h>
+#include <stdio.h>
 
-#ifndef __MOD_MACHINE_H__
-#define __MOD_MACHINE_H__
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
-#include "py/obj.h"
+#include "drivers/drv_fpioa.h"
 
-int machine_i2c_obj_get_fd(mp_obj_t self_in);
+#define IOMUX_REG_ADD 0X91105000
 
-int  machine_pin_get_pin_numer(mp_obj_t self_in);
-void machine_pin_value_set(mp_obj_t self_in, int value);
-int  machine_pin_value_get(mp_obj_t self_in);
+static volatile uint32_t* fpioa_reg = NULL;
 
-extern const mp_obj_type_t machine_adc_type;
-extern const mp_obj_type_t machine_fft_type;
-extern const mp_obj_type_t machine_fpioa_type;
-extern const mp_obj_type_t machine_i2c_type;
-extern const mp_obj_type_t machine_i2c_slave_type;
-extern const mp_obj_type_t machine_led_type;
-extern const mp_obj_type_t machine_pin_type;
-extern const mp_obj_type_t machine_pwm_type;
-extern const mp_obj_type_t machine_rtc_type;
-extern const mp_obj_type_t machine_spi_type;
-extern const mp_obj_type_t machine_spi_lcd_type;
-extern const mp_obj_type_t machine_timer_type;
-extern const mp_obj_type_t machine_touch_type;
-extern const mp_obj_type_t machine_touch_user_type;
-extern const mp_obj_type_t machine_uart_type;
-extern const mp_obj_type_t machine_wdt_type;
+static volatile uint32_t* check_fpioa(void)
+{
+    if (NULL == fpioa_reg) {
+        int mem_fd = -1;
+        if (0 > mem_fd) {
+            if (0 > (mem_fd = open("/dev/mem", O_RDWR | O_SYNC))) {
+                printf("open /dev/mem failed\n");
+                return NULL;
+            }
+        }
 
-#endif // __MOD_MACHINE_H__
+        fpioa_reg = (uint32_t*)mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, IOMUX_REG_ADD);
+
+        close(mem_fd);
+        mem_fd = -1;
+
+        if (fpioa_reg == NULL) {
+            printf("mmap fpioa failed\n");
+            return NULL;
+        }
+    }
+
+    return fpioa_reg;
+}
+
+int drv_fpioa_get_pin_cfg(int pin, uint32_t* value)
+{
+    if (NULL == check_fpioa()) {
+        return -1;
+    }
+    *value = *(fpioa_reg + pin);
+
+    return 0;
+}
+
+int drv_fpioa_set_pin_cfg(int pin, uint32_t value)
+{
+    if (NULL == check_fpioa()) {
+        return -1;
+    }
+    *(fpioa_reg + pin) = (*(fpioa_reg + pin) & 0x200) | value;
+
+    return 0;
+}

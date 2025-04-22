@@ -4021,7 +4021,7 @@ static mp_obj_t py_image_get_statistics(size_t n_args, const mp_obj_t *args, mp_
             break;
         }
         default: {
-            return MP_OBJ_NULL;
+            return mp_const_none;
         }
     }
 

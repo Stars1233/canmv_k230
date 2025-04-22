@@ -37,13 +37,13 @@
 
 #include "modmachine.h"
 
-#define CTRL_WDT_GET_TIMEOUT  _IOW('W', 1, int) /* get timeout(in seconds) */
-#define CTRL_WDT_SET_TIMEOUT  _IOW('W', 2, int) /* set timeout(in seconds) */
-#define CTRL_WDT_GET_TIMELEFT _IOW('W', 3, int) /* get the left time before reboot(in seconds) */
-#define CTRL_WDT_KEEPALIVE    _IOW('W', 4, int) /* refresh watchdog */
-#define CTRL_WDT_START        _IOW('W', 5, int) /* start watchdog */
-#define CTRL_WDT_STOP         _IOW('W', 6, int) /* stop watchdog */
-#define CTRL_WDT_RESET        _IOW('W', 7, int) /* reset watchdog */
+#define CTRL_WDT_GET_TIMEOUT    _IOW('W', 1, int) /* get timeout(in seconds) */
+#define CTRL_WDT_SET_TIMEOUT    _IOW('W', 2, int) /* set timeout(in seconds) */
+#define CTRL_WDT_GET_TIMELEFT   _IOW('W', 3, int) /* get the left time before reboot(in seconds) */
+#define CTRL_WDT_KEEPALIVE      _IOW('W', 4, int) /* refresh watchdog */
+#define CTRL_WDT_START          _IOW('W', 5, int) /* start watchdog */
+#define CTRL_WDT_STOP           _IOW('W', 6, int) /* stop watchdog */
+#define CTRL_WDT_SET_PRETIMEOUT _IOW('W', 7, int) /* set pretimeout(in seconds) */
 
 typedef enum _wdt_device_number {
     WDT_DEVICE_0,
@@ -89,7 +89,7 @@ STATIC mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_a
         mp_raise_ValueError("WDT timeout too short");
     }
 
-    if (used[args[ARG_id].u_int] == 1) {
+    if (used[args[ARG_id].u_int]) {
         mp_raise_ValueError("WDT id is used");
     }
 
@@ -147,7 +147,7 @@ STATIC mp_obj_t machine_wdt_stop(mp_obj_t self_in)
     machine_wdt_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
     if ((0 <= (fd = self->wdt_fd)) && (self->auto_close)) {
-        if (ioctl(self->wdt_fd, CTRL_WDT_RESET, NULL)) {
+        if (ioctl(self->wdt_fd, CTRL_WDT_STOP, NULL)) {
             mp_printf(&mp_plat_print, "reset dwt failed.\n");
         }
 

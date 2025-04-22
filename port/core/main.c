@@ -525,6 +525,9 @@ MP_NOINLINE int main_(int argc, char **argv) {
     mod_network_init();
     #endif
 
+    extern void _machine_pin_init(void);
+    _machine_pin_init();
+
     #if MICROPY_VFS_POSIX
     {
         // Mount the host FS at the root of our internal VFS

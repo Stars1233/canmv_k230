@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, Canaan Bright Sight Co., Ltd
+/* Copyright (c) 2025, Canaan Bright Sight Co., Ltd
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,32 +23,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __MOD_MACHINE_H__
-#define __MOD_MACHINE_H__
+#pragma once
 
-#include "py/obj.h"
+#include <stdint.h>
 
-int machine_i2c_obj_get_fd(mp_obj_t self_in);
+typedef struct _fpioa_iomux_cfg {
+    union {
+        struct {
+            uint32_t st : 1; // bit 0    输入施密特触发器控制使能
+            uint32_t ds : 4; // bit 1-4  驱动电流控制
+            uint32_t pd : 1; // bit 5    下拉使能
+            uint32_t pu : 1; // bit 6    上拉使能
+            uint32_t oe : 1; // bit 7    输出使能
+            uint32_t ie : 1; // bit 8    输入使能
+            uint32_t msc : 1; // bit 9    电压选择 !!! be careful !!!
+            uint32_t rsv_bit10 : 1; // bit 10
+            uint32_t io_sel : 3; // bit 11-13 复用功能选择
+            uint32_t rsv_bit14_30 : 17; // bit 14-30
+            uint32_t di : 1; // bit 31   当前PAD输入到芯片内部的数据(即PAD的C端)
+        } bit;
+        uint32_t value;
+    } u;
+} fpioa_iomux_cfg_t;
 
-int  machine_pin_get_pin_numer(mp_obj_t self_in);
-void machine_pin_value_set(mp_obj_t self_in, int value);
-int  machine_pin_value_get(mp_obj_t self_in);
+int drv_fpioa_get_pin_cfg(int pin, uint32_t* value);
 
-extern const mp_obj_type_t machine_adc_type;
-extern const mp_obj_type_t machine_fft_type;
-extern const mp_obj_type_t machine_fpioa_type;
-extern const mp_obj_type_t machine_i2c_type;
-extern const mp_obj_type_t machine_i2c_slave_type;
-extern const mp_obj_type_t machine_led_type;
-extern const mp_obj_type_t machine_pin_type;
-extern const mp_obj_type_t machine_pwm_type;
-extern const mp_obj_type_t machine_rtc_type;
-extern const mp_obj_type_t machine_spi_type;
-extern const mp_obj_type_t machine_spi_lcd_type;
-extern const mp_obj_type_t machine_timer_type;
-extern const mp_obj_type_t machine_touch_type;
-extern const mp_obj_type_t machine_touch_user_type;
-extern const mp_obj_type_t machine_uart_type;
-extern const mp_obj_type_t machine_wdt_type;
-
-#endif // __MOD_MACHINE_H__
+int drv_fpioa_set_pin_cfg(int pin, uint32_t value);
