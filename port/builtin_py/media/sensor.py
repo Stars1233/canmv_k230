@@ -216,6 +216,7 @@ class Sensor:
         # self._dev_attr.mode = VICAP_WORK_OFFLINE_MODE
         self._dev_attr.input_type = VICAP_INPUT_TYPE_SENSOR
         self._dev_attr.mirror = def_mirror
+        self._dev_attr.fastboot = 0
 
         self.fd = -1
         self.sensor_name = ""

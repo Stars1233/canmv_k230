@@ -176,6 +176,7 @@ k_vicap_dev_attr_desc = {
     "buffer_num": 96+8 | uctypes.UINT32,
     "buffer_size": 100+8 | uctypes.UINT32,
     "mirror": 104+8 | uctypes.UINT32,
+    "fastboot": 116 | uctypes.UINT8
 }
 
 def k_vicap_dev_attr_parse(s, kwargs):
@@ -194,6 +195,7 @@ def k_vicap_dev_attr_parse(s, kwargs):
     s.buffer_num = kwargs.get("buffer_num", 0)
     s.buffer_size = kwargs.get("buffer_size", 0)
     s.mirror = kwargs.get("mirror", 0)
+    s.fastboot = kwargs.get("fastboot", 0)
 
 k_vicap_sensor_attr_desc = {
     "dev_num": 0 | uctypes.UINT32,
