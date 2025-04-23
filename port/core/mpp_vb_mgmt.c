@@ -713,7 +713,7 @@ k_s32 vb_mgmt_deinit(void)
     {
         vb_mgmt_deinit_vicap(i);
     }
-    usleep(1000 * 100);
+    usleep(1000 * 50);
 
     vb_mgmt_disable_vo_layers();
 

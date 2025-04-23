@@ -157,14 +157,14 @@ extern const struct _mp_print_t mp_stderr_print;
 
 // In lieu of a WFI(), slow down polling from being a tight loop.
 #ifndef MICROPY_EVENT_POLL_HOOK
-#define MICROPY_EVENT_POLL_HOOK \
-    do { \
-        extern void mp_handle_pending(bool); \
-        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP); \
-        mp_handle_pending(true); \
-        MP_THREAD_GIL_EXIT(); \
-        usleep(500); /* equivalent to mp_hal_delay_us(500) */ \
-        MP_THREAD_GIL_ENTER(); \
+#define MICROPY_EVENT_POLL_HOOK                                                                                        \
+    do {                                                                                                               \
+        extern void mp_handle_pending(bool);                                                                           \
+        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);                                                                   \
+        mp_handle_pending(true);                                                                                       \
+        MP_THREAD_GIL_EXIT();                                                                                          \
+        usleep(1000);                                                                                                  \
+        MP_THREAD_GIL_ENTER();                                                                                         \
     } while (0);
 #endif
 

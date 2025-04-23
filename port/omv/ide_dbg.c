@@ -155,7 +155,7 @@ void mpy_stdout_tx(const char* data, size_t size) {
     if (size > TX_BUF_WRITABLE) {
         pthread_mutex_unlock(&tx_buf_mutex);
         while (size > TX_BUF_WRITABLE) {
-            usleep(2000);
+            usleep(1000);
         }
         pthread_mutex_lock(&tx_buf_mutex);
     }
@@ -217,7 +217,7 @@ void ide_dbg_on_script_end(void) {
     // wait print done
     int count = 0;
     while (tx_buf_w_ptr != tx_buf_r_ptr && count < 100) {
-        usleep(10000);
+        usleep(1000);
         count++;
     }
     ide_script_running = 0;
@@ -508,7 +508,7 @@ int ide_dbg_vo_wbc_deinit(void) {
     *(uint32_t *)(vo_base + 0x004) = 0x11;
     munmap(vo_base, 4096);
     close(fd);
-    usleep(50000);
+    usleep(5000);
 
     kd_mpi_vo_disable_wbc();
 
@@ -659,7 +659,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         pr_verb("cmd: USBDBG_SCRIPT_EXEC size %u", state->data_length);
                         if (ide_script_running != 0)
                             mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
-                        usleep(100000);
+                        usleep(1000);
                         if (ide_script_running != 0)
                             break;
                         // recv script string
