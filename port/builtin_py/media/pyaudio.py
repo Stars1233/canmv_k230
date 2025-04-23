@@ -23,7 +23,7 @@ USE_EXTERN_BUFFER_CONFIG = True
 
 def _vb_pool_init(frames_per_buffer=1024):
     config = k_vb_config()
-    config.max_pool_cnt = 64
+    config.max_pool_cnt = 2
     config.comm_pool[0].blk_cnt = 50
     config.comm_pool[0].blk_size = int(frames_per_buffer * 2 * 4)
     config.comm_pool[0].mode = VB_REMAP_MODE_NOCACHE
@@ -53,7 +53,7 @@ def _vb_pool_deinit():
 
 def _vb_buffer_init(frames_per_buffer=1024):
     config = k_vb_config()
-    config.max_pool_cnt = 64
+    config.max_pool_cnt = 2
     config.comm_pool[0].blk_cnt = 50
     config.comm_pool[0].blk_size = int(frames_per_buffer * 2 * 4)
     config.comm_pool[0].mode = VB_REMAP_MODE_NOCACHE
@@ -120,10 +120,11 @@ class Stream:
     def volume(self,vol = None, channel = LEFT_RIGHT):
         pass
 
-    def enable_audio3a(self, audio3a_value):
+    def swap_left_right(self, state = True):
         pass
 
-
+    def enable_audio3a(self, audio3a_value):
+        pass
 
 class Write_stream(Stream):
     dev_chn_enable = {0:False,1:False}
@@ -238,6 +239,9 @@ class Write_stream(Stream):
         else:
             return ao_set_vol(vol, channel)
 
+    def swap_left_right(self, state = True):
+        return ao_swap_left_right(state)
+
 class Read_stream(Stream):
     dev_chn_enable = {0:False,1:False}
     def __init__(self,
@@ -335,6 +339,9 @@ class Read_stream(Stream):
             return ai_get_vol()
         else:
             return ai_set_vol(vol, channel)
+
+    def swap_left_right(self, state = True):
+        return ai_swap_left_right(state)
 
     def enable_audio3a(self, audio3a_value):
         aio_vqe_enable = k_ai_vqe_enable()
