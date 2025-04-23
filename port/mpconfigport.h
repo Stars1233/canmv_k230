@@ -45,7 +45,7 @@
 #define MICROPY_PY_SYS_PLATFORM  "rt-smart"
 
 #ifndef MICROPY_PY_SYS_PATH_DEFAULT
-#define MICROPY_PY_SYS_PATH_DEFAULT ".frozen:/sdcard:/data"
+#define MICROPY_PY_SYS_PATH_DEFAULT ".frozen:/sdcard:/data:/data/lib"
 #endif
 
 #define MP_STATE_PORT MP_STATE_VM
@@ -267,7 +267,7 @@ extern const struct _mp_print_t mp_stderr_print;
 #endif
 
 // Enable the "websocket" module.
-#define MICROPY_PY_WEBSOCKET           (0)
+#define MICROPY_PY_WEBSOCKET           (1)
 
 // Enable the "machine" module, mostly for machine.mem*.
 #define MICROPY_PY_MACHINE             (1)
