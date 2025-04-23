@@ -274,6 +274,13 @@ class Read_stream(Stream):
         if (self._is_running):
             self.start_stream()
 
+        import os
+        brd = os.uname()[-1]
+        if brd == "k230_canmv_lckfb":
+            self.swap_left_right()
+        del brd
+        del os
+
     def start_stream(self):
         if (not self._start_stream):
             #init device only once
