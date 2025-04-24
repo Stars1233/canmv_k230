@@ -38,7 +38,7 @@
 
 #include "modmachine.h"
 
-#include "drivers/drv_fpioa.h"
+#include "drv_fpioa.h"
 
 #define MAX_PIN_NUM 64
 #define PIN_FUNC_NUM 5

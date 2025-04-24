@@ -34,8 +34,8 @@
 
 #include "modmachine.h"
 
-#include "drivers/drv_fpioa.h"
-#include "drivers/drv_gpio.h"
+#include "drv_fpioa.h"
+#include "drv_gpio.h"
 #include "qstr.h"
 
 #define GPIO_MODE_INPUT     (GPIO_DM_INPUT)

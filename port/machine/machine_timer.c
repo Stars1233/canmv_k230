@@ -43,7 +43,7 @@
 
 #include "modmachine.h"
 
-#include "drivers/drv_timer.h"
+#include "drv_timer.h"
 
 /** soft timer wrap **********************************************************/
 static int soft_timer_type = 0;

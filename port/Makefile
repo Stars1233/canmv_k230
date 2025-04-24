@@ -25,6 +25,7 @@ include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libmpp.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libopencv.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libnncase.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart_hal.mk
 
 -include $(BUILD)/CANMV_VER
 CANMV_VER = $(shell git describe --tags --always `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
@@ -61,7 +62,7 @@ INC += -I3rd-party/lv_bindings
 INC += -I$(SDK_CANMV_BUILD_DIR)/freetype/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_server/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/mp4_format/include
-INC += $(SDK_MPP_USER_INC) $(SDK_RTSMART_INC) $(NNCASE_INC) $(OPENCV_INC)
+INC += $(SDK_MPP_USER_INC) $(SDK_RTSMART_INC) $(RTSMART_HAL_INC) $(NNCASE_INC) $(OPENCV_INC)
 
 INC += -I$(TOP)
 INC += -I$(TOP)/py
@@ -109,8 +110,8 @@ LDFLAGS += -T core/link.lds --static
 # rtsp server
 RTSP_SERVER_LIBS := -L$(SDK_RTSMART_SRC_DIR)/mpp/middleware/lib -lrtsp_server -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment
 
-LDFLAGS_LIBS := $(NNCASE_LIB_DIR) $(OPENCV_LIB_DIR) $(SDK_MPP_USER_LIB_DIR) $(SDK_MPP_MIDDLEWARE_LIB_DIR) -L$(SDK_CANMV_BUILD_DIR)/freetype/
-LDFLAGS_LIBS += -Wl,--start-group -lm -lpthread -lfreetype -lmp4 $(NNCASE_LIBS) $(OPENCV_LIBS) $(SDK_MPP_USER_LIBS) $(RTSP_SERVER_LIBS) -Wl,--end-group
+LDFLAGS_LIBS := $(NNCASE_LIB_DIR) $(OPENCV_LIB_DIR) $(SDK_MPP_USER_LIB_DIR) $(SDK_MPP_MIDDLEWARE_LIB_DIR) $(RTSMART_HAL_LIB_DIR) -L$(SDK_CANMV_BUILD_DIR)/freetype/
+LDFLAGS_LIBS += -Wl,--start-group -lm -lpthread -lfreetype -lmp4 $(NNCASE_LIBS) $(OPENCV_LIBS) $(SDK_MPP_USER_LIBS) $(RTSP_SERVER_LIBS) $(RTSMART_HAL_LIBS) -Wl,--end-group
 
 LDFLAGS += $(LDFLAGS_MOD) $(LDFLAGS_ARCH) $(LDFLAGS_LIBS) $(LDFLAGS_EXTRA)
 
