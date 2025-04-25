@@ -1,8 +1,8 @@
 ifneq ($(MKENV_INCLUDED),1)
 export SDK_SRC_ROOT_DIR := $(realpath $(dir $(realpath $(lastword $(MAKEFILE_LIST))))/../../)
+endif
 
 include $(SDK_SRC_ROOT_DIR)/tools/mkenv.mk
-endif
 
 ifneq ($(shell [ -d ${SDK_BUILD_IMAGES_DIR}/sdcard/ ] && echo 1 || echo 0),1)
 $(shell mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/)
