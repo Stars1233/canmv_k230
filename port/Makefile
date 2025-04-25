@@ -26,6 +26,7 @@ include $(SDK_RTSMART_SRC_DIR)/libs/mk/libmpp.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libopencv.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libnncase.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart_hal.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/lib3rdparty.mk
 
 -include $(BUILD)/CANMV_VER
 CANMV_VER = $(shell git describe --tags --always `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
@@ -59,10 +60,9 @@ INC += -Iomv/modules
 INC += -I3rd-party/ulab
 INC += -I3rd-party/wrap
 INC += -I3rd-party/lv_bindings
-INC += -I$(SDK_CANMV_BUILD_DIR)/freetype/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_server/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/mp4_format/include
-INC += $(SDK_MPP_USER_INC) $(SDK_RTSMART_INC) $(RTSMART_HAL_INC) $(NNCASE_INC) $(OPENCV_INC)
+INC += $(SDK_MPP_USER_INC) $(SDK_RTSMART_INC) $(RTSMART_HAL_INC) $(RTSMART_3RD_PARTY_INC) $(NNCASE_INC) $(OPENCV_INC) 
 
 INC += -I$(TOP)
 INC += -I$(TOP)/py
@@ -110,8 +110,8 @@ LDFLAGS += -T core/link.lds --static
 # rtsp server
 RTSP_SERVER_LIBS := -L$(SDK_RTSMART_SRC_DIR)/mpp/middleware/lib -lrtsp_server -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment
 
-LDFLAGS_LIBS := $(NNCASE_LIB_DIR) $(OPENCV_LIB_DIR) $(SDK_MPP_USER_LIB_DIR) $(SDK_MPP_MIDDLEWARE_LIB_DIR) $(RTSMART_HAL_LIB_DIR) -L$(SDK_CANMV_BUILD_DIR)/freetype/
-LDFLAGS_LIBS += -Wl,--start-group -lm -lpthread -lfreetype -lmp4 $(NNCASE_LIBS) $(OPENCV_LIBS) $(SDK_MPP_USER_LIBS) $(RTSP_SERVER_LIBS) $(RTSMART_HAL_LIBS) -Wl,--end-group
+LDFLAGS_LIBS := $(NNCASE_LIB_DIR) $(OPENCV_LIB_DIR) $(SDK_MPP_USER_LIB_DIR) $(SDK_MPP_MIDDLEWARE_LIB_DIR) $(RTSMART_HAL_LIB_DIR) $(RTSMART_3RD_PARTY_LIB_DIR)
+LDFLAGS_LIBS += -Wl,--start-group -lm -lpthread -lmp4 $(NNCASE_LIBS) $(OPENCV_LIBS) $(SDK_MPP_USER_LIBS) $(RTSP_SERVER_LIBS) $(RTSMART_HAL_LIBS) $(RTSMART_3RD_PARTY_LIBS) -Wl,--end-group
 
 LDFLAGS += $(LDFLAGS_MOD) $(LDFLAGS_ARCH) $(LDFLAGS_LIBS) $(LDFLAGS_EXTRA)
 
@@ -211,14 +211,7 @@ LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
 
 CANMV_SRC_C += $(LVGL_SRC_C)
-
-# freetype build
-$(SDK_CANMV_BUILD_DIR)/_ft.c:
-	@$(MAKE) -C 3rd-party/freetype
-	@echo "// place holder" > $(SDK_CANMV_BUILD_DIR)/_ft.c
-
-CANMV_SRC_C += $(SDK_CANMV_BUILD_DIR)/_ft.c
-CLEAN_EXTRA += $(FREETYPE_C) $(LVGL_PP) $(LVGL_MPY)
+CLEAN_EXTRA += $(LVGL_PP) $(LVGL_MPY)
 
 # cpp source files
 CANMV_SRC_CXX := 
