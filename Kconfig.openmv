@@ -1,0 +1,12 @@
+menu "CanMV OpenMV Components Configurations"
+
+    comment "FB Configuration"
+
+    config CANMV_OPENMV_CFG_FB_ALLOC_SIZE
+        hex "OpenMV FB Alloc Max Size"
+        default 0x800000
+    config CANMV_OPENMV_CFG_FB_ALLOC_COUNT
+        int "OpenMV FB Alloc Buffer Count"
+        default 256
+
+endmenu

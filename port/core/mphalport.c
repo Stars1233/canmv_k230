@@ -223,28 +223,20 @@ void mp_hal_delay_ms(mp_uint_t ms) {
 ///////////////////////////////////////////////////////////////////////////////
 // mp_hal tick ////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#define TICKS_PER_SECOND (27 * 1000 * 1000)
+#include "hal_utils.h"
 
 mp_uint_t mp_hal_ticks_ms(void) {
-    uint64_t time;
-    __asm__ __volatile__("rdtime %0" : "=r" (time));
-    return (mp_uint_t)(time / (TICKS_PER_SECOND / 1000));
+    return (mp_uint_t)utils_cpu_ticks_ms();
 }
 
 mp_uint_t mp_hal_ticks_us(void) {
-    uint64_t time;
-    __asm__ __volatile__("rdtime %0" : "=r" (time));
-    return (mp_uint_t)(time / (TICKS_PER_SECOND / 1000000));
+    return (mp_uint_t)utils_cpu_ticks_us();
 }
 
 uint64_t mp_hal_time_ns(void) {
-    uint64_t time;
-    __asm__ __volatile__("rdtime %0" : "=r" (time));
-    return (time * 1000000000ULL) / TICKS_PER_SECOND;
+    return (mp_uint_t)utils_cpu_ticks_ns();
 }
 
 mp_uint_t mp_hal_ticks_cpu(void) {
-    uint64_t tick;
-    __asm__ __volatile__("rdcycle %0" : "=r" (tick) );
-    return tick;
+    return (mp_uint_t)utils_cpu_ticks();
 }

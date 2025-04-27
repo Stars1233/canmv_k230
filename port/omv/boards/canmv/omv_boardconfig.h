@@ -11,6 +11,8 @@
 #ifndef __OMV_BOARDCONFIG_H__
 #define __OMV_BOARDCONFIG_H__
 
+#include "generated/autoconf.h"
+
 // Enable hardware JPEG
 #define OMV_HARDWARE_JPEG                     (0)
 
@@ -25,8 +27,17 @@
 // FB Heap Block Size
 #define OMV_UMM_BLOCK_SIZE                    1024
 
+#if !defined (CONFIG_CANMV_OPENMV_CFG_FB_ALLOC_SIZE)
 #define OMV_FB_ALLOC_SIZE                     (8 * 1024 * 1024) // minimum fb alloc size
+#else
+#define OMV_FB_ALLOC_SIZE CONFIG_CANMV_OPENMV_CFG_FB_ALLOC_SIZE
+#endif
+
+#if !defined (CONFIG_CANMV_OPENMV_CFG_FB_ALLOC_COUNT)
 #define OMV_FB_ALLOC_BUFFER_COUNT             (256)
+#else
+#define OMV_FB_ALLOC_BUFFER_COUNT             (CONFIG_CANMV_OPENMV_CFG_FB_ALLOC_COUNT)
+#endif
 
 #define OMV_JPEG_BUF_SIZE                     (1024 * 1024) // IDE JPEG buffer (header + data).
 

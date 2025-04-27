@@ -3,13 +3,8 @@ menuconfig SDK_ENABLE_CANMV
     default n
 
     if SDK_ENABLE_CANMV
-        config ENABLE_TOUCH_DRIVER_CST_MUTCAP
-            bool "Enable Touch Driver for cstxxx(mut cap)"
-            default y
-            help
-                CST128, CST328, CST226SE and others
-
-        config ENABLE_TOUCH_DRIVER_GT911
-            bool "Enable Touch Driver for gt911"
-            default y
+        
+        source "$(SDK_CANMV_SRC_DIR)/Kconfig.micropython"
+        source "$(SDK_CANMV_SRC_DIR)/Kconfig.openmv"
+        
     endif
