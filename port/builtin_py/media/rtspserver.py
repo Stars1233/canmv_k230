@@ -54,7 +54,7 @@ class RtspServer:
         self.encoder.SetOutBufs(self.venc_chn, 15, width, height)
         self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.venc_chn))
         MediaManager.init()
-        chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, width, height,bit_rate=1024)
         self.encoder.Create(self.venc_chn, chnAttr)
 
     def _start_stream(self):
