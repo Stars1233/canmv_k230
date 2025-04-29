@@ -27,15 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <errno.h>
-#include <fcntl.h>
-#include <math.h>
-#include <pthread.h>
-#include <signal.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "mpprint.h"
 #include "py/obj.h"
@@ -46,222 +37,6 @@
 #include "drv_timer.h"
 
 /** soft timer wrap **********************************************************/
-static int soft_timer_type = 0;
-
-static int soft_timer_in_used = 0;
-
-typedef struct _soft_timer_inst {
-    void*              base;
-    timer_t            timerid;
-    int                started;
-    rt_hwtimer_mode_t  mode;
-    uint32_t           period_ms;
-    void*              irq_args;
-    timer_irq_callback irq_callback;
-} soft_timer_inst_t;
-
-static void soft_timer_sig_handler(int sig, siginfo_t* si, void* uc)
-{
-    soft_timer_inst_t* inst = si->si_ptr;
-
-    if (SIGALRM != sig) {
-        return;
-    }
-
-    if (SI_TIMER != si->si_code) {
-        return;
-    }
-
-    if (!inst || (&soft_timer_type != inst->base)) {
-        return;
-    }
-
-    if (inst->irq_callback) {
-        inst->irq_callback(inst->irq_args);
-    }
-}
-
-static int soft_timer_create(soft_timer_inst_t** inst)
-{
-    if (soft_timer_in_used) {
-        printf("soft timer in use\n");
-        return -1;
-    }
-
-    if (*inst) {
-        free(*inst);
-        *inst = NULL;
-    }
-
-    *inst = malloc(sizeof(soft_timer_inst_t));
-    if (NULL == (*inst)) {
-        printf("malloc failed");
-        return -1;
-    }
-    memset(*inst, 0x00, sizeof(soft_timer_inst_t));
-
-    (*inst)->base         = &soft_timer_type;
-    (*inst)->started      = 0;
-    (*inst)->mode         = HWTIMER_MODE_ONESHOT;
-    (*inst)->period_ms    = 1000;
-    (*inst)->irq_args     = NULL;
-    (*inst)->irq_callback = NULL;
-
-    struct sigaction sa;
-    sa.sa_flags     = SA_SIGINFO;
-    sa.sa_sigaction = soft_timer_sig_handler;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGALRM, &sa, NULL);
-
-    struct sigevent sev;
-    sev.sigev_notify          = SIGEV_SIGNAL;
-    sev.sigev_signo           = SIGALRM;
-    sev.sigev_value.sival_ptr = (*inst);
-    if (timer_create(CLOCK_REALTIME, &sev, &(*inst)->timerid)) {
-        printf("create soft timer failed.\n");
-        return -1;
-    }
-    soft_timer_in_used = 1;
-
-    return 0;
-}
-
-static int soft_timer_stop(soft_timer_inst_t* inst);
-static int soft_timer_unregister_irq(soft_timer_inst_t* inst);
-
-static void soft_timer_destroy(soft_timer_inst_t** inst)
-{
-    struct sigaction sa;
-
-    soft_timer_stop(*inst);
-    soft_timer_unregister_irq(*inst);
-
-    if ((*inst)->timerid) {
-        timer_delete((*inst)->timerid);
-        (*inst)->timerid = -1;
-    }
-
-    sa.sa_handler   = SIG_IGN;
-    sa.sa_sigaction = NULL;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGALRM, &sa, NULL);
-
-    free(*inst);
-    *inst = NULL;
-
-    soft_timer_in_used = 0;
-}
-
-static int soft_timer_set_mode(soft_timer_inst_t* inst, rt_hwtimer_mode_t mode)
-{
-    if ((NULL == inst) || (inst->started)) {
-        printf("timer not created or started\n");
-        return -1;
-    }
-
-    inst->mode = mode;
-
-    return 0;
-}
-
-static int soft_timer_set_period(soft_timer_inst_t* inst, int period_ms)
-{
-    if ((NULL == inst) || (inst->started)) {
-        printf("timer not created or started\n");
-        return -1;
-    }
-
-    inst->period_ms = period_ms;
-
-    return 0;
-}
-
-static int soft_timer_start(soft_timer_inst_t* inst)
-{
-    struct itimerspec its      = {};
-    const uint64_t    ms_to_ns = 1000000ULL; // 1ms = 1,000,000ns
-
-    if ((NULL == inst) || (inst->started)) {
-        printf("timer not created or started\n");
-        return -1;
-    }
-    uint64_t ns = (uint64_t)inst->period_ms * ms_to_ns;
-
-    memset(&its, 0x00, sizeof(its));
-
-    its.it_value.tv_sec  = ns / 1000000000ULL;
-    its.it_value.tv_nsec = ns % 1000000000ULL;
-
-    if (inst->mode == HWTIMER_MODE_PERIOD) {
-        its.it_interval = its.it_value;
-    }
-
-    if (timer_settime(inst->timerid, 0, &its, NULL)) {
-        printf("start soft timer failed\n");
-        return -1;
-    }
-    inst->started = 1;
-
-    return 0;
-}
-
-static int soft_timer_stop(soft_timer_inst_t* inst)
-{
-    struct itimerspec its = {};
-
-    if ((NULL == inst)) {
-        printf("timer not created or started\n");
-        return -1;
-    }
-
-    if (inst->started) {
-        its.it_value.tv_sec  = 0;
-        its.it_value.tv_nsec = 0;
-        if (timer_settime(inst->timerid, 0, &its, NULL)) {
-            printf("stop soft timer failed\n");
-            return -1;
-        }
-    }
-    inst->started = 0;
-
-    return 0;
-}
-
-static int soft_timer_register_irq(soft_timer_inst_t* inst, timer_irq_callback callback, void* userargs)
-{
-    if ((NULL == inst) || (inst->started)) {
-        printf("timer not created or started\n");
-        return -1;
-    }
-
-    inst->irq_args     = userargs;
-    inst->irq_callback = callback;
-
-    return 0;
-}
-
-static int soft_timer_unregister_irq(soft_timer_inst_t* inst)
-{
-    if ((NULL == inst) || (inst->started)) {
-        printf("timer not created or started\n");
-        return -1;
-    }
-
-    inst->irq_args     = NULL;
-    inst->irq_callback = NULL;
-
-    return 0;
-}
-
-static int soft_timer_is_started(soft_timer_inst_t* inst)
-{
-    if ((void*)0 == inst) {
-        return 0;
-    }
-
-    return inst->started;
-}
 
 /** timer python binding *****************************************************/
 typedef struct {
@@ -275,8 +50,8 @@ typedef struct {
     mp_obj_t callback_args;
 
     union {
-        soft_timer_inst_t*  soft;
-        drv_hwtimer_inst_t* hard;
+        drv_soft_timer_inst_t*  soft;
+        drv_hard_timer_inst_t* hard;
     } inst;
 } machine_timer_obj_t;
 
@@ -300,17 +75,17 @@ STATIC mp_obj_t machine_timer_deinit(mp_obj_t self_in)
             return mp_const_none;
         }
 
-        drv_hwtimer_stop(self->inst.hard);
-        drv_hwtimer_unregister_irq(self->inst.hard);
-        drv_hwtimer_inst_destroy(&self->inst.hard);
+        drv_hard_timer_stop(self->inst.hard);
+        drv_hard_timer_unregister_irq(self->inst.hard);
+        drv_hard_timer_inst_destroy(&self->inst.hard);
     } else { /* soft */
         if (NULL == self->inst.soft) {
             return mp_const_none;
         }
 
-        soft_timer_stop(self->inst.soft);
-        soft_timer_unregister_irq(self->inst.soft);
-        soft_timer_destroy(&self->inst.soft);
+        drv_soft_timer_stop(self->inst.soft);
+        drv_soft_timer_unregister_irq(self->inst.soft);
+        drv_soft_timer_destroy(&self->inst.soft);
     }
 
     return mp_const_none;
@@ -357,43 +132,43 @@ STATIC void machine_timer_init_helper(machine_timer_obj_t* self, mp_uint_t n_arg
     self->callback = handler;
 
     if (0x00 == self->type) { /* hard */
-        if (0x00 != drv_hwtimer_is_started(self->inst.hard)) {
-            drv_hwtimer_stop(self->inst.hard);
+        if (0x00 != drv_hard_timer_is_started(self->inst.hard)) {
+            drv_hard_timer_stop(self->inst.hard);
         }
 
-        if (0x00 != drv_hwtimer_set_mode(self->inst.hard, mode)) {
+        if (0x00 != drv_hard_timer_set_mode(self->inst.hard, mode)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("set timer mode failed"));
         }
 
-        if (0x00 != drv_hwtimer_set_period(self->inst.hard, period_ms)) {
+        if (0x00 != drv_hard_timer_set_period(self->inst.hard, period_ms)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("set timer period failed"));
         }
 
-        if (0x00 != drv_hwtimer_register_irq(self->inst.hard, machine_timer_handler, self)) {
+        if (0x00 != drv_hard_timer_register_irq(self->inst.hard, machine_timer_handler, self)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("register timer callback failed"));
         }
 
-        if (0x00 != drv_hwtimer_start(self->inst.hard)) {
+        if (0x00 != drv_hard_timer_start(self->inst.hard)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("start timer failed"));
         }
     } else { /* soft */
-        if (0x00 != soft_timer_is_started(self->inst.soft)) {
-            soft_timer_stop(self->inst.soft);
+        if (0x00 != drv_soft_timer_is_started(self->inst.soft)) {
+            drv_soft_timer_stop(self->inst.soft);
         }
 
-        if (0x00 != soft_timer_set_mode(self->inst.soft, mode)) {
+        if (0x00 != drv_soft_timer_set_mode(self->inst.soft, mode)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("set timer mode failed"));
         }
 
-        if (0x00 != soft_timer_set_period(self->inst.soft, period_ms)) {
+        if (0x00 != drv_soft_timer_set_period(self->inst.soft, period_ms)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("set timer period failed"));
         }
 
-        if (0x00 != soft_timer_register_irq(self->inst.soft, machine_timer_handler, self)) {
+        if (0x00 != drv_soft_timer_register_irq(self->inst.soft, machine_timer_handler, self)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("register timer callback failed"));
         }
 
-        if (0x00 != soft_timer_start(self->inst.soft)) {
+        if (0x00 != drv_soft_timer_start(self->inst.soft)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("start timer failed"));
         }
     }
@@ -429,13 +204,13 @@ STATIC mp_obj_t machine_timer_make_new(const mp_obj_type_t* type, size_t n_args,
     if ((-1) == index) {
         self->type = 1;
 
-        if (0x00 != soft_timer_create(&self->inst.soft)) {
+        if (0x00 != drv_soft_timer_create(&self->inst.soft)) {
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("create soft timer obj failed"));
         }
     } else {
         self->type = 0;
 
-        if (0x00 != drv_hwtimer_inst_create(index, &self->inst.hard)) {
+        if (0x00 != drv_hard_timer_inst_create(index, &self->inst.hard)) {
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("create hard timer(%d) obj failed"), index);
         }
     }
@@ -455,7 +230,7 @@ STATIC void machine_timer_print(const mp_print_t* print, mp_obj_t self_in, mp_pr
     machine_timer_obj_t* self     = self_in;
 
     if (0x00 == self->type) { /* hard timer */
-        timer_id = drv_hwtimer_get_id(self->inst.hard);
+        timer_id = drv_hard_timer_get_id(self->inst.hard);
     }
 
     mp_printf(print, "Timer %d: period=%u ms, mode=%s, callback=%p\n", timer_id, self->period,

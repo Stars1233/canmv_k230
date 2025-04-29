@@ -612,8 +612,6 @@ MP_NOINLINE int main_(int argc, char **argv) {
     sys_set_excecutable(argv[0]);
     #endif
 
-    vb_mgmt_init();
-
     extern void py_media_vbmgmt_init(void);
     py_media_vbmgmt_init();
 

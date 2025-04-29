@@ -353,6 +353,9 @@ static int         py_media_vbmgmt_vb_pool_index = 0;
 
 void py_media_vbmgmt_init(void)
 {
+    extern k_s32 vb_mgmt_init(void);
+    vb_mgmt_init();
+
     py_media_vbmgmt_inited        = 0;
     py_media_vbmgmt_vb_pool_index = 0;
     memset(&py_media_vbmgmt_vb_cfg, 0x00, sizeof(py_media_vbmgmt_vb_cfg));

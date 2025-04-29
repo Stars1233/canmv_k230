@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "hal_utils.h"
+
 #define MISC_DEV_CMD_READ_HEAP          (0x1024 + 0)
 #define MISC_DEV_CMD_READ_PAGE          (0x1024 + 1)
 #define MISC_DEV_CMD_GET_MEMORY_SIZE    (0x1024 + 2)
@@ -64,8 +66,6 @@ enum {
   STAGE_MAINPY_END,
   STAGE_MAX,
 };
-
-int canmv_misc_dev_ioctl(int cmd, void *args);
 
 #ifdef __cplusplus
 }
