@@ -84,13 +84,15 @@ COPT += -fdata-sections -ffunction-sections
 CWARN := -Wall -Werror 
 CWARN += -Wno-int-conversion
 
+CFLAGS_MBEDTLS := -DMBEDTLS_USER_CONFIG_FILE=\"mbedtls_port_config.h\"
+
 CFLAGS += $(INC)
 # Always enable symbols -- They're occasionally useful, and don't make it into the
 # final .bin/.hex/.dfu so the extra size doesn't matter.
 CFLAGS += -g -gdwarf-2
 
 CFLAGS += -fopenmp -march=rv64imafdcv -mabi=lp64d -mcmodel=medany
-CFLAGS += -std=gnu99 $(COPT) $(CWARN) $(CFLAGS_EXTRA) $(CDEF) 
+CFLAGS += -std=gnu99 $(COPT) $(CWARN) $(CFLAGS_EXTRA) $(CDEF) $(CFLAGS_MBEDTLS)
 
 # Workaround gcc 12 bug.
 CFLAGS += -Wno-array-bounds
@@ -100,7 +102,7 @@ CFLAGS += -DMICROPY_PY_TERMIOS=1
 endif
 
 CXXFLAGS += -fopenmp -march=rv64imafdcv -mabi=lp64d -mcmodel=medany
-CXXFLAGS += $(INC) $(COPT) $(NNCASEINC) -std=c++20
+CXXFLAGS += $(INC) $(COPT) $(NNCASEINC) $(CFLAGS_MBEDTLS) -std=c++20
 CXXFLAGS += $(filter-out -Wmissing-prototypes -Wold-style-definition -std=gnu99, $(CXXFLAGS_MOD))
 
 # Use gcc syntax for map file
@@ -122,6 +124,7 @@ PY_O_EXCLUDE = \
 		extmod/modos.o \
 		extmod/modcryptolib.o \
 		extmod/modhashlib.o \
+		extmod/modssl_mbedtls.o\
 		py/modgc.o \
 	)
 PY_O := $(filter-out $(PY_O_EXCLUDE),$(PY_O))
@@ -131,6 +134,7 @@ SRC_QSTR_EXCLUDE = \
 		extmod/modos.c \
 		extmod/modcryptolib.c \
 		extmod/modhashlib.c \
+		extmod/modssl_mbedtls.c\
 		py/modgc.c
 
 SRC_QSTR := $(filter-out $(SRC_QSTR_EXCLUDE),$(SRC_QSTR))
@@ -170,6 +174,7 @@ CANMV_SRC_C += \
 	mp_modules/overlay_vfs_posix.c \
 	mp_modules/overlay_modcryptolib.c \
 	mp_modules/overlay_modhashlib.c \
+	mp_modules/overlay_modssl_mbedtls.c \
 
 CANMV_SRC_C += $(addprefix shared/,\
 	runtime/gchelper_generic.c \

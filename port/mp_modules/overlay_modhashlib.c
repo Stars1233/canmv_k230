@@ -1,26 +1,27 @@
-/* Copyright (c) 2023, Canaan Bright Sight Co., Ltd
+/*
+ * This file is part of the MicroPython project, http://micropython.org/
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 1. Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in the
- * documentation and/or other materials provided with the distribution.
+ * The MIT License (MIT)
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
- * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2014 Paul Sokolovsky
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 #include <assert.h>
@@ -30,30 +31,21 @@
 
 #if MICROPY_PY_HASHLIB
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 #include "mbedtls/version.h"
+
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#include "mbedtls/compat-2.x.h"
+#endif
+
 #endif
 
 #if MICROPY_PY_HASHLIB_SHA256
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 #include "mbedtls/sha256.h"
 #else
-// hardware accelerator
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include "sys/ioctl.h"
-#include "py/obj.h"
-
-#define SHA256_BLOCK_SIZE               32
-#define HASH_DEVICE_NAME                "/dev/hash"
-#define RT_HWHASH_CTRL_INIT             _IOWR('H', 0, int)
-#define RT_HWHASH_CTRL_UPDATE           _IOWR('H', 1, int)
-#define RT_HWHASH_CTRL_FINISH           _IOWR('H', 2, int)
+#include "lib/crypto-algorithms/sha256.h"
 #endif
 
 #endif
@@ -64,48 +56,15 @@
 #include "lib/axtls/crypto/crypto.h"
 #endif
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 #include "mbedtls/md5.h"
 #include "mbedtls/sha1.h"
 #endif
 
 #endif
 
-enum {
-    SHA_224,
-    SHA_256,
-    SHA_384,
-    SHA_512,
-    SHA_512_224,
-    SHA_512_256,
-    SM3,
-    N_HASH_T,
-};
-
-typedef union {
-    struct {
-        uint8_t mode;
-    } init;
-    struct {
-        uint8_t *msg;
-        uint32_t msglen;
-    } update;
-    struct {
-        uint8_t *dgst;
-        uint32_t dlen;
-    } final;
-    struct {
-        uint8_t *msg;
-        uint32_t msglen;
-        uint8_t *dgst;
-        uint32_t dlen;
-    } fast;
-} hash_config_t;
-
 typedef struct _mp_obj_hash_t {
     mp_obj_base_t base;
-    int fd;
-    hash_config_t config;
     bool final; // if set, update and digest raise an exception
     uintptr_t state[0]; // must be aligned to a machine word
 } mp_obj_hash_t;
@@ -119,7 +78,7 @@ static void hashlib_ensure_not_final(mp_obj_hash_t *self) {
 #if MICROPY_PY_HASHLIB_SHA256
 STATIC mp_obj_t hashlib_sha256_update(mp_obj_t self_in, mp_obj_t arg);
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 
 #if MBEDTLS_VERSION_NUMBER < 0x02070000 || MBEDTLS_VERSION_NUMBER >= 0x03000000
 #define mbedtls_sha256_starts_ret mbedtls_sha256_starts
@@ -160,74 +119,35 @@ STATIC mp_obj_t hashlib_sha256_digest(mp_obj_t self_in) {
 
 #else
 
-// hardware accelerator
-STATIC mp_obj_t hashlib_sha256_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
-{
-    // hash_config_t config;
+#include "lib/crypto-algorithms/sha256.c"
+
+STATIC mp_obj_t hashlib_sha256_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 0, 1, false);
-    mp_obj_hash_t *o = mp_obj_malloc(mp_obj_hash_t, type);
+    mp_obj_hash_t *o = mp_obj_malloc_var(mp_obj_hash_t, char, sizeof(CRYAL_SHA256_CTX), type);
     o->final = false;
-    o->fd = -1;
-
-    // open
-    if(o->fd == -1) {
-        o->fd = open(HASH_DEVICE_NAME, O_RDWR);
-        if(o->fd < 0)
-            mp_raise_OSError_with_filename(errno, HASH_DEVICE_NAME);
-    }
-
-    // init
-    o->config.init.mode = SHA_256; 
-    if(ioctl(o->fd, RT_HWHASH_CTRL_INIT, &o->config)) {
-        close(o->fd);
-        o->fd = -1;
-        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("sha256 initial config error!"));
-    }
-
-    if(n_args == 1) {
+    sha256_init((CRYAL_SHA256_CTX *)o->state);
+    if (n_args == 1) {
         hashlib_sha256_update(MP_OBJ_FROM_PTR(o), args[0]);
     }
-
     return MP_OBJ_FROM_PTR(o);
 }
 
-STATIC mp_obj_t hashlib_sha256_update(mp_obj_t self_in, mp_obj_t arg)
-{
-    mp_buffer_info_t bufinfo;
+STATIC mp_obj_t hashlib_sha256_update(mp_obj_t self_in, mp_obj_t arg) {
     mp_obj_hash_t *self = MP_OBJ_TO_PTR(self_in);
     hashlib_ensure_not_final(self);
+    mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(arg, &bufinfo, MP_BUFFER_READ);
-    // update
-    self->config.update.msg = bufinfo.buf;
-    self->config.update.msglen = bufinfo.len;
-
-    if(ioctl(self->fd, RT_HWHASH_CTRL_UPDATE, &self->config)) {
-        close(self->fd);
-        self->fd = -1;
-        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("sha256 update config error!"));
-    }
-
+    sha256_update((CRYAL_SHA256_CTX *)self->state, bufinfo.buf, bufinfo.len);
     return mp_const_none;
 }
 
-STATIC mp_obj_t hashlib_sha256_digest(mp_obj_t self_in)
-{
+STATIC mp_obj_t hashlib_sha256_digest(mp_obj_t self_in) {
     mp_obj_hash_t *self = MP_OBJ_TO_PTR(self_in);
     hashlib_ensure_not_final(self);
     self->final = true;
     vstr_t vstr;
     vstr_init_len(&vstr, SHA256_BLOCK_SIZE);
-    // final
-    self->config.final.dgst = (void *)vstr.buf;
-    self->config.final.dlen = 32;
-    // hash_config.dlen = vstr.len;
-    if(ioctl(self->fd, RT_HWHASH_CTRL_FINISH, &self->config)) {
-        close(self->fd);
-        self->fd = -1;
-        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("sha256 final config error!"));
-    }
-
-    close(self->fd);
+    sha256_final((CRYAL_SHA256_CTX *)self->state, (byte *)vstr.buf);
     return mp_obj_new_bytes_from_vstr(&vstr);
 }
 #endif
@@ -286,7 +206,7 @@ STATIC mp_obj_t hashlib_sha1_digest(mp_obj_t self_in) {
 }
 #endif
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 
 #if MBEDTLS_VERSION_NUMBER < 0x02070000 || MBEDTLS_VERSION_NUMBER >= 0x03000000
 #define mbedtls_sha1_starts_ret mbedtls_sha1_starts
@@ -380,7 +300,7 @@ STATIC mp_obj_t hashlib_md5_digest(mp_obj_t self_in) {
 }
 #endif // MICROPY_SSL_AXTLS
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 
 #if MBEDTLS_VERSION_NUMBER < 0x02070000
 #define mbedtls_md5_starts_ret mbedtls_md5_starts

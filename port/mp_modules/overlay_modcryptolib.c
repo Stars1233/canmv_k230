@@ -60,7 +60,7 @@ struct ctr_params {
 #define AES_CTX_IMPL AES_CTX
 #endif
 
-#if MICROPY_SSL_MBEDTLS
+#if 1 // MICROPY_SSL_MBEDTLS
 #include <mbedtls/aes.h>
 
 // we can't run mbedtls AES key schedule until we know whether we're used for encrypt or decrypt.
@@ -87,7 +87,6 @@ typedef struct _mp_obj_aes_t {
 #define AES_KEYTYPE_ENC  1
 #define AES_KEYTYPE_DEC  2
     uint8_t key_type : 2;
-    struct ctr_params ctr_params[]; // optional
 } mp_obj_aes_t;
 
 static inline bool is_ctr_mode(int block_mode) {
@@ -99,22 +98,23 @@ static inline bool is_ctr_mode(int block_mode) {
 }
 
 static inline struct ctr_params *ctr_params_from_aes(mp_obj_aes_t *o) {
-    return &o->ctr_params[0];
+    // ctr_params follows aes object struct
+    return (struct ctr_params *)&o[1];
 }
 
 #if MICROPY_SSL_AXTLS
-static void aes_initial_set_key_impl(AES_CTX_IMPL *ctx, const uint8_t *key, size_t keysize, const uint8_t iv[16]) {
+STATIC void aes_initial_set_key_impl(AES_CTX_IMPL *ctx, const uint8_t *key, size_t keysize, const uint8_t iv[16]) {
     assert(16 == keysize || 32 == keysize);
     AES_set_key(ctx, key, iv, (16 == keysize) ? AES_MODE_128 : AES_MODE_256);
 }
 
-static void aes_final_set_key_impl(AES_CTX_IMPL *ctx, bool encrypt) {
+STATIC void aes_final_set_key_impl(AES_CTX_IMPL *ctx, bool encrypt) {
     if (!encrypt) {
         AES_convert_key(ctx);
     }
 }
 
-static void aes_process_ecb_impl(AES_CTX_IMPL *ctx, const uint8_t in[16], uint8_t out[16], bool encrypt) {
+STATIC void aes_process_ecb_impl(AES_CTX_IMPL *ctx, const uint8_t in[16], uint8_t out[16], bool encrypt) {
     memcpy(out, in, 16);
     // We assume that out (vstr.buf or given output buffer) is uint32_t aligned
     uint32_t *p = (uint32_t *)out;
@@ -132,7 +132,7 @@ static void aes_process_ecb_impl(AES_CTX_IMPL *ctx, const uint8_t in[16], uint8_
     }
 }
 
-static void aes_process_cbc_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, bool encrypt) {
+STATIC void aes_process_cbc_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, bool encrypt) {
     if (encrypt) {
         AES_cbc_encrypt(ctx, in, out, in_len);
     } else {
@@ -142,7 +142,7 @@ static void aes_process_cbc_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *
 
 #if MICROPY_PY_CRYPTOLIB_CTR
 // axTLS doesn't have CTR support out of the box. This implements the counter part using the ECB primitive.
-static void aes_process_ctr_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, struct ctr_params *ctr_params) {
+STATIC void aes_process_ctr_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, struct ctr_params *ctr_params) {
     size_t n = ctr_params->offset;
     uint8_t *const counter = ctx->iv;
 
@@ -168,8 +168,8 @@ static void aes_process_ctr_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *
 
 #endif
 
-#if MICROPY_SSL_MBEDTLS
-static void aes_initial_set_key_impl(AES_CTX_IMPL *ctx, const uint8_t *key, size_t keysize, const uint8_t iv[16]) {
+#if 1 // MICROPY_SSL_MBEDTLS
+STATIC void aes_initial_set_key_impl(AES_CTX_IMPL *ctx, const uint8_t *key, size_t keysize, const uint8_t iv[16]) {
     ctx->u.init_data.keysize = keysize;
     memcpy(ctx->u.init_data.key, key, keysize);
 
@@ -178,7 +178,7 @@ static void aes_initial_set_key_impl(AES_CTX_IMPL *ctx, const uint8_t *key, size
     }
 }
 
-static void aes_final_set_key_impl(AES_CTX_IMPL *ctx, bool encrypt) {
+STATIC void aes_final_set_key_impl(AES_CTX_IMPL *ctx, bool encrypt) {
     // first, copy key aside
     uint8_t key[32];
     uint8_t keysize = ctx->u.init_data.keysize;
@@ -195,23 +195,23 @@ static void aes_final_set_key_impl(AES_CTX_IMPL *ctx, bool encrypt) {
     }
 }
 
-static void aes_process_ecb_impl(AES_CTX_IMPL *ctx, const uint8_t in[16], uint8_t out[16], bool encrypt) {
+STATIC void aes_process_ecb_impl(AES_CTX_IMPL *ctx, const uint8_t in[16], uint8_t out[16], bool encrypt) {
     mbedtls_aes_crypt_ecb(&ctx->u.mbedtls_ctx, encrypt ? MBEDTLS_AES_ENCRYPT : MBEDTLS_AES_DECRYPT, in, out);
 }
 
-static void aes_process_cbc_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, bool encrypt) {
+STATIC void aes_process_cbc_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, bool encrypt) {
     mbedtls_aes_crypt_cbc(&ctx->u.mbedtls_ctx, encrypt ? MBEDTLS_AES_ENCRYPT : MBEDTLS_AES_DECRYPT, in_len, ctx->iv, in, out);
 }
 
 #if MICROPY_PY_CRYPTOLIB_CTR
-static void aes_process_ctr_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, struct ctr_params *ctr_params) {
+STATIC void aes_process_ctr_impl(AES_CTX_IMPL *ctx, const uint8_t *in, uint8_t *out, size_t in_len, struct ctr_params *ctr_params) {
     mbedtls_aes_crypt_ctr(&ctx->u.mbedtls_ctx, in_len, &ctr_params->offset, ctx->iv, ctr_params->encrypted_counter, in, out);
 }
 #endif
 
 #endif
 
-static mp_obj_t cryptolib_aes_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t cryptolib_aes_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 2, 3, false);
 
     const mp_int_t block_mode = mp_obj_get_int(args[1]);
@@ -228,7 +228,6 @@ static mp_obj_t cryptolib_aes_make_new(const mp_obj_type_t *type, size_t n_args,
             mp_raise_ValueError(MP_ERROR_TEXT("mode"));
     }
 
-    // mp_obj_aes_t *o = mp_obj_malloc_var(mp_obj_aes_t, ctr_params, struct ctr_params, !!is_ctr_mode(block_mode), type);
     mp_obj_aes_t *o = mp_obj_malloc_var(mp_obj_aes_t, struct ctr_params, !!is_ctr_mode(block_mode), type);
 
     o->block_mode = block_mode;
@@ -261,7 +260,7 @@ static mp_obj_t cryptolib_aes_make_new(const mp_obj_type_t *type, size_t n_args,
     return MP_OBJ_FROM_PTR(o);
 }
 
-static mp_obj_t aes_process(size_t n_args, const mp_obj_t *args, bool encrypt) {
+STATIC mp_obj_t aes_process(size_t n_args, const mp_obj_t *args, bool encrypt) {
     mp_obj_aes_t *self = MP_OBJ_TO_PTR(args[0]);
 
     mp_obj_t in_buf = args[1];
@@ -333,23 +332,23 @@ static mp_obj_t aes_process(size_t n_args, const mp_obj_t *args, bool encrypt) {
     return mp_obj_new_bytes_from_vstr(&vstr);
 }
 
-static mp_obj_t cryptolib_aes_encrypt(size_t n_args, const mp_obj_t *args) {
+STATIC mp_obj_t cryptolib_aes_encrypt(size_t n_args, const mp_obj_t *args) {
     return aes_process(n_args, args, true);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cryptolib_aes_encrypt_obj, 2, 3, cryptolib_aes_encrypt);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cryptolib_aes_encrypt_obj, 2, 3, cryptolib_aes_encrypt);
 
-static mp_obj_t cryptolib_aes_decrypt(size_t n_args, const mp_obj_t *args) {
+STATIC mp_obj_t cryptolib_aes_decrypt(size_t n_args, const mp_obj_t *args) {
     return aes_process(n_args, args, false);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cryptolib_aes_decrypt_obj, 2, 3, cryptolib_aes_decrypt);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cryptolib_aes_decrypt_obj, 2, 3, cryptolib_aes_decrypt);
 
-static const mp_rom_map_elem_t cryptolib_aes_locals_dict_table[] = {
+STATIC const mp_rom_map_elem_t cryptolib_aes_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_encrypt), MP_ROM_PTR(&cryptolib_aes_encrypt_obj) },
     { MP_ROM_QSTR(MP_QSTR_decrypt), MP_ROM_PTR(&cryptolib_aes_decrypt_obj) },
 };
-static MP_DEFINE_CONST_DICT(cryptolib_aes_locals_dict, cryptolib_aes_locals_dict_table);
+STATIC MP_DEFINE_CONST_DICT(cryptolib_aes_locals_dict, cryptolib_aes_locals_dict_table);
 
-static MP_DEFINE_CONST_OBJ_TYPE(
+STATIC MP_DEFINE_CONST_OBJ_TYPE(
     cryptolib_aes_type,
     MP_QSTR_aes,
     MP_TYPE_FLAG_NONE,
@@ -357,7 +356,7 @@ static MP_DEFINE_CONST_OBJ_TYPE(
     locals_dict, &cryptolib_aes_locals_dict
     );
 
-static const mp_rom_map_elem_t mp_module_cryptolib_globals_table[] = {
+STATIC const mp_rom_map_elem_t mp_module_cryptolib_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cryptolib) },
     { MP_ROM_QSTR(MP_QSTR_aes), MP_ROM_PTR(&cryptolib_aes_type) },
     #if MICROPY_PY_CRYPTOLIB_CONSTS
@@ -369,7 +368,7 @@ static const mp_rom_map_elem_t mp_module_cryptolib_globals_table[] = {
     #endif
 };
 
-static MP_DEFINE_CONST_DICT(mp_module_cryptolib_globals, mp_module_cryptolib_globals_table);
+STATIC MP_DEFINE_CONST_DICT(mp_module_cryptolib_globals, mp_module_cryptolib_globals_table);
 
 const mp_obj_module_t mp_module_cryptolib = {
     .base = { &mp_type_module },
