@@ -23,13 +23,21 @@ mode = UVC.video_mode(640, 480, UVC.FORMAT_MJPEG, 30)
 succ, mode = UVC.select_video_mode(mode)
 print(f"select mode success: {succ}, mode: {mode}")
 
-UVC.start()
+UVC.start(cvt = False)
+
+fps = time.clock()
 
 while True:
+    fps.tick()
     img = UVC.snapshot()
     if img is not None:
-        img = img.to_rgb565()
-        Display.show_image(img)
+        try:
+            img = img.to_rgb565()
+            Display.show_image(img)
+        except OSError as e:
+            pass
+
+    print(f"fps: {fps.fps()}")
 
 # deinit display
 Display.deinit()

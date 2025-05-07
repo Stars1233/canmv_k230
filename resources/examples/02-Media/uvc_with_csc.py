@@ -40,7 +40,7 @@ while True:
         img = csc.convert(img)
         Display.show_image(img)
 
-    print(clock.fps())
+    print(f"fps: {clock.fps()}")
 
 # deinit display
 Display.deinit()
