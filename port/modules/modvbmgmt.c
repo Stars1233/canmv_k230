@@ -63,7 +63,7 @@ typedef struct _py_media_vbmgmt_buffer_obj {
 
 mp_obj_t py_media_vbmgmt_buffer_from_struct(py_media_vbmgmt_buffer_t* buffer)
 {
-    py_media_vbmgmt_buffer_obj_t* o = m_new_obj_with_finaliser(py_media_vbmgmt_buffer_obj_t);
+    py_media_vbmgmt_buffer_obj_t* o = m_new_obj(py_media_vbmgmt_buffer_obj_t);
     o->base.type                    = &py_media_vbmgmt_buffer_type;
 
     if (buffer) {
@@ -133,7 +133,7 @@ STATIC void py_media_vbmgmt_buffer_attr(mp_obj_t self_in, qstr attr, mp_obj_t* d
     }
 }
 
-STATIC mp_obj_t py_media_vbmgmt_buffer_destroy(mp_obj_t self_in)
+STATIC mp_obj_t py_media_vbmgmt_buffer_destroy_r(mp_obj_t self_in)
 {
     k_s32                         result = 0;
     py_media_vbmgmt_buffer_obj_t* self   = MP_OBJ_TO_PTR(self_in);
@@ -160,9 +160,14 @@ STATIC mp_obj_t py_media_vbmgmt_buffer_destroy(mp_obj_t self_in)
         buffer->blk_size  = 0;
     }
 
-    mp_obj_list_remove(MP_STATE_PORT(py_media_vbmgmt_buffer_list), self);
-
     return mp_obj_new_bool(K_SUCCESS == result);
+}
+
+STATIC mp_obj_t py_media_vbmgmt_buffer_destroy(mp_obj_t self_in)
+{
+    mp_obj_list_remove(MP_STATE_PORT(py_media_vbmgmt_buffer_list), self_in);
+
+    return py_media_vbmgmt_buffer_destroy_r(self_in);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_media_vbmgmt_buffer_destroy_obj, py_media_vbmgmt_buffer_destroy);
 
@@ -240,7 +245,7 @@ typedef struct _py_media_vbmgmt_linker_obj {
 
 mp_obj_t py_media_vbmgmt_linker_from_struct(k_mpp_chn* src, k_mpp_chn* dst)
 {
-    py_media_vbmgmt_linker_obj_t* o = m_new_obj_with_finaliser(py_media_vbmgmt_linker_obj_t);
+    py_media_vbmgmt_linker_obj_t* o = m_new_obj(py_media_vbmgmt_linker_obj_t);
     o->base.type                    = &py_media_vbmgmt_linker_type;
 
     if (src && dst) {
@@ -305,7 +310,7 @@ STATIC void py_media_vbmgmt_linker_attr(mp_obj_t self_in, qstr attr, mp_obj_t* d
     }
 }
 
-STATIC mp_obj_t py_media_vbmgmt_linker_destroy(mp_obj_t self_in)
+STATIC mp_obj_t py_media_vbmgmt_linker_destroy_r(mp_obj_t self_in)
 {
     k_s32 result = 0;
 
@@ -321,9 +326,14 @@ STATIC mp_obj_t py_media_vbmgmt_linker_destroy(mp_obj_t self_in)
         mp_printf(&mp_plat_print, "vb unbind failed %u\n", result & 0x1FF);
     }
 
-    mp_obj_list_remove(MP_STATE_PORT(py_media_vbmgmt_link_list), self);
-
     return mp_obj_new_bool(K_SUCCESS == result);
+}
+
+STATIC mp_obj_t py_media_vbmgmt_linker_destroy(mp_obj_t self_in)
+{
+    mp_obj_list_remove(MP_STATE_PORT(py_media_vbmgmt_link_list), self_in);
+
+    return py_media_vbmgmt_linker_destroy_r(self_in);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_media_vbmgmt_linker_destroy_obj, py_media_vbmgmt_linker_destroy);
 
@@ -375,16 +385,16 @@ void py_media_vbmgmt_deinit(void)
     extern int   ide_dbg_set_vo_wbc(int quality, int width, int height);
     extern k_s32 vb_mgmt_deinit(void);
 
+    vb_mgmt_deinit();
+
     ide_dbg_set_vo_wbc(0, 0, 0);
     ide_dbg_vo_wbc_deinit();
     dma_dev_deinit();
 
-    #if defined (CONFIG_ENABLE_UVC_CAMERA)
+#if defined(CONFIG_ENABLE_UVC_CAMERA)
     extern void mod_uvc_exit();
     mod_uvc_exit();
-    #endif
-
-    vb_mgmt_deinit();
+#endif
 
     kd_mpi_vb_exit();
 }
@@ -395,7 +405,7 @@ void py_media_vbmgmt_deinit_pre(void)
         for (mp_uint_t i = 0; i < MP_STATE_PORT(py_media_vbmgmt_link_list)->len; i++) {
             py_media_vbmgmt_linker_obj_t* linker = MP_STATE_PORT(py_media_vbmgmt_link_list)->items[i];
 
-            py_media_vbmgmt_linker_destroy(linker);
+            py_media_vbmgmt_linker_destroy_r(linker);
             m_del_obj(py_media_vbmgmt_linker_obj_t, linker);
         }
         MP_STATE_PORT(py_media_vbmgmt_link_list) = MP_OBJ_NULL;
@@ -405,7 +415,7 @@ void py_media_vbmgmt_deinit_pre(void)
         for (mp_uint_t i = 0; i < MP_STATE_PORT(py_media_vbmgmt_buffer_list)->len; i++) {
             py_media_vbmgmt_buffer_obj_t* buffer = MP_STATE_PORT(py_media_vbmgmt_buffer_list)->items[i];
 
-            py_media_vbmgmt_buffer_destroy(buffer);
+            py_media_vbmgmt_buffer_destroy_r(buffer);
             m_del_obj(py_media_vbmgmt_buffer_obj_t, buffer);
         }
         MP_STATE_PORT(py_media_vbmgmt_buffer_list) = MP_OBJ_NULL;
