@@ -39,6 +39,7 @@ while True:
     if img is not None:
         img = csc.convert(img)
         Display.show_image(img)
+        img.__del__()
 
     print(f"fps: {clock.fps()}")
 

@@ -34,6 +34,7 @@ while True:
         try:
             img = img.to_rgb565()
             Display.show_image(img)
+            img.__del__()
         except OSError as e:
             pass
 
