@@ -468,7 +468,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     #endif
 
     struct sched_param param;
-    param.sched_priority = 30;
+    param.sched_priority = 19;
     pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
 
     is_repl_intr = false;

@@ -105,30 +105,42 @@ void usb_rx_clear(void) {
     }
 }
 
-int usb_tx(const void* buffer, size_t size) {
-    // slice
-    #define BLOCK_SIZE 1024
-    size_t ptr = 0;
-    while (1) {
-        if (size > ptr + BLOCK_SIZE) {
-            write(usb_cdc_fd, (char*)buffer + ptr, BLOCK_SIZE);
-            ptr += BLOCK_SIZE;
+int usb_tx(const void* buffer, size_t size)
+{
+#define BLOCK_SIZE 1024
+
+    int    result = 0;
+    size_t send = 0, chunk = 0, total = size;
+
+    while (send < total) {
+        if (BLOCK_SIZE <= (total - send)) {
+            chunk = BLOCK_SIZE;
         } else {
-            write(usb_cdc_fd, (char*)buffer + ptr, size - ptr);
+            chunk = (total - send);
+        }
+
+        result = write(usb_cdc_fd, (char*)buffer + send, chunk);
+        if (result == chunk) {
+            send += chunk;
+        } else if ((-1) == result) {
+            printf("[IDE]: usb send failed\n");
             break;
         }
     }
+
     return size;
+
+#undef BLOCK_SIZE
 }
 
 void print_raw(const uint8_t* data, size_t size) {
-    #if IDE_DEBUG_PRINT
+#if IDE_DEBUG_PRINT
     fprintf(stderr, "raw: \"");
     for (size_t i = 0; i < size; i++) {
         fprintf(stderr, "\\x%02X", ((unsigned char*)data)[i]);
     }
     fprintf(stderr, "\"\n");
-    #endif
+#endif
 }
 
 static uint32_t ide_script_running = 0;
@@ -1053,7 +1065,7 @@ static void* ide_dbg_task(void* args) {
     state.state = FRAME_HEAD;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     struct sched_param param;
-    param.sched_priority = 20;
+    param.sched_priority = 17;
     pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
     while (1) {
         struct timeval tv = {
