@@ -58,7 +58,6 @@ INC += -Iomv/common
 INC += -Iomv/imlib
 INC += -Iomv/modules
 INC += -I3rd-party/ulab
-INC += -I3rd-party/wrap
 INC += -I3rd-party/lv_bindings
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_server/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/mp4_format/include
