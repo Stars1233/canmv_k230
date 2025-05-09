@@ -122,8 +122,8 @@ int usb_tx(const void* buffer, size_t size)
         result = write(usb_cdc_fd, (char*)buffer + send, chunk);
         if (result == chunk) {
             send += chunk;
-        } else if ((-1) == result) {
-            printf("[IDE]: usb send failed\n");
+        } else {
+            // printf("[IDE]: usb send failed, %d\n", result);
             break;
         }
     }
