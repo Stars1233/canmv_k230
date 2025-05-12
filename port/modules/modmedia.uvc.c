@@ -55,7 +55,7 @@
 #include <mpi_vb_api.h>
 #include <mpi_vdec_api.h>
 
-#define ALIGN_UP(x, align)            (((x) + ((align)-1)) & ~((align)-1))
+#define ALIGN_UP(x, align)            (((x) + ((align) - 1)) & ~((align) - 1))
 #define HARD_JPEG_VDEC_OUTPUT_BUF_CNT (3)
 #define HARD_JPEG_VDEC_CHN            (3) // the last channel
 
@@ -209,9 +209,9 @@ STATIC void py_uvc_video_mode_print(const mp_print_t* print, mp_obj_t self_in, m
     struct uvc_format*        mode = py_uvc_video_mode_cobj(self);
 
     mp_printf(print, "{\"width\":%u, \"height\":%u, \"format\":%s, \"fps\":%.2f}", mode->width, mode->height,
-              (USBH_VIDEO_FORMAT_UNCOMPRESSED == mode->format_type)
-                  ? "uncompress"
-                  : (USBH_VIDEO_FORMAT_MJPEG == mode->format_type) ? "mjpeg" : "unknown",
+              (USBH_VIDEO_FORMAT_UNCOMPRESSED == mode->format_type) ? "uncompress"
+                  : (USBH_VIDEO_FORMAT_MJPEG == mode->format_type)  ? "mjpeg"
+                                                                    : "unknown",
               10000000.0f / mode->frameinterval);
 }
 
@@ -274,10 +274,6 @@ STATIC mp_obj_t uvc_video_mode(size_t n, const mp_obj_t* objs)
 
         if (0x03 <= n) {
             format.format_type = mp_obj_get_int(objs[2]);
-        }
-
-        if (USBH_VIDEO_FORMAT_MJPEG != format.format_type) {
-            mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("only support mjpeg mode"));
         }
 
         if (0x04 <= n) {
@@ -403,10 +399,58 @@ STATIC mp_obj_t uvc_stop(void)
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(uvc_stop_obj, uvc_stop);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(uvc_stop_method, MP_ROM_PTR(&uvc_stop_obj));
 
+static inline __attribute__((__always_inline__)) uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b)
+{
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
+static void yuv_to_rgb(uint8_t y, uint8_t u, uint8_t v, uint8_t* r, uint8_t* g, uint8_t* b)
+{
+    int c = y - 16;
+    int d = u - 128;
+    int e = v - 128;
+
+    int rt = (298 * c + 409 * e + 128) >> 8;
+    int gt = (298 * c - 100 * d - 208 * e + 128) >> 8;
+    int bt = (298 * c + 516 * d + 128) >> 8;
+
+    *r = rt < 0 ? 0 : (rt > 255 ? 255 : rt);
+    *g = gt < 0 ? 0 : (gt > 255 ? 255 : gt);
+    *b = bt < 0 ? 0 : (bt > 255 ? 255 : bt);
+}
+
+static void yuyv_to_rgb565_inplace(char* buffer, int width, int height)
+{
+    int num_pixels = width * height;
+
+    // Process 4 bytes at a time (2 YUYV pixels -> 2 RGB565 pixels)
+    for (int i = num_pixels - 2; i >= 0; i -= 2) {
+        int index = i * 2;
+
+        uint8_t y0 = buffer[index + 0];
+        uint8_t u  = buffer[index + 1];
+        uint8_t y1 = buffer[index + 2];
+        uint8_t v  = buffer[index + 3];
+
+        uint8_t r, g, b;
+
+        yuv_to_rgb(y0, u, v, &r, &g, &b);
+        uint16_t rgb0 = rgb565(r, g, b);
+
+        yuv_to_rgb(y1, u, v, &r, &g, &b);
+        uint16_t rgb1 = rgb565(r, g, b);
+
+        // Write RGB565 over the original YUYV data
+        ((uint16_t*)buffer)[i]     = rgb0;
+        ((uint16_t*)buffer)[i + 1] = rgb1;
+    }
+}
+
 STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
 {
     int              timeout_ms = 1000;
     struct uvc_frame req_frame  = { 0 };
+    image_t          image;
 
     if (0x00 == n) {
         timeout_ms = curr_format.frameinterval >> 11; // default timeout 4 frame
@@ -425,9 +469,23 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
     if (0x00 == uvc_get_frame(&req_frame, timeout_ms)) {
         memcpy(&curr_frame, &req_frame, sizeof(req_frame));
 
+        image.w          = curr_format.width;
+        image.h          = curr_format.height;
+        image.pixels     = (uint8_t*)req_frame.userptr;
+        image.alloc_type = ALLOC_VB;
+
         if (USBH_VIDEO_FORMAT_UNCOMPRESSED == curr_format.format_type) {
-            return py_image(curr_format.width, curr_format.height, PIXFORMAT_YUV422,
-                            curr_format.width * curr_format.height * 2, req_frame.userptr);
+            pixformat_t pixel_fmt = PIXFORMAT_YUV422;
+
+            if (snap_cfg_convert) {
+                pixel_fmt = PIXFORMAT_RGB565;
+                yuyv_to_rgb565_inplace(req_frame.userptr, curr_format.width, curr_format.height);
+            }
+
+            image.pixfmt = pixel_fmt;
+            image.size   = curr_format.width * curr_format.height * 2;
+
+            return py_image_from_struct(&image);
         } else if (USBH_VIDEO_FORMAT_MJPEG == curr_format.format_type) {
             if (snap_cfg_convert) {
                 k_video_frame_info* frame = NULL;
@@ -438,8 +496,10 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
 
                 return py_video_frame_info_from_struct(frame);
             } else {
-                return py_image(curr_format.width, curr_format.height, PIXFORMAT_JPEG, req_frame.v_stream.len,
-                                req_frame.userptr);
+                image.pixfmt = PIXFORMAT_JPEG;
+                image.size   = req_frame.v_stream.len;
+
+                return py_image_from_struct(&image);
             }
         } else {
             mp_printf(&mp_plat_print, "unsupport format %d\n", curr_format.format_type);
