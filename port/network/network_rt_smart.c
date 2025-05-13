@@ -18,6 +18,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h> // For socket types
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <poll.h>
 #include <netinet/in.h> // For sockaddr_in
 
@@ -676,16 +677,24 @@ STATIC int network_rt_wlan_socket_setsockopt(struct _mod_network_socket_obj_t *_
 STATIC int network_rt_wlan_socket_settimeout(struct _mod_network_socket_obj_t *_socket, mp_uint_t timeout_ms, int *_errno)
 {
     int ret = 0;
+    int set_timeout = 1;
+
     (void)ret;
 
     debug_printf("socket_settimeout(%d, %d)\n", _socket->fileno, timeout_ms);
 
     if (0x00 == timeout_ms) {
-        timeout_ms = 500;
+        timeout_ms = 100;
+
         ret |= network_rt_wlan_socke_setblocking(_socket, false, _errno);
     } else if((mp_uint_t)(-1) == timeout_ms) {
-        ret |= network_rt_wlan_socke_setblocking(_socket, true, _errno);
-    } else {
+        set_timeout = 0;
+
+        // not set socket as blocking, we block in python.
+        // ret |= network_rt_wlan_socke_setblocking(_socket, true, _errno);
+    }
+
+    if(set_timeout) {
         struct timeval timeout;
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_usec = (timeout_ms % 1000) * 1000;
@@ -703,30 +712,41 @@ STATIC int network_rt_wlan_socket_settimeout(struct _mod_network_socket_obj_t *_
     return ret;
 }
 
-STATIC int network_rt_wlan_socket_ioctl(struct _mod_network_socket_obj_t *_socket, mp_uint_t request, mp_uint_t arg, int *_errno)
-{
+STATIC int network_rt_wlan_socket_ioctl(struct _mod_network_socket_obj_t *_socket, mp_uint_t request, mp_uint_t arg, int *_errno) {
     mp_uint_t ret = 0;
     debug_printf("socket_ioctl(%d, %d)\n", _socket->fileno, request);
     if (request == MP_STREAM_POLL) {
-        uint8_t flags = 0;
+        fd_set readfds, writefds;
+        struct timeval tv = {
+            .tv_sec = 0,
+            .tv_usec = 1000,  // 1ms timeout
+        };
 
-        struct pollfd fd[1];
-        fd[0].fd = _socket->fileno;
-        fd[0].events = POLLIN;
-        fd[0].revents = 0;
+        FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
 
-        if (poll(_socket->fileno, 1, 1) < 0) {
+        if (arg & MP_STREAM_POLL_RD) {
+            FD_SET(_socket->fileno, &readfds);
+        }
+
+        if (arg & MP_STREAM_POLL_WR) {
+            FD_SET(_socket->fileno, &writefds);
+        }
+
+        int nfds = _socket->fileno + 1;
+        int res = select(nfds, &readfds, &writefds, NULL, &tv);
+
+        if (res < 0) {
             *_errno = errno;
             ret = MP_STREAM_ERROR;
             debug_printf("socket_ioctl() -> errno %d\n", *_errno);
-        }
-
-        flags = fd[0].revents;
-        if ((arg & MP_STREAM_POLL_RD) && (flags & POLLIN)) {
-            ret |= MP_STREAM_POLL_RD;
-        }
-        if ((arg & MP_STREAM_POLL_WR) && (flags & POLLOUT)) {
-            ret |= MP_STREAM_POLL_WR;
+        } else {
+            if ((arg & MP_STREAM_POLL_RD) && FD_ISSET(_socket->fileno, &readfds)) {
+                ret |= MP_STREAM_POLL_RD;
+            }
+            if ((arg & MP_STREAM_POLL_WR) && FD_ISSET(_socket->fileno, &writefds)) {
+                ret |= MP_STREAM_POLL_WR;
+            }
         }
     } else {
         // NOTE: FIONREAD and FIONBIO are supported as well.
