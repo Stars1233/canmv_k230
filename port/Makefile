@@ -189,6 +189,9 @@ ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LA
 endif
 
 # LVGL build rules
+CFLAGS += -DMICROPY_FREETYPE=1
+LV_CFLAGS := -DMICROPY_FREETYPE=1
+
 LVGL_BINDING_DIR = 3rd-party/lv_bindings
 LVGL_DIR = $(LVGL_BINDING_DIR)/lvgl
 ALL_LVGL_SRC = $(shell find $(LVGL_DIR) -type f -name '*.h') $(LVGL_BINDING_DIR)/lv_conf.h
