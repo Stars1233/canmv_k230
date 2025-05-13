@@ -58,7 +58,7 @@ def main(micropython_optimize=True):
         print("Client address:", client_addr)
         print("Client socket:", client_sock)
         #非阻塞模式
-        client_sock.setblocking(True)
+        client_sock.setblocking(False)
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
