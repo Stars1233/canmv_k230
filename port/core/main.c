@@ -506,9 +506,9 @@ MP_NOINLINE int main_(int argc, char **argv) {
     }
     #endif
 
-    #if MICROPY_GC_ALLOC_THRESHOLD
-    MP_STATE_MEM(gc_alloc_threshold) = heap_size / 2;
-    #endif
+    // #if MICROPY_GC_ALLOC_THRESHOLD
+    // MP_STATE_MEM(gc_alloc_threshold) = heap_size / 2;
+    // #endif
 
     #endif
 
