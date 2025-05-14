@@ -1,4 +1,3 @@
-from libs.PipeLine import ScopedTiming
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
 from libs.Utils import *
@@ -84,36 +83,10 @@ class YOLOv5(AIBase):
                     cls_res=(res_idx,softmax_res[res_idx])
                 return cls_res
             elif self.task_type=="detect":
-                output_data = results[0][0]
-                boxes_ori = output_data[:,0:4]
-                score_ori = output_data[:,4]
-                class_ori = output_data[:,5:]
-                class_res=np.argmax(class_ori,axis=-1)
-                scores_ = score_ori*np.max(class_ori,axis=-1)
-                boxes,inds,scores=[],[],[]
-                for i in range(len(boxes_ori)):
-                    if scores_[i]>self.conf_thresh:
-                        x,y,w,h=boxes_ori[i][0],boxes_ori[i][1],boxes_ori[i][2],boxes_ori[i][3]
-                        x1 = int((x - 0.5 * w)/self.scale)
-                        y1 = int((y - 0.5 * h)/self.scale)
-                        x2 = int((x + 0.5 * w)/self.scale)
-                        y2 = int((y + 0.5 * h)/self.scale)
-                        boxes.append([x1,y1,x2,y2])
-                        inds.append(class_res[i])
-                        scores.append(scores_[i])
-                if len(boxes)==0:
-                    return []
-                boxes = np.array(boxes)
-                scores = np.array(scores)
-                inds = np.array(inds)
-                # NMS过程
-                keep = self.nms(boxes,scores,self.nms_thresh)
-                dets = np.concatenate((boxes, scores.reshape((len(boxes),1)), inds.reshape((len(boxes),1))), axis=1)
-                det_res = []
-                for keep_i in keep:
-                    det_res.append(dets[keep_i])
-                det_res = np.array(det_res)
-                det_res = det_res[:self.max_boxes_num, :]
+                if self.mode=="image":
+                    det_res = aidemo.yolov5_det_postprocess(results[0][0],[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.rgb888p_size[1],self.rgb888p_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                elif self.mode=="video":
+                    det_res = aidemo.yolov5_det_postprocess(results[0][0],[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
                 return det_res
             elif self.task_type=="segment":
                 if self.mode=="image":
@@ -129,21 +102,17 @@ class YOLOv5(AIBase):
                     ids,score=res[0],res[1]
                     if ids!=-1:
                         img.clear()
-                        mes=self.labels[ids]+" "+str(round(score,3))
+                        mes=self.labels[ids]+" {0:.3f}".format(score)
                         img.draw_string_advanced(5,5,32,mes,color=(0,255,0))
                     else:
                         img.clear()
                 elif self.task_type=="detect":
                     if res:
                         img.clear()
-                        for det in res:
-                            x1, y1, x2, y2 = map(lambda x: int(round(x, 0)), det[:4])
-                            x= x1*self.display_size[0] // self.rgb888p_size[0]
-                            y= y1*self.display_size[1] // self.rgb888p_size[1]
-                            w = (x2 - x1) * self.display_size[0] // self.rgb888p_size[0]
-                            h = (y2 - y1) * self.display_size[1] // self.rgb888p_size[1]
-                            img.draw_rectangle(x,y, w, h, color=self.colors[int(det[5])],thickness=4)
-                            img.draw_string_advanced( x , y-50,32," " + self.labels[int(det[5])] + " " + str(round(det[4],2)) , color=self.colors[int(det[5])])
+                        for i in range(len(res[0])):
+                            x, y, w, h = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_rectangle(x,y, w, h, color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced( x , y-50,32," " + self.labels[res[1][i]] + " {0:.3f}".format(res[2][i]), color=self.colors[res[1][i]])
                     else:
                         img.clear()
                 elif self.task_type=="segment":
@@ -154,7 +123,7 @@ class YOLOv5(AIBase):
                         dets,ids,scores = res[0],res[1],res[2]
                         for i, det in enumerate(dets):
                             x1, y1, w, h = map(lambda x: int(round(x, 0)), det)
-                            img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " " + str(round(scores[i],2)) , color=self.colors[int(ids[i])])
+                            img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                     else:
                         img.clear()
                 else:
@@ -163,18 +132,15 @@ class YOLOv5(AIBase):
                 if self.task_type=="classify":
                     ids,score=res[0],res[1]
                     if ids!=-1:
-                        mes=self.labels[ids]+" "+str(round(score,3))
+                        mes=self.labels[ids]+" {0:.3f}".format(score)
                         img.draw_string_advanced(5,5,32,mes,color=(0,255,0))
                     img.compress_for_ide()
                 elif self.task_type=="detect":
                     if res:
-                        for det in res:
-                            x1, y1, x2, y2 = map(lambda x: int(round(x, 0)), det[:4])
-                            x,y=int(x1),int(y1)
-                            w = int(x2 - x1)
-                            h = int(y2 - y1)
-                            img.draw_rectangle(x,y,w,h,color=self.colors[int(det[5])],thickness=4)
-                            img.draw_string_advanced( x , y-25,20," " + self.labels[int(det[5])] + " " + str(round(det[4],2)) , color=self.colors[int(det[5])])
+                        for i in range(len(res[0])):
+                            x, y, w, h = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_rectangle(x,y, w, h, color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced( x , y-50,32," " + self.labels[res[1][i]] + " {0:.3f}".format(res[2][i]) , color=self.colors[res[1][i]])
                     img.compress_for_ide()
                 elif self.task_type=="segment":
                     if res[0]:
@@ -183,48 +149,10 @@ class YOLOv5(AIBase):
                         dets,ids,scores = res[0],res[1],res[2]
                         for i, det in enumerate(dets):
                             x, y, w, h = map(lambda x: int(round(x, 0)), det)
-                            mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " " + str(round(scores[i],2)) , color=self.colors[int(ids[i])])
+                            mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                         mask_img.compress_for_ide()
                 else:
                     pass
-
-
-    # 多目标检测 非最大值抑制方法实现
-    def nms(self,boxes,scores,thresh):
-        """Pure Python NMS baseline."""
-        x1,y1,x2,y2 = boxes[:, 0],boxes[:, 1],boxes[:, 2],boxes[:, 3]
-        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
-        order = np.argsort(scores,axis = 0)[::-1]
-        keep = []
-        while order.size > 0:
-            i = order[0]
-            keep.append(i)
-            new_x1,new_y1,new_x2,new_y2,new_areas = [],[],[],[],[]
-            for order_i in order:
-                new_x1.append(x1[order_i])
-                new_x2.append(x2[order_i])
-                new_y1.append(y1[order_i])
-                new_y2.append(y2[order_i])
-                new_areas.append(areas[order_i])
-            new_x1 = np.array(new_x1)
-            new_x2 = np.array(new_x2)
-            new_y1 = np.array(new_y1)
-            new_y2 = np.array(new_y2)
-            xx1 = np.maximum(x1[i], new_x1)
-            yy1 = np.maximum(y1[i], new_y1)
-            xx2 = np.minimum(x2[i], new_x2)
-            yy2 = np.minimum(y2[i], new_y2)
-            w = np.maximum(0.0, xx2 - xx1 + 1)
-            h = np.maximum(0.0, yy2 - yy1 + 1)
-            inter = w * h
-            new_areas = np.array(new_areas)
-            ovr = inter / (areas[i] + new_areas - inter)
-            new_order = []
-            for ovr_i,ind in enumerate(ovr):
-                if ind < thresh:
-                    new_order.append(order[ovr_i])
-            order = np.array(new_order,dtype=np.uint8)
-        return keep
 
 
 class YOLOv8(AIBase):
@@ -296,36 +224,11 @@ class YOLOv8(AIBase):
                     cls_res=(res_idx,max_score)
                 return cls_res
             elif self.task_type=="detect":
-                output_data = results[0][0]
-                output_data=output_data.transpose()
-                boxes_ori = output_data[:,0:4]
-                class_ori = output_data[:,4:]
-                class_res=np.argmax(class_ori,axis=-1)
-                scores_ = np.max(class_ori,axis=-1)
-                boxes,inds,scores=[],[],[]
-                for i in range(len(boxes_ori)):
-                    if scores_[i]>self.conf_thresh:
-                        x,y,w,h=boxes_ori[i][0],boxes_ori[i][1],boxes_ori[i][2],boxes_ori[i][3]
-                        x1 = int((x - 0.5 * w)/self.scale)
-                        y1 = int((y - 0.5 * h)/self.scale)
-                        x2 = int((x + 0.5 * w)/self.scale)
-                        y2 = int((y + 0.5 * h)/self.scale)
-                        boxes.append([x1,y1,x2,y2])
-                        inds.append(class_res[i])
-                        scores.append(scores_[i])
-                if len(boxes)==0:
-                    return []
-                boxes = np.array(boxes)
-                scores = np.array(scores)
-                inds = np.array(inds)
-                # NMS过程
-                keep = self.nms(boxes,scores,self.nms_thresh)
-                dets = np.concatenate((boxes, scores.reshape((len(boxes),1)), inds.reshape((len(boxes),1))), axis=1)
-                det_res = []
-                for keep_i in keep:
-                    det_res.append(dets[keep_i])
-                det_res = np.array(det_res)
-                det_res = det_res[:self.max_boxes_num, :]
+                new_result=results[0][0].transpose()
+                if self.mode=="image":
+                    det_res = aidemo.yolov8_det_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.rgb888p_size[1],self.rgb888p_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                elif self.mode=="video":
+                    det_res = aidemo.yolov8_det_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
                 return det_res
             elif self.task_type=="segment":
                 new_result=results[0][0].transpose()
@@ -342,21 +245,17 @@ class YOLOv8(AIBase):
                     ids,score=res[0],res[1]
                     if ids!=-1:
                         img.clear()
-                        mes=self.labels[ids]+" "+str(round(score,3))
+                        mes=self.labels[ids]+" {0:.3f}".format(score)
                         img.draw_string_advanced(5,5,32,mes,color=(0,255,0))
                     else:
                         img.clear()
                 elif self.task_type=="detect":
                     if res:
                         img.clear()
-                        for det in res:
-                            x1, y1, x2, y2 = map(lambda x: int(round(x, 0)), det[:4])
-                            x= x1*self.display_size[0] // self.rgb888p_size[0]
-                            y= y1*self.display_size[1] // self.rgb888p_size[1]
-                            w = (x2 - x1) * self.display_size[0] // self.rgb888p_size[0]
-                            h = (y2 - y1) * self.display_size[1] // self.rgb888p_size[1]
-                            img.draw_rectangle(x,y, w, h, color=self.colors[int(det[5])],thickness=4)
-                            img.draw_string_advanced( x , y-50,32," " + self.labels[int(det[5])] + " " + str(round(det[4],2)) , color=self.colors[int(det[5])])
+                        for i in range(len(res[0])):
+                            x, y, w, h = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_rectangle(x,y, w, h, color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced( x , y-50,32," " + self.labels[res[1][i]] + " {0:.3f}".format(res[2][i]) , color=self.colors[res[1][i]])
                     else:
                         img.clear()
                 elif self.task_type=="segment":
@@ -367,7 +266,7 @@ class YOLOv8(AIBase):
                         dets,ids,scores = res[0],res[1],res[2]
                         for i, det in enumerate(dets):
                             x1, y1, w, h = map(lambda x: int(round(x, 0)), det)
-                            img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " " + str(round(scores[i],2)) , color=self.colors[int(ids[i])])
+                            img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                     else:
                         img.clear()
                 else:
@@ -376,18 +275,15 @@ class YOLOv8(AIBase):
                 if self.task_type=="classify":
                     ids,score=res[0],res[1]
                     if ids!=-1:
-                        mes=self.labels[ids]+" "+str(round(score,3))
+                        mes=self.labels[ids]+" {0:.3f}".format(score)
                         img.draw_string_advanced(5,5,32,mes,color=(0,255,0))
                     img.compress_for_ide()
                 elif self.task_type=="detect":
                     if res:
-                        for det in res:
-                            x1, y1, x2, y2 = map(lambda x: int(round(x, 0)), det[:4])
-                            x,y=int(x1),int(y1)
-                            w = int(x2 - x1)
-                            h = int(y2 - y1)
-                            img.draw_rectangle(x,y,w,h,color=self.colors[int(det[5])],thickness=4)
-                            img.draw_string_advanced( x , y-25,20," " + self.labels[int(det[5])] + " " + str(round(det[4],2)) , color=self.colors[int(det[5])])
+                        for i in range(len(res[0])):
+                            x, y, w, h = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_rectangle(x,y, w, h, color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced( x , y-50,32," " + self.labels[res[1][i]] + " {0:.3f}".format(res[2][i]) , color=self.colors[res[1][i]])
                     img.compress_for_ide()
                 elif self.task_type=="segment":
                     if res[0]:
@@ -396,48 +292,10 @@ class YOLOv8(AIBase):
                         dets,ids,scores = res[0],res[1],res[2]
                         for i, det in enumerate(dets):
                             x, y, w, h = map(lambda x: int(round(x, 0)), det)
-                            mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " " + str(round(scores[i],2)) , color=self.colors[int(ids[i])])
+                            mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                         mask_img.compress_for_ide()
                 else:
                     pass
-
-
-    # 多目标检测 非最大值抑制方法实现
-    def nms(self,boxes,scores,thresh):
-        """Pure Python NMS baseline."""
-        x1,y1,x2,y2 = boxes[:, 0],boxes[:, 1],boxes[:, 2],boxes[:, 3]
-        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
-        order = np.argsort(scores,axis = 0)[::-1]
-        keep = []
-        while order.size > 0:
-            i = order[0]
-            keep.append(i)
-            new_x1,new_y1,new_x2,new_y2,new_areas = [],[],[],[],[]
-            for order_i in order:
-                new_x1.append(x1[order_i])
-                new_x2.append(x2[order_i])
-                new_y1.append(y1[order_i])
-                new_y2.append(y2[order_i])
-                new_areas.append(areas[order_i])
-            new_x1 = np.array(new_x1)
-            new_x2 = np.array(new_x2)
-            new_y1 = np.array(new_y1)
-            new_y2 = np.array(new_y2)
-            xx1 = np.maximum(x1[i], new_x1)
-            yy1 = np.maximum(y1[i], new_y1)
-            xx2 = np.minimum(x2[i], new_x2)
-            yy2 = np.minimum(y2[i], new_y2)
-            w = np.maximum(0.0, xx2 - xx1 + 1)
-            h = np.maximum(0.0, yy2 - yy1 + 1)
-            inter = w * h
-            new_areas = np.array(new_areas)
-            ovr = inter / (areas[i] + new_areas - inter)
-            new_order = []
-            for ovr_i,ind in enumerate(ovr):
-                if ind < thresh:
-                    new_order.append(order[ovr_i])
-            order = np.array(new_order,dtype=np.uint8)
-        return keep
 
 
 class YOLO11(AIBase):
@@ -509,36 +367,11 @@ class YOLO11(AIBase):
                     cls_res=(res_idx,max_score)
                 return cls_res
             elif self.task_type=="detect":
-                output_data = results[0][0]
-                output_data=output_data.transpose()
-                boxes_ori = output_data[:,0:4]
-                class_ori = output_data[:,4:]
-                class_res=np.argmax(class_ori,axis=-1)
-                scores_ = np.max(class_ori,axis=-1)
-                boxes,inds,scores=[],[],[]
-                for i in range(len(boxes_ori)):
-                    if scores_[i]>self.conf_thresh:
-                        x,y,w,h=boxes_ori[i][0],boxes_ori[i][1],boxes_ori[i][2],boxes_ori[i][3]
-                        x1 = int((x - 0.5 * w)/self.scale)
-                        y1 = int((y - 0.5 * h)/self.scale)
-                        x2 = int((x + 0.5 * w)/self.scale)
-                        y2 = int((y + 0.5 * h)/self.scale)
-                        boxes.append([x1,y1,x2,y2])
-                        inds.append(class_res[i])
-                        scores.append(scores_[i])
-                if len(boxes)==0:
-                    return []
-                boxes = np.array(boxes)
-                scores = np.array(scores)
-                inds = np.array(inds)
-                # NMS过程
-                keep = self.nms(boxes,scores,self.nms_thresh)
-                dets = np.concatenate((boxes, scores.reshape((len(boxes),1)), inds.reshape((len(boxes),1))), axis=1)
-                det_res = []
-                for keep_i in keep:
-                    det_res.append(dets[keep_i])
-                det_res = np.array(det_res)
-                det_res = det_res[:self.max_boxes_num, :]
+                new_result=results[0][0].transpose()
+                if self.mode=="image":
+                    det_res = aidemo.yolov8_det_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.rgb888p_size[1],self.rgb888p_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                elif self.mode=="video":
+                    det_res = aidemo.yolov8_det_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
                 return det_res
             elif self.task_type=="segment":
                 new_result=results[0][0].transpose()
@@ -555,21 +388,17 @@ class YOLO11(AIBase):
                     ids,score=res[0],res[1]
                     if ids!=-1:
                         img.clear()
-                        mes=self.labels[ids]+" "+str(round(score,3))
+                        mes=self.labels[ids]+" {0:.3f}".format(score)
                         img.draw_string_advanced(5,5,32,mes,color=(0,255,0))
                     else:
                         img.clear()
                 elif self.task_type=="detect":
                     if res:
                         img.clear()
-                        for det in res:
-                            x1, y1, x2, y2 = map(lambda x: int(round(x, 0)), det[:4])
-                            x= x1*self.display_size[0] // self.rgb888p_size[0]
-                            y= y1*self.display_size[1] // self.rgb888p_size[1]
-                            w = (x2 - x1) * self.display_size[0] // self.rgb888p_size[0]
-                            h = (y2 - y1) * self.display_size[1] // self.rgb888p_size[1]
-                            img.draw_rectangle(x,y, w, h, color=self.colors[int(det[5])],thickness=4)
-                            img.draw_string_advanced( x , y-50,32," " + self.labels[int(det[5])] + " " + str(round(det[4],2)) , color=self.colors[int(det[5])])
+                        for i in range(len(res[0])):
+                            x, y, w, h = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_rectangle(x,y, w, h, color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced( x , y-50,32," " + self.labels[res[1][i]] + " {0:.3f}".format(res[2][i]) , color=self.colors[res[1][i]])
                     else:
                         img.clear()
                 elif self.task_type=="segment":
@@ -580,7 +409,7 @@ class YOLO11(AIBase):
                         dets,ids,scores = res[0],res[1],res[2]
                         for i, det in enumerate(dets):
                             x1, y1, w, h = map(lambda x: int(round(x, 0)), det)
-                            img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " " + str(round(scores[i],2)) , color=self.colors[int(ids[i])])
+                            img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                     else:
                         img.clear()
                 else:
@@ -589,18 +418,15 @@ class YOLO11(AIBase):
                 if self.task_type=="classify":
                     ids,score=res[0],res[1]
                     if ids!=-1:
-                        mes=self.labels[ids]+" "+str(round(score,3))
+                        mes=self.labels[ids]+" {0:.3f}".format(score)
                         img.draw_string_advanced(5,5,32,mes,color=(0,255,0))
                     img.compress_for_ide()
                 elif self.task_type=="detect":
                     if res:
-                        for det in res:
-                            x1, y1, x2, y2 = map(lambda x: int(round(x, 0)), det[:4])
-                            x,y=int(x1),int(y1)
-                            w = int(x2 - x1)
-                            h = int(y2 - y1)
-                            img.draw_rectangle(x,y,w,h,color=self.colors[int(det[5])],thickness=4)
-                            img.draw_string_advanced( x , y-25,20," " + self.labels[int(det[5])] + " " + str(round(det[4],2)) , color=self.colors[int(det[5])])
+                        for i in range(len(res[0])):
+                            x, y, w, h = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_rectangle(x,y, w, h, color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced( x , y-50,32," " + self.labels[res[1][i]] + " {0:.3f}".format(res[2][i]) , color=self.colors[res[1][i]])
                     img.compress_for_ide()
                 elif self.task_type=="segment":
                     if res[0]:
@@ -609,45 +435,7 @@ class YOLO11(AIBase):
                         dets,ids,scores = res[0],res[1],res[2]
                         for i, det in enumerate(dets):
                             x, y, w, h = map(lambda x: int(round(x, 0)), det)
-                            mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " " + str(round(scores[i],2)) , color=self.colors[int(ids[i])])
+                            mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                         mask_img.compress_for_ide()
                 else:
                     pass
-
-
-    # 多目标检测 非最大值抑制方法实现
-    def nms(self,boxes,scores,thresh):
-        """Pure Python NMS baseline."""
-        x1,y1,x2,y2 = boxes[:, 0],boxes[:, 1],boxes[:, 2],boxes[:, 3]
-        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
-        order = np.argsort(scores,axis = 0)[::-1]
-        keep = []
-        while order.size > 0:
-            i = order[0]
-            keep.append(i)
-            new_x1,new_y1,new_x2,new_y2,new_areas = [],[],[],[],[]
-            for order_i in order:
-                new_x1.append(x1[order_i])
-                new_x2.append(x2[order_i])
-                new_y1.append(y1[order_i])
-                new_y2.append(y2[order_i])
-                new_areas.append(areas[order_i])
-            new_x1 = np.array(new_x1)
-            new_x2 = np.array(new_x2)
-            new_y1 = np.array(new_y1)
-            new_y2 = np.array(new_y2)
-            xx1 = np.maximum(x1[i], new_x1)
-            yy1 = np.maximum(y1[i], new_y1)
-            xx2 = np.minimum(x2[i], new_x2)
-            yy2 = np.minimum(y2[i], new_y2)
-            w = np.maximum(0.0, xx2 - xx1 + 1)
-            h = np.maximum(0.0, yy2 - yy1 + 1)
-            inter = w * h
-            new_areas = np.array(new_areas)
-            ovr = inter / (areas[i] + new_areas - inter)
-            new_order = []
-            for ovr_i,ind in enumerate(ovr):
-                if ind < thresh:
-                    new_order.append(order[ovr_i])
-            order = np.array(new_order,dtype=np.uint8)
-        return keep
