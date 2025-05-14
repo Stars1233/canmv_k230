@@ -131,3 +131,4 @@ class PipeLine:
             time.sleep_ms(50)
             # deinit media buffer
             MediaManager.deinit()
+            
