@@ -1361,6 +1361,27 @@ STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_a
     return mp_const_true;
 }
 
+STATIC mp_obj_t _network_rt_wlan_ap_get_info(mp_obj_t self_in)
+{
+    py_rt_net_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+    if(MOD_NETWORK_AP_IF != self->itf) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("only ap if can get info"));
+    }
+
+    CHECK_FD_VALID();
+
+    struct rt_wlan_info info;
+
+    if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_GET_INFO, &info)) {
+        mp_printf(&mp_plat_print, "run get ap info failed.\n");
+        return mp_const_none;
+    }
+
+    return py_rt_wlan_info_from_struct(&info);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_wlan_ap_get_info_obj, _network_rt_wlan_ap_get_info);
+
 STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
     CHECK_FD_VALID();
@@ -1376,14 +1397,7 @@ STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_ar
 
         switch(attr) {
             case MP_QSTR_info: {
-                struct rt_wlan_info info;
-
-                if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_GET_INFO, &info)) {
-                    mp_printf(&mp_plat_print, "run get ap info failed.\n");
-                    return mp_const_none;
-                }
-
-                return py_rt_wlan_info_from_struct(&info);
+                return _network_rt_wlan_ap_get_info(pos_args[0]);
             } break;
             case MP_QSTR_country: {
                 int country = RT_COUNTRY_CHINA;
@@ -1679,7 +1693,7 @@ STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
             network_type_ap_locals_dict_table[MP_ARRAY_SIZE(rt_wlan_locals_dict_table) + 0] = \
                 (mp_map_elem_t){ MP_ROM_QSTR(MP_QSTR_stop), MP_OBJ_FROM_PTR(&network_rt_wlan_stop_obj) };
             network_type_ap_locals_dict_table[MP_ARRAY_SIZE(rt_wlan_locals_dict_table) + 1] = \
-                (mp_map_elem_t){ MP_ROM_QSTR(MP_QSTR_info), MP_OBJ_FROM_PTR(&py_rt_wlan_info_type) };
+                (mp_map_elem_t){ MP_ROM_QSTR(MP_QSTR_info), MP_OBJ_FROM_PTR(&network_rt_wlan_ap_get_info_obj) };
         }
 
         return MP_OBJ_TYPE_GET_SLOT(&network_type_wlan_ap, make_new)(&network_type_wlan_ap, 0, 0, MP_OBJ_NULL);
@@ -1699,5 +1713,76 @@ void network_rt_wlan_deinit(void)
     network_type_ap_init_flag = 0;
 #endif // CONFIG_ENABLE_NETWORK_RT_WLAN
 }
+
+STATIC mp_obj_t network_rt_set_dft_dev(mp_obj_t name)
+{
+    const char* dev_name = mp_obj_str_get_str(name);
+    int         name_len = strlen(dev_name);
+
+    if ((0x00 >= name_len) || (32 <= name_len)) {
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid device name"));
+    }
+
+    CHECK_FD_VALID();
+
+    if (0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_SET_DEV_DEFAULT, dev_name)) {
+        mp_printf(&mp_plat_print, "run set default netdev failed.\n");
+        return mp_const_false;
+    }
+
+    return mp_const_true;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(network_rt_set_dft_dev_obj, network_rt_set_dft_dev);
+
+STATIC mp_obj_t network_rt_get_dft_dev(void)
+{
+    char dev_name[32];
+
+    CHECK_FD_VALID();
+
+    if (0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_GET_DEV_DEFAULT, &dev_name[0])) {
+        mp_printf(&mp_plat_print, "run get default netdev failed.\n");
+        return mp_const_none;
+    }
+
+    return mp_obj_new_str_via_qstr(dev_name, strlen(dev_name));
+}
+MP_DEFINE_CONST_FUN_OBJ_0(network_rt_get_dft_dev_obj, network_rt_get_dft_dev);
+
+STATIC mp_obj_t network_rt_get_dev_list(void)
+{
+#define NET_DEV_MAX_CNT 8
+
+    mp_obj_t dev_list;
+    mp_obj_t name_obj;
+
+    int name_len = 0;
+
+    char names[32 * NET_DEV_MAX_CNT], *pname = NULL; /* we max support 8 netdev */
+
+    CHECK_FD_VALID();
+
+    if (0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_GET_DEV_LIST, &names[0])) {
+        mp_printf(&mp_plat_print, "run get netdev list failed.\n");
+        return mp_const_none;
+    }
+
+    dev_list = mp_obj_new_list(0, NULL);
+    for (int i = 0; i < NET_DEV_MAX_CNT; i++) {
+        pname         = &names[i * 32];
+        pname[32 - 1] = '\0';
+        name_len      = strlen(pname);
+
+        if (name_len) {
+            name_obj = mp_obj_new_str_via_qstr(pname, name_len);
+            mp_obj_list_append(dev_list, name_obj);
+        }
+    }
+
+    return dev_list;
+
+#undef NET_DEV_MAX_CNT
+}
+MP_DEFINE_CONST_FUN_OBJ_0(network_rt_get_dev_list_obj, network_rt_get_dev_list);
 
 #endif // MICROPY_PY_NETWORK

@@ -89,7 +89,9 @@ typedef enum
 // network util
 #define IOCTRL_NET_IFCONFIG 0x100
 #define IOCTRL_NET_GETHOSTBYNAME 0x101
-
+#define IOCTRL_NET_SET_DEV_DEFAULT  0x102
+#define IOCTRL_NET_GET_DEV_DEFAULT  0x103
+#define IOCTRL_NET_GET_DEV_LIST  0x104
 
 #define INVALID_INFO(_info)                                                    \
   do {                                                                         \
