@@ -9,6 +9,7 @@ import ulab.numpy as np
 import image
 import gc
 import sys
+import time
 
 # PipeLine类
 class PipeLine:
