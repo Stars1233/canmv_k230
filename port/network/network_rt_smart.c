@@ -376,6 +376,13 @@ STATIC int network_rt_wlan_socket_listen(struct _mod_network_socket_obj_t *_sock
 STATIC int network_rt_wlan_socket_accept(struct _mod_network_socket_obj_t *_socket,
     struct _mod_network_socket_obj_t *socket2, byte *ip, mp_uint_t *port, int *_errno)
 {
+    mp_uint_t curr_tick_ms, stop_ms = 0;
+    int32_t timeout_ms = _socket->timeout;
+
+    if(0 < timeout_ms) {
+        stop_ms = mp_hal_ticks_ms() + timeout_ms;
+    }
+
     debug_printf("socket_accept(%d)\n", _socket->fileno);
 
     if (network_rt_wlan_socket_poll(_socket, POLLIN, _errno) != 0) {
@@ -390,19 +397,35 @@ STATIC int network_rt_wlan_socket_accept(struct _mod_network_socket_obj_t *_sock
     int fd = -1;
 
     do {
-        fd = accept(_socket->fileno, (struct sockaddr*)&addr, (socklen_t*)&addrlen);
-        if((0 <= fd) || (EAGAIN != errno)) {
-            break;
-        }
-        mp_hal_delay_ms(100);
-    } while(0 > fd);
+        *_errno = 0;
+        MICROPY_EVENT_POLL_HOOK
 
-    if (fd < 0) {
-        *_errno = errno;
-        // network_rt_wlan_socket_close(_socket);
-        debug_printf("socket_accept() -> errno %d\n", *_errno);
-        return -1;
-    }
+        fd = accept(_socket->fileno, (struct sockaddr*)&addr, (socklen_t*)&addrlen);
+        if(0 > fd) {
+            *_errno = errno;
+
+            debug_printf("socket_accept() -> errno %d %d\n", *_errno, fd);
+
+            if(EAGAIN == *_errno) {
+                goto _check_timeout;
+            }
+
+            return -1;
+        }
+
+_check_timeout:
+        if(0x00 == timeout_ms) { // non blocking
+            *_errno = EAGAIN;
+            return -1;
+        } else if((-1) == timeout_ms) { // blocking
+        } else {
+            curr_tick_ms = mp_hal_ticks_ms();
+            if(curr_tick_ms > stop_ms) {
+                *_errno = EAGAIN;
+                return -1;
+            }
+        }
+    } while(0 > fd);
 
     *port = ntohs(addr.sin_port);
     memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
