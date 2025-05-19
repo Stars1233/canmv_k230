@@ -145,6 +145,20 @@ struct YoloDetInfo{
 	float confidence;
 	int index;
 };
+//*****************************for yolo_obb*****************************
+struct YoloObbInfo{
+	int x1;
+    int y1;
+    int x2;
+    int y2;
+    int x3;
+    int y3;
+    int x4;
+    int y4; 
+	float confidence;
+	int index;
+};
+
 //*****************************for yunet_face_det*****************************
 struct YUNetFaceDetInfo{
 	int x;

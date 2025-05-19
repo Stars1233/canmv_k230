@@ -59,6 +59,8 @@ typedef struct TtsZhOutput TtsZhOutput;
 
 typedef struct YoloDetInfo YoloDetInfo;
 
+typedef struct YoloObbInfo YoloObbInfo;
+
 typedef struct YUNetFaceDetInfo YUNetFaceDetInfo;
 
 #ifdef __cplusplus
@@ -111,6 +113,9 @@ extern "C" {
     // for yolov5 det
     YoloDetInfo* yolov5_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
     
+    // for yolo det
+    YoloObbInfo* yolo_obb_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
+
     // for yunet face det
     YUNetFaceDetInfo* yunet_postprocess(float **outputs, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int* strides, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
 
