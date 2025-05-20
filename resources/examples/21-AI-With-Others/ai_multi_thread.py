@@ -27,7 +27,6 @@ from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
 from libs.Utils import *
-from time import *
 import nncase_runtime as nn
 import ulab.numpy as np
 import aidemo
