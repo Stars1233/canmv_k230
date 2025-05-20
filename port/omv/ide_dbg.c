@@ -287,6 +287,7 @@ void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height
 // #define ENABLE_BUFFER_ROTATION 1
 
 static bool _dma_dev_init_flag = false;
+static int32_t _dma_dev_chn = -1;
 
 // for VO writeback
 #if ENABLE_VO_WRITEBACK
@@ -318,6 +319,12 @@ void dma_dev_init(void)
         return;
     }
 
+    _dma_dev_chn = kd_mpi_dma_request_chn(GDMA_TYPE);
+    if(0 > _dma_dev_chn) {
+        printf("request gdma chn failed.\n");
+        return;
+    }
+
     ret = kd_mpi_dma_set_dev_attr(&dev_attr);
     if (ret != K_SUCCESS) {
         printf("set dev attr error\r\n");
@@ -340,10 +347,11 @@ void dma_dev_deinit(void)
         return;
     }
 
-    kd_mpi_dma_stop_chn(OSD_ROTATION_DMA_CHN);
+    kd_mpi_dma_stop_chn(_dma_dev_chn);
     kd_mpi_dma_stop_dev();
 
     _dma_dev_init_flag = false;
+    _dma_dev_chn = -1;
 }
 
 int kd_mpi_vo_osd_rotation(int flag, k_video_frame_info *in, k_video_frame_info *out)
@@ -379,18 +387,22 @@ int kd_mpi_vo_osd_rotation(int flag, k_video_frame_info *in, k_video_frame_info 
         dma_dev_init();
     }
 
-    kd_mpi_dma_stop_chn(OSD_ROTATION_DMA_CHN);
+    if(0 > _dma_dev_chn) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate runtime error, no free dma channel"));
+    }
 
-    if (K_SUCCESS != (ret = kd_mpi_dma_set_chn_attr(OSD_ROTATION_DMA_CHN, &chn_attr))) {
+    kd_mpi_dma_stop_chn(_dma_dev_chn);
+
+    if (K_SUCCESS != (ret = kd_mpi_dma_set_chn_attr(_dma_dev_chn, &chn_attr))) {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 1, %d"), ret);
     }
-    if (K_SUCCESS != (ret = kd_mpi_dma_start_chn(OSD_ROTATION_DMA_CHN))) {
+    if (K_SUCCESS != (ret = kd_mpi_dma_start_chn(_dma_dev_chn))) {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 2, %d"), ret);
     }
-    if (K_SUCCESS != (ret = kd_mpi_dma_send_frame(OSD_ROTATION_DMA_CHN, in, -1))) {
+    if (K_SUCCESS != (ret = kd_mpi_dma_send_frame(_dma_dev_chn, in, -1))) {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 3, %d"), ret);
     }
-    if (K_SUCCESS != (ret = kd_mpi_dma_get_frame(OSD_ROTATION_DMA_CHN, &tmp, -1))) {
+    if (K_SUCCESS != (ret = kd_mpi_dma_get_frame(_dma_dev_chn, &tmp, -1))) {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 4, %d"), ret);
     }
 
@@ -400,7 +412,7 @@ int kd_mpi_vo_osd_rotation(int flag, k_video_frame_info *in, k_video_frame_info 
     kd_mpi_sys_mmz_flush_cache(tmp.v_frame.phys_addr[0], tmp_addr, size);
     memcpy_fast(out->v_frame.virt_addr[0], tmp_addr, size);
     kd_mpi_sys_munmap(tmp_addr, size);
-    kd_mpi_dma_release_frame(OSD_ROTATION_DMA_CHN, &tmp);
+    kd_mpi_dma_release_frame(_dma_dev_chn, &tmp);
 
     return 0;
 }

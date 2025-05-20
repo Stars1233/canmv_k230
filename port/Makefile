@@ -2,8 +2,11 @@ include ${SDK_SRC_ROOT_DIR}/.config
 
 CROSS_COMPILE=$(SDK_TOOLCHAIN_DIR)/riscv64-linux-musleabi_for_x86_64-pc-linux-gnu/bin/riscv64-unknown-linux-musl-
 
-BOARD_DIR = boards/${CONFIG_BOARD}
-BUILD = ${SDK_CANMV_BUILD_DIR}
+# Strip quotes and then whitespaces
+qstrip = $(strip $(subst ",,$(1)))
+
+BOARD_DIR = boards/$(call qstrip,$(CONFIG_BOARD))
+BUILD = $(SDK_CANMV_BUILD_DIR)
 
 include ../micropython/py/mkenv.mk
 
@@ -21,7 +24,9 @@ USER_C_MODULES = 3rd-party/ulab
 include $(TOP)/py/py.mk 
 include $(TOP)/extmod/extmod.mk
 
-include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart.mk
+LIB_CFLAGS :=
+LIB_LDFLAGS :=
+
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libmpp.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libopencv.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libnncase.mk
@@ -61,12 +66,13 @@ INC += -I3rd-party/ulab
 INC += -I3rd-party/lv_bindings
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_server/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/mp4_format/include
-INC += $(SDK_MPP_USER_INC) $(SDK_RTSMART_INC) $(RTSMART_HAL_INC) $(RTSMART_3RD_PARTY_INC) $(NNCASE_INC) $(OPENCV_INC) 
 
 INC += -I$(TOP)
 INC += -I$(TOP)/py
 INC += -I$(TOP)/shared/readline
 INC += -I$(TOP)/lib/crypto-algorithms
+
+INC += $(LIB_CFLAGS)
 
 # compiler settings
 # Debugging/Optimization
@@ -108,13 +114,13 @@ CXXFLAGS += $(filter-out -Wmissing-prototypes -Wold-style-definition -std=gnu99,
 LDFLAGS_ARCH = -Wl,-Map=$@.map,--cref -Wl,--gc-sections
 LDFLAGS += -T core/link.lds --static
 
-# rtsp server
-RTSP_SERVER_LIBS := -L$(SDK_RTSMART_SRC_DIR)/mpp/middleware/lib -lrtsp_server -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment
+# # rtsp server
+# RTSP_SERVER_LIBS := -L$(SDK_RTSMART_SRC_DIR)/mpp/middleware/lib -lrtsp_server -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment
 
-LDFLAGS_LIBS := $(NNCASE_LIB_DIR) $(OPENCV_LIB_DIR) $(SDK_MPP_USER_LIB_DIR) $(SDK_MPP_MIDDLEWARE_LIB_DIR) $(RTSMART_HAL_LIB_DIR) $(RTSMART_3RD_PARTY_LIB_DIR)
-LDFLAGS_LIBS += -Wl,--start-group -lm -lpthread -lmp4 $(NNCASE_LIBS) $(OPENCV_LIBS) $(SDK_MPP_USER_LIBS) $(RTSP_SERVER_LIBS) $(RTSMART_HAL_LIBS) $(RTSMART_3RD_PARTY_LIBS) -Wl,--end-group
+# LDFLAGS_LIBS := $(NNCASE_LIB_DIR) $(OPENCV_LIB_DIR) $(SDK_MPP_USER_LIB_DIR) $(SDK_MPP_MIDDLEWARE_LIB_DIR) $(RTSMART_HAL_LIB_DIR) $(RTSMART_3RD_PARTY_LIB_DIR)
+# LDFLAGS_LIBS += -Wl,--start-group -lm -lpthread -lmp4 $(NNCASE_LIBS) $(OPENCV_LIBS) $(SDK_MPP_USER_LIBS) $(RTSP_SERVER_LIBS) $(RTSMART_HAL_LIBS) $(RTSMART_3RD_PARTY_LIBS) -Wl,--end-group
 
-LDFLAGS += $(LDFLAGS_MOD) $(LDFLAGS_ARCH) $(LDFLAGS_LIBS) $(LDFLAGS_EXTRA)
+LDFLAGS += $(LDFLAGS_MOD) $(LDFLAGS_ARCH) $(LIB_LDFLAGS) $(LDFLAGS_EXTRA)
 
 # remove some python project source files
 PY_O_EXCLUDE = \
