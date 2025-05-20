@@ -237,6 +237,22 @@ STATIC mp_obj_t _##x(mp_obj_t obj0, mp_obj_t obj1, mp_obj_t obj2) {     \
 }                                                                       \
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(x##_obj, _##x);
 
+#define DEF_INT_FUNC_INT_STRUCTPTR_INT_GIL(x, struct_type)              \
+STATIC mp_obj_t _##x(mp_obj_t obj0, mp_obj_t obj1, mp_obj_t obj2) {     \
+    mp_buffer_info_t bufinfo;                                           \
+    mp_get_buffer_raise(obj1, &bufinfo, MP_BUFFER_READ);                \
+    if (sizeof(struct_type) != bufinfo.len)                             \
+        mp_raise_msg_varg(&mp_type_TypeError,                           \
+            MP_ERROR_TEXT("struct expect size: %u, actual size: %u"),   \
+            sizeof(struct_type), bufinfo.len);                          \
+    MP_THREAD_GIL_EXIT();                                               \
+    size_t ret = x(mp_obj_get_int(obj0), (struct_type*)(bufinfo.buf),   \
+        mp_obj_get_int(obj2));                                          \
+    MP_THREAD_GIL_ENTER();                                              \
+    return mp_obj_new_int(ret);                                         \
+}                                                                       \
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(x##_obj, _##x);
+
 #define DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR_INT(x, struct0_type, struct1_type) \
 STATIC mp_obj_t _##x(size_t n_args, const mp_obj_t *args) {             \
     mp_buffer_info_t bufinfo[2];                                        \
@@ -277,6 +293,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(x##_obj, 4, 4, _##x);
 #define DEF_INT_FUNC_INT_INT_STRUCT(x, struct_type) DEF_INT_FUNC_VOID(x)
 #define DEF_INT_FUNC_INT_INT_STRUCTPTR(x, struct_type) DEF_INT_FUNC_VOID(x)
 #define DEF_INT_FUNC_INT_STRUCTPTR_INT(x, struct_type) DEF_INT_FUNC_VOID(x)
+#define DEF_INT_FUNC_INT_STRUCTPTR_INT_GIL(x, struct_type) DEF_INT_FUNC_VOID(x)
 #define DEF_INT_FUNC_INT_INT_STRUCTPTR_INT(x, struct_type) DEF_INT_FUNC_VOID(x)
 #define DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR(x, struct0_type, struct1_type) DEF_INT_FUNC_VOID(x)
 #define DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR_INT(x, struct0_type, struct1_type) \
@@ -307,6 +324,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(x##_obj, 4, 4, _##x);
 #undef DEF_INT_FUNC_INT_INT_STRUCT
 #undef DEF_INT_FUNC_INT_INT_STRUCTPTR
 #undef DEF_INT_FUNC_INT_STRUCTPTR_INT
+#undef DEF_INT_FUNC_INT_STRUCTPTR_INT_GIL
 #undef DEF_INT_FUNC_INT_INT_STRUCTPTR_INT
 #undef DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR_INT
 #undef DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR
