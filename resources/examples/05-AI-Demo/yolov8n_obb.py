@@ -9,7 +9,7 @@ import ulab.numpy as np
 import image
 import aidemo
 
-# 自定义YOLO11 Obb类
+# 自定义YOLOv8 Obb类
 class ObbDetectionApp(AIBase):
     def __init__(self,kmodel_path,labels,model_input_size,max_boxes_num,confidence_threshold=0.5,nms_threshold=0.2,rgb888p_size=[224,224],display_size=[1920,1080],debug_mode=0):
         super().__init__(kmodel_path,model_input_size,rgb888p_size,debug_mode)
@@ -80,7 +80,7 @@ if __name__=="__main__":
     display_mode="hdmi"
     rgb888p_size=[1280,720]
     # 模型路径
-    kmodel_path="/sdcard/examples/kmodel/yolo11n-obb.kmodel"
+    kmodel_path="/sdcard/examples/kmodel/yolov8n-obb.kmodel"
     labels = ['plane','ship','storage tank','baseball diamond','tennis court','basketball court','ground track field','harbor','bridge','large vehicle','small vehicle','helicopter','roundabout','soccer ball field','swimming pool']
     # 其它参数设置
     confidence_threshold = 0.1

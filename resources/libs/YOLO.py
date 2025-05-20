@@ -18,8 +18,7 @@ import aidemo
 class YOLOv5(AIBase):
     def __init__(self,task_type="detect",mode="video",kmodel_path="",labels=[],rgb888p_size=[320,320],model_input_size=[320,320],display_size=[1920,1080],conf_thresh=0.5,nms_thresh=0.45,mask_thresh=0.5,max_boxes_num=50,debug_mode=0):
         if task_type not in ["classify","detect","segment"]:
-            print("Please select the correct task_type parameter, including 'classify', 'detect', 'segment'.")
-            return
+            raise Exception("Please select the correct task_type parameter, including 'classify', 'detect', 'segment'.")
         super().__init__(kmodel_path,model_input_size,rgb888p_size,debug_mode)
         self.task_type=task_type
         self.mode=mode
@@ -157,9 +156,8 @@ class YOLOv5(AIBase):
 
 class YOLOv8(AIBase):
     def __init__(self,task_type="detect",mode="video",kmodel_path="",labels=[],rgb888p_size=[320,320],model_input_size=[320,320],display_size=[1920,1080],conf_thresh=0.5,nms_thresh=0.45,mask_thresh=0.5,max_boxes_num=50,debug_mode=0):
-        if task_type not in ["classify","detect","segment"]:
-            print("Please select the correct task_type parameter, including 'classify', 'detect', 'segment'.")
-            return
+        if task_type not in ["classify","detect","segment","obb"]:
+            raise Exception("Please select the correct task_type parameter, including 'classify', 'detect', 'segment','obb'.")
         super().__init__(kmodel_path,model_input_size,rgb888p_size,debug_mode)
         self.task_type=task_type
         self.mode=mode
@@ -208,6 +206,11 @@ class YOLOv8(AIBase):
             elif self.task_type=="segment":
                 top,bottom,left,right,scale=letterbox_pad_param(self.rgb888p_size,self.model_input_size)
                 self.ai2d.pad([0,0,0,0,top,bottom,left,right], 0, [128,128,128])
+            elif self.task_type=="obb":
+                # 计算padding参数
+                top,bottom,left,right,self.scale=letterbox_pad_param(self.rgb888p_size,self.model_input_size)
+                # 配置padding预处理
+                self.ai2d.pad([0,0,0,0,top,bottom,left,right], 0, [128,128,128])
             self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
             # build参数包含输入shape和输出shape
             self.ai2d.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
@@ -237,6 +240,13 @@ class YOLOv8(AIBase):
                 elif self.mode=="video":
                     seg_res = aidemo.yolov8_seg_postprocess(new_result.copy(),results[1][0],[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.mask_thresh,self.masks)
                 return seg_res
+            elif self.task_type=="obb":
+                new_result=results[0][0].transpose()
+                if self.mode=="image":
+                    obb_res = aidemo.yolo_obb_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.rgb888p_size[1],self.rgb888p_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                elif self.mode=="video":
+                    obb_res = aidemo.yolo_obb_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                return obb_res
 
     def draw_result(self,res,img):
         with ScopedTiming("draw result",self.debug_mode > 0):
@@ -269,6 +279,18 @@ class YOLOv8(AIBase):
                             img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                     else:
                         img.clear()
+                elif self.task_type=="obb":
+                    if res:
+                        img.clear()
+                        for i in range(len(res[0])):
+                            x1, y1, x2,y2,x3,y3,x4,y4 = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_line(int(x1),int(y1),int(x2),int(y2),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x2),int(y2),int(x3),int(y3),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x3),int(y3),int(x4),int(y4),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x4),int(y4),int(x1),int(y1),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced(x1, y1,24,str(res[1][i]) , color=self.colors[res[1][i]])
+                    else:
+                        img.clear()
                 else:
                     pass
             elif self.mode=="image":
@@ -294,15 +316,24 @@ class YOLOv8(AIBase):
                             x, y, w, h = map(lambda x: int(round(x, 0)), det)
                             mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                         mask_img.compress_for_ide()
+                elif self.task_type=="obb":
+                    if res:
+                        for i in range(len(res[0])):
+                            x1, y1, x2,y2,x3,y3,x4,y4 = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_line(int(x1),int(y1),int(x2),int(y2),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x2),int(y2),int(x3),int(y3),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x3),int(y3),int(x4),int(y4),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x4),int(y4),int(x1),int(y1),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced(x1, y1,24,str(res[1][i]) , color=self.colors[res[1][i]])
+                    img.compress_for_ide()
                 else:
                     pass
 
 
 class YOLO11(AIBase):
     def __init__(self,task_type="detect",mode="video",kmodel_path="",labels=[],rgb888p_size=[320,320],model_input_size=[320,320],display_size=[1920,1080],conf_thresh=0.5,nms_thresh=0.45,mask_thresh=0.5,max_boxes_num=50,debug_mode=0):
-        if task_type not in ["classify","detect","segment"]:
-            print("Please select the correct task_type parameter, including 'classify', 'detect', 'segment'.")
-            return
+        if task_type not in ["classify","detect","segment","obb"]:
+            raise Exception("Please select the correct task_type parameter, including 'classify', 'detect', 'segment','obb'.")
         super().__init__(kmodel_path,model_input_size,rgb888p_size,debug_mode)
         self.task_type=task_type
         self.mode=mode
@@ -351,6 +382,11 @@ class YOLO11(AIBase):
             elif self.task_type=="segment":
                 top,bottom,left,right,scale=letterbox_pad_param(self.rgb888p_size,self.model_input_size)
                 self.ai2d.pad([0,0,0,0,top,bottom,left,right], 0, [128,128,128])
+            elif self.task_type=="obb":
+                # 计算padding参数
+                top,bottom,left,right,self.scale=letterbox_pad_param(self.rgb888p_size,self.model_input_size)
+                # 配置padding预处理
+                self.ai2d.pad([0,0,0,0,top,bottom,left,right], 0, [128,128,128])
             self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
             # build参数包含输入shape和输出shape
             self.ai2d.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
@@ -380,6 +416,13 @@ class YOLO11(AIBase):
                 elif self.mode=="video":
                     seg_res = aidemo.yolov8_seg_postprocess(new_result.copy(),results[1][0],[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.mask_thresh,self.masks)
                 return seg_res
+            elif self.task_type=="obb":
+                new_result=results[0][0].transpose()
+                if self.mode=="image":
+                    obb_res = aidemo.yolo_obb_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.rgb888p_size[1],self.rgb888p_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                elif self.mode=="video":
+                    obb_res = aidemo.yolo_obb_postprocess(new_result.copy(),[self.rgb888p_size[1],self.rgb888p_size[0]],[self.model_input_size[1],self.model_input_size[0]],[self.display_size[1],self.display_size[0]],len(self.labels),self.conf_thresh,self.nms_thresh,self.max_boxes_num)
+                return obb_res
 
     def draw_result(self,res,img):
         with ScopedTiming("draw result",self.debug_mode > 0):
@@ -412,6 +455,18 @@ class YOLO11(AIBase):
                             img.draw_string_advanced(x1,y1-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                     else:
                         img.clear()
+                elif self.task_type=="obb":
+                    if res:
+                        img.clear()
+                        for i in range(len(res[0])):
+                            x1, y1, x2,y2,x3,y3,x4,y4 = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_line(int(x1),int(y1),int(x2),int(y2),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x2),int(y2),int(x3),int(y3),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x3),int(y3),int(x4),int(y4),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x4),int(y4),int(x1),int(y1),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced(x1, y1,24,str(res[1][i]) , color=self.colors[res[1][i]])
+                    else:
+                        img.clear()
                 else:
                     pass
             elif self.mode=="image":
@@ -437,5 +492,15 @@ class YOLO11(AIBase):
                             x, y, w, h = map(lambda x: int(round(x, 0)), det)
                             mask_img.draw_string_advanced(x,y-50,32, " " + self.labels[int(ids[i])] + " {0:.3f}".format(scores[i]) , color=self.colors[int(ids[i])])
                         mask_img.compress_for_ide()
+                elif self.task_type=="obb":
+                    if res:
+                        for i in range(len(res[0])):
+                            x1, y1, x2,y2,x3,y3,x4,y4 = map(lambda x: int(round(x, 0)), res[0][i])
+                            img.draw_line(int(x1),int(y1),int(x2),int(y2),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x2),int(y2),int(x3),int(y3),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x3),int(y3),int(x4),int(y4),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_line(int(x4),int(y4),int(x1),int(y1),color=self.colors[res[1][i]],thickness=4)
+                            img.draw_string_advanced(x1, y1,24,str(res[1][i]) , color=self.colors[res[1][i]])
+                    img.compress_for_ide()
                 else:
                     pass
