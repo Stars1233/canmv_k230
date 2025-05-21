@@ -350,6 +350,8 @@ void dma_dev_deinit(void)
     kd_mpi_dma_stop_chn(_dma_dev_chn);
     kd_mpi_dma_stop_dev();
 
+    kd_mpi_dma_release_chn(_dma_dev_chn);
+
     _dma_dev_init_flag = false;
     _dma_dev_chn = -1;
 }

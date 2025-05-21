@@ -40,57 +40,39 @@
 
 #include "modmachine.h"
 
+#include "drv_i2c.h"
+
 #include "machine_touch.h"
 
 // User Utils /////////////////////////////////////////////////////////////////
-typedef struct {
-    uint16_t addr;
-    uint16_t flags;
-    uint16_t len;
-    uint8_t *buf;
-} i2c_msg_t;
-
-typedef struct {
-    i2c_msg_t *msgs;
-    size_t number;
-} i2c_priv_data_t;
-
-int machine_touch_user_wr(machine_touch_obj_t *self, uint16_t addr,
-    uint8_t *send_buffer, uint32_t send_len, uint8_t *read_buffer, uint32_t read_len) {
-#define RT_I2C_DEV_CTRL_RW (0x800 + 0x04)
-
-    int msg_count = 0;
+int machine_touch_user_wr(machine_touch_obj_t* self, uint16_t addr, uint8_t* send_buffer, uint32_t send_len,
+                          uint8_t* read_buffer, uint32_t read_len)
+{
 
     i2c_msg_t msgs[2];
-    i2c_priv_data_t priv;
+    int       msg_count = 0;
 
-    int fd = machine_i2c_obj_get_fd(self->user.py_obj.i2c);
-    if(0 > fd) {
-        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("invalid i2c fd"));
-    }
+    drv_i2c_inst_t* inst = machine_i2c_obj_get_inst(self->user.py_obj.i2c);
 
-    if(send_buffer && send_len) {
-        msgs[msg_count].addr = addr;
-        msgs[msg_count].flags = 0x00; // RT_I2C_WR
-        msgs[msg_count].buf = send_buffer;
-        msgs[msg_count].len = send_len;
+    if (send_buffer && send_len) {
+        msgs[msg_count].addr  = addr;
+        msgs[msg_count].flags = DRV_I2C_WR;
+        msgs[msg_count].buf   = send_buffer;
+        msgs[msg_count].len   = send_len;
 
         msg_count++;
     }
 
-    if(read_buffer && read_len) {
-        msgs[msg_count].addr = addr;
-        msgs[msg_count].flags = 0x01; // RT_I2C_RD
-        msgs[msg_count].buf = read_buffer;
-        msgs[msg_count].len = read_len;
+    if (read_buffer && read_len) {
+        msgs[msg_count].addr  = addr;
+        msgs[msg_count].flags = DRV_I2C_RD;
+        msgs[msg_count].buf   = read_buffer;
+        msgs[msg_count].len   = read_len;
 
         msg_count++;
     }
 
-    priv.msgs = &msgs[0];
-    priv.number = msg_count;
-
-    if(0x00 != ioctl(fd, RT_I2C_DEV_CTRL_RW, &priv)) {
+    if (0x00 != drv_i2c_transfer(inst, msgs, msg_count)) {
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("i2c transfer failed"));
     }
 
