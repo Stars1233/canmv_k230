@@ -1077,7 +1077,7 @@ static void* ide_dbg_task(void* args) {
     state.state = FRAME_HEAD;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     struct sched_param param;
-    param.sched_priority = 17;
+    param.sched_priority = 20;
     pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
     while (1) {
         struct timeval tv = {
