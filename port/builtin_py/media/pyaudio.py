@@ -190,7 +190,10 @@ class Write_stream(Stream):
                 aio_dev_attr.kd_audio_attr.i2s_attr.i2s_mode = K_STANDARD_MODE
                 aio_dev_attr.kd_audio_attr.i2s_attr.frame_num = DIV_NUM
                 aio_dev_attr.kd_audio_attr.i2s_attr.point_num_per_frame = self._frames_per_buffer
-                aio_dev_attr.kd_audio_attr.i2s_attr.i2s_type = K_AIO_I2STYPE_INNERCODEC
+                if self._enable_codec:
+                    aio_dev_attr.kd_audio_attr.i2s_attr.i2s_type = K_AIO_I2STYPE_INNERCODEC
+                else:
+                    aio_dev_attr.kd_audio_attr.i2s_attr.i2s_type = K_AIO_I2STYPE_EXTERN
 
                 ret = kd_mpi_ao_set_pub_attr(self._ao_dev, aio_dev_attr)
                 if (0 != ret):
@@ -294,7 +297,11 @@ class Read_stream(Stream):
                 aio_dev_attr.kd_audio_attr.i2s_attr.i2s_mode = K_STANDARD_MODE
                 aio_dev_attr.kd_audio_attr.i2s_attr.frame_num = DIV_NUM
                 aio_dev_attr.kd_audio_attr.i2s_attr.point_num_per_frame = self._frames_per_buffer
-                aio_dev_attr.kd_audio_attr.i2s_attr.i2s_type = K_AIO_I2STYPE_INNERCODEC
+
+                if self._enable_codec:
+                    aio_dev_attr.kd_audio_attr.i2s_attr.i2s_type = K_AIO_I2STYPE_INNERCODEC
+                else:
+                    aio_dev_attr.kd_audio_attr.i2s_attr.i2s_type = K_AIO_I2STYPE_EXTERN
 
                 ret = kd_mpi_ai_set_pub_attr(self._ai_dev, aio_dev_attr)
                 if (0 != ret):
