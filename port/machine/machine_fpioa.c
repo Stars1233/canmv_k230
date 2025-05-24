@@ -239,7 +239,7 @@ STATIC mp_obj_t machine_fpioa_set_function(size_t n_args, const mp_obj_t* pos_ar
     }
 
     if (new_cfg.u.value != curr_cfg.u.value) {
-        if (0x00 != drv_fpioa_set_pin_cfg(pin, curr_cfg.u.value)) {
+        if (0x00 != drv_fpioa_set_pin_cfg(pin, new_cfg.u.value)) {
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set pin cfg failed"));
         }
     }
