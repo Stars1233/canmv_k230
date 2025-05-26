@@ -1,5 +1,6 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.YOLO import YOLOv5
+from libs.Utils import *
 import os,sys,gc
 import ulab.numpy as np
 import image
