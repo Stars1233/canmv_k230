@@ -1,4 +1,4 @@
-from libs.PipeLine import PipeLine, ScopedTiming
+from libs.PipeLine import PipeLine
 from libs.AIBase import AIBase
 from libs.AI2D import Ai2d
 from libs.Utils import *
