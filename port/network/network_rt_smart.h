@@ -2,6 +2,7 @@
 #define __NETWOTK_RT_WLAN_H__
 
 #include <stdint.h>
+#include <sys/ioctl.h>
 
 typedef enum
 {
@@ -56,42 +57,43 @@ typedef enum
 #endif
 
 // wlan basic
-#define IOCTRL_WM_GET_AUTO_RECONNECT 0x00
-#define IOCTRL_WM_SET_AUTO_RECONNECT 0x01
+#define IOCTRL_WM_GET_AUTO_RECONNECT    _IOWR('N', 0x00, void *)
+#define IOCTRL_WM_SET_AUTO_RECONNECT    _IOWR('N', 0x01, void *)
+#define IOCTRL_WM_GET_ISACTIVE          _IOWR('N', 0x02, void *)
 
 // wlan sta
-#define IOCTRL_WM_STA_CONNECT 0x10
-#define IOCTRL_WM_STA_DISCONNECT 0x11
-#define IOCTRL_WM_STA_IS_CONNECTED 0x12
-#define IOCTRL_WM_STA_GET_MAC 0x13
-#define IOCTRL_WM_STA_SET_MAC 0x14
-#define IOCTRL_WM_STA_GET_AP_INFO 0x15
-#define IOCTRL_WM_STA_GET_RSSI 0x16
-#define IOCTRL_WM_STA_SCAN 0x17
+#define IOCTRL_WM_STA_CONNECT           _IOWR('N', 0x10, void *)
+#define IOCTRL_WM_STA_DISCONNECT        _IOWR('N', 0x11, void *)
+#define IOCTRL_WM_STA_IS_CONNECTED      _IOWR('N', 0x12, void *)
+#define IOCTRL_WM_STA_GET_MAC           _IOWR('N', 0x13, void *)
+#define IOCTRL_WM_STA_SET_MAC           _IOWR('N', 0x14, void *)
+#define IOCTRL_WM_STA_GET_AP_INFO       _IOWR('N', 0x15, void *)
+#define IOCTRL_WM_STA_GET_RSSI          _IOWR('N', 0x16, void *)
+#define IOCTRL_WM_STA_SCAN              _IOWR('N', 0x17, void *)
 
 // wlan ap
-#define IOCTRL_WM_AP_START  0x20
-#define IOCTRL_WM_AP_STOP  0x21
-#define IOCTRL_WM_AP_IS_ACTIVE  0x22
-#define IOCTRL_WM_AP_GET_INFO  0x23
-#define IOCTRL_WM_AP_GET_STA_INFO  0x24
-#define IOCTRL_WM_AP_DEAUTH_STA  0x25
-#define IOCTRL_WM_AP_GET_COUNTRY  0x26
-#define IOCTRL_WM_AP_SET_COUNTRY  0x27
+#define IOCTRL_WM_AP_START              _IOWR('N', 0x20, void *)
+#define IOCTRL_WM_AP_STOP               _IOWR('N', 0x21, void *)
+#define IOCTRL_WM_AP_IS_ACTIVE          _IOWR('N', 0x22, void *)
+#define IOCTRL_WM_AP_GET_INFO           _IOWR('N', 0x23, void *)
+#define IOCTRL_WM_AP_GET_STA_INFO       _IOWR('N', 0x24, void *)
+#define IOCTRL_WM_AP_DEAUTH_STA         _IOWR('N', 0x25, void *)
+#define IOCTRL_WM_AP_GET_COUNTRY        _IOWR('N', 0x26, void *)
+#define IOCTRL_WM_AP_SET_COUNTRY        _IOWR('N', 0x27, void *)
 
 // lan
-#define IOCTRL_LAN_GET_ISCONNECTED 0x80
-#define IOCTRL_LAN_GET_ISACTIVE   0x81
-#define IOCTRL_LAN_GET_STATUS   0x82
-#define IOCTRL_LAN_GET_MAC   0x83
-#define IOCTRL_LAN_SET_MAC   0x84
+#define IOCTRL_LAN_GET_ISCONNECTED      _IOWR('N', 0x80, void *)
+#define IOCTRL_LAN_GET_ISACTIVE         _IOWR('N', 0x81, void *)
+#define IOCTRL_LAN_GET_STATUS           _IOWR('N', 0x82, void *)
+#define IOCTRL_LAN_GET_MAC              _IOWR('N', 0x83, void *)
+#define IOCTRL_LAN_SET_MAC              _IOWR('N', 0x84, void *)
 
 // network util
-#define IOCTRL_NET_IFCONFIG 0x100
-#define IOCTRL_NET_GETHOSTBYNAME 0x101
-#define IOCTRL_NET_SET_DEV_DEFAULT  0x102
-#define IOCTRL_NET_GET_DEV_DEFAULT  0x103
-#define IOCTRL_NET_GET_DEV_LIST  0x104
+#define IOCTRL_NET_IFCONFIG             _IOWR('N', 0x100, void *)
+#define IOCTRL_NET_GETHOSTBYNAME        _IOWR('N', 0x101, void *)
+#define IOCTRL_NET_SET_DEV_DEFAULT      _IOWR('N', 0x102, void *)
+#define IOCTRL_NET_GET_DEV_DEFAULT      _IOWR('N', 0x103, void *)
+#define IOCTRL_NET_GET_DEV_LIST         _IOWR('N', 0x104, void *)
 
 #define INVALID_INFO(_info)                                                    \
   do {                                                                         \
