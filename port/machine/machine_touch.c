@@ -82,10 +82,10 @@ int machine_touch_user_wr(machine_touch_obj_t* self, uint16_t addr, uint8_t* sen
 void machine_touch_update_event(int finger_num, struct machine_touch_data *point) {
     static int last_finger_num = 0;
     static struct machine_touch_data last_point[TOUCH_POINT_NUMBER_MAX];
-    static mp_uint_t last_timestamp = 0, tmp_timestamp;      // Track the timestamp of the last touch event
-    static mp_uint_t last_click_timestamp[TOUCH_POINT_NUMBER_MAX] = {0}; // Track double-click timing
+    static mp_uint_t last_timestamp = 0; //, tmp_timestamp;      // Track the timestamp of the last touch event
+    // static mp_uint_t last_click_timestamp[TOUCH_POINT_NUMBER_MAX] = {0}; // Track double-click timing
 
-    uint16_t tmpx, tmpy;
+    // uint16_t tmpx, tmpy;
     uint8_t new_session = 0;
 
     // Check if too much time has passed since the last touch event
@@ -112,21 +112,21 @@ void machine_touch_update_event(int finger_num, struct machine_touch_data *point
         struct machine_touch_data *current_point = &point[i];
         struct machine_touch_data *last_touch = &last_point[i];
 
-        tmp_timestamp = last_click_timestamp[i];
+        // tmp_timestamp = last_click_timestamp[i];
         // Update last click timestamp if it's a valid touch
-        last_click_timestamp[i] = current_point->timestamp;
+        // last_click_timestamp[i] = current_point->timestamp;
 
-        tmpx = abs(current_point->x_coordinate - last_touch->x_coordinate);
-        tmpy = abs(current_point->y_coordinate - last_touch->y_coordinate);
-        // Double-click detection: Check if this touch is at the same position as the last one within the threshold
-        if (i < last_finger_num &&
-            !new_session && (tmpx < 5) && (tmpy < 5) &&
-            (current_point->timestamp - tmp_timestamp) < 100) {
+        // tmpx = abs(current_point->x_coordinate - last_touch->x_coordinate);
+        // tmpy = abs(current_point->y_coordinate - last_touch->y_coordinate);
+        // // Double-click detection: Check if this touch is at the same position as the last one within the threshold
+        // if (i < last_finger_num &&
+        //     !new_session && (tmpx < 5) && (tmpy < 5) &&
+        //     (current_point->timestamp - tmp_timestamp) < 100) {
 
-            // Double-click detected, ignore this event
-            // printf("Double-click detected for finger %d, filtering out.\n", current_point->track_id);
-            continue;
-        }
+        //     // Double-click detected, ignore this event
+        //     // printf("Double-click detected for finger %d, filtering out.\n", current_point->track_id);
+        //     continue;
+        // }
 
         if (i < last_finger_num && !new_session) {
             // Check if the touch point has moved
