@@ -111,11 +111,7 @@ int machine_i2c_transfer(mp_obj_base_t* self_in, uint16_t addr, size_t n, mp_mac
             msg_flags |= DRV_I2C_NO_STOP;
         }
 
-        if ((0x00 == msgs[i].len) && (DRV_I2C_RD != (msg_flags & DRV_I2C_RD))) {
-            /* if is write a empty buffer, we convert it to read */
-            msg_flags &= ~DRV_I2C_WR;
-            msg_flags |= DRV_I2C_RD;
-
+        if (0x00 == msgs[i].len) {
             msgs[i].buf = &temp;
             msgs[i].len = 1;
         }

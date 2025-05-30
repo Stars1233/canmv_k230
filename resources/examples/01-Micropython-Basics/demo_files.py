@@ -8,3 +8,5 @@ for item in os.listdir('/'):
             print(f"  - {subitem}")
     except OSError:
         pass  # Skip if not a directory
+    except UnicodeError:
+        pass
