@@ -41,6 +41,7 @@
 #include "py/mpthread.h"
 #include "py/runtime.h"
 #include "extmod/misc.h"
+#include "hal_utils.h"
 
 #if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #if __GLIBC_PREREQ(2, 25)
@@ -168,7 +169,17 @@ void mp_hal_stdout_tx_strn(const char *str, size_t len) {
         mpy_stdout_tx(str, len);
     } else {
         extern int usb_tx(const void* buffer, size_t size);
-        usb_tx(str, len);
+        int ret;
+        static uint64_t timeout;
+
+        if ((int64_t)(timeout - utils_cpu_ticks_ms()) > 0) {
+            return;
+        }
+
+        ret = usb_tx(str, len);
+        if ((len != 0) && (ret < len)) {
+            timeout = utils_cpu_ticks_ms() + 1000;
+        }
     }
     mp_os_dupterm_tx_strn(str, len);
 }
