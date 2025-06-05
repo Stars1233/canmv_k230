@@ -1,0 +1,83 @@
+
+default:
+  image: ai.b-bug.org:5000/k230_sdk:latest
+  tags:
+    - canmv_k230
+
+stages:
+  - generate
+
+.generate_pipeline_version: &generate_pipeline_version
+  - echo "----------generate pipeline version----------"
+  - echo "generate version with tag or commit id"
+  - |
+      version=$(date "+%Y%m%d-%H%M%S") || exit 1;
+      echo "ver is ${version}";
+  - echo ${version} > $CI_PROJECT_DIR/version || exit 1
+  - cat $CI_PROJECT_DIR/version || exit 1
+
+before_script:
+  - echo '----------Build ENV Prepare----------'
+  - echo 'Add SSH KEY for Multiple repo clone in Makefile'
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - cp "$MY_SSH_PRIVATE_KEY" ~/.ssh/id_rsa
+  - chmod 600 ~/.ssh/id_rsa
+  - eval "$(ssh-agent -s)"
+  - ssh-add ~/.ssh/id_rsa
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n    StrictHostKeyChecking no\n" > ~/.ssh/config'
+  - echo $SHELL
+  - echo "config ssh timeout"
+  - echo "    ServerAliveInterval 30" >> ~/.ssh/config
+  - echo "    ServerAliveCountMax 60" >> ~/.ssh/config
+  - echo "    TCPKeepAlive yes" >> ~/.ssh/config
+  - cat ~/.ssh/config
+  - whoami
+  - uptime
+  - pwd
+  - ls -alht
+  - uname -a
+  - ls -alht $CI_PROJECT_DIR
+  - cat /etc/issue
+  - echo $CI_PROJECT_DIR
+  - echo $CI_PROJECT_NAME
+  - echo $CI_PIPELINE_SOURCE
+  - echo '----------Set git config----------'
+  - echo "${GITLAB_USER_EMAIL}"
+  - echo "${GITLAB_USER_NAME}"
+  - git config --global user.email "${GITLAB_USER_EMAIL}"
+  - git config --global user.name "${GITLAB_USER_NAME}"
+
+# build setup for all jobs
+build_setup:
+  stage: .pre
+  rules:
+    # MR job
+    # - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # manual job
+    - if: $CI_PIPELINE_SOURCE == "web"
+    # daily build
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  timeout: 5m
+  script:
+    - echo "build env setup"
+    - echo "generate version file"
+    - *generate_pipeline_version
+    - echo "version=${version}" > setup.env
+  artifacts:
+    reports:
+      dotenv: setup.env
+
+generate-resources:
+  stage: generate
+  script:
+    - python3 tools/generate_ide_resource.py resources
+    - ls -ald generated/*
+    - scp -P $DNLD_SRV_PORT -C -r generated/canmv-ide-resources-*.zip generated/version.txt $DNLD_SRV:/data/kendryte-download/developer/tools/canmv_ide_k230/canmv_ide_resources
+
+  rules:
+  - if: '$CI_COMMIT_BRANCH == "canmv_k230" || $CI_COMMIT_BRANCH == "test_ci"'
+    changes:
+        - resources/examples/**/*
