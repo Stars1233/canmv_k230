@@ -128,7 +128,7 @@ int usb_tx(const void* buffer, size_t size)
         }
     }
 
-    return size;
+    return send;
 
 #undef BLOCK_SIZE
 }
