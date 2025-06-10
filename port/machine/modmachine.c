@@ -133,10 +133,10 @@ STATIC mp_obj_t machine_mem_copy(mp_obj_t dst_obj, mp_obj_t src_obj, mp_obj_t si
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(machine_mem_copy_obj, machine_mem_copy);
 
 STATIC mp_obj_t machine_read_temp(void) {
-#define RT_DEVICE_TS_CTRL_SET_MODE          0x01
-#define RT_DEVICE_TS_CTRL_GET_MODE          0x02
-#define RT_DEVICE_TS_CTRL_SET_TRIM          0x03
-#define RT_DEVICE_TS_CTRL_GET_TRIM          0x04
+#define RT_DEVICE_TS_CTRL_SET_MODE          _IOW('T', 1, uint8_t)
+#define RT_DEVICE_TS_CTRL_GET_MODE          _IOR('T', 2, uint8_t)
+#define RT_DEVICE_TS_CTRL_SET_TRIM          _IOW('T', 3, uint8_t)
+#define RT_DEVICE_TS_CTRL_GET_TRIM          _IOR('T', 4, uint8_t)
 
 #define RT_DEVICE_TS_CTRL_MODE_SINGLE       0x01
 #define RT_DEVICE_TS_CTRL_MODE_CONTINUUOS   0x02
