@@ -94,6 +94,14 @@ class ObjectDetectionApp(AIBase):
                     osd_img.draw_rectangle(x,y, w, h, color=self.color_four[dets[1][i]],thickness=4)
                     osd_img.draw_string_advanced(x, y-50,32," " + self.labels[dets[1][i]] + " " + str(round(dets[2][i],2)) , color=self.color_four[dets[1][i]])
 
+    def deinit(self):
+        del self.kpu
+        del self.ai2d
+        self.tensors.clear()
+        del self.tensors
+        gc.collect()
+        time.sleep_ms(50)
+
 
 # 自定义人脸检测类，继承自AIBase基类
 class FaceDetectionApp(AIBase):
@@ -141,6 +149,14 @@ class FaceDetectionApp(AIBase):
                     w = w * self.display_size[0] // self.rgb888p_size[0]
                     h = h * self.display_size[1] // self.rgb888p_size[1]
                     osd_img.draw_rectangle(x, y, w, h, color=(255, 255, 0, 255), thickness=2)
+
+    def deinit(self):
+        del self.kpu
+        del self.ai2d
+        self.tensors.clear()
+        del self.tensors
+        gc.collect()
+        time.sleep_ms(50)
 
 
 def face_det_thread():
@@ -228,5 +244,6 @@ if __name__ == "__main__":
         sys.print_exception(e)
         yolo_det_stop=True
         face_det_stop=True
+    time.sleep(1)
     media_deinit()
     gc.collect()
