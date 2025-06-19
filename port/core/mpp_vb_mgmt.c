@@ -4,6 +4,8 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 
+#include "mpthread.h"
+
 #include "mpp_vb_mgmt.h"
 
 #include "mpi_vicap_api.h"
@@ -573,13 +575,18 @@ k_s32 vb_mgmt_dump_vicap_frame(vb_mgmt_dump_vicap_config *cfg, vb_mgmt_vicap_ima
 
     memcpy(&_image->cfg, cfg, sizeof(*cfg));
 
+    MP_THREAD_GIL_EXIT();
+
     if(0x00 != kd_mpi_vicap_dump_frame(cfg->dev_num, cfg->chn_num, cfg->foramt, &_image->vf_info, cfg->milli_sec)) {
+        MP_THREAD_GIL_ENTER();
+
         printf("vicap dump dev %u chn %u failed.\n", cfg->dev_num, cfg->chn_num);
 
         _image->magic = 0x00;
 
         return 3;
     }
+    MP_THREAD_GIL_ENTER();
 
     k_u32 img_width = _image->vf_info.v_frame.width;
     k_u32 img_height = _image->vf_info.v_frame.height;
