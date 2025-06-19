@@ -33,7 +33,7 @@ display_mode = "lt9611"
 rgb888p_size = [1280, 720]
 
 # Set root directory path for model and config
-root_path = "/sdcard/multl_mp_deployment_source/"
+root_path = "/sdcard/mp_deployment_source/"
 
 # Load deployment configuration
 deploy_conf = read_json(root_path + "/deploy_config.json")
