@@ -128,8 +128,8 @@ int machine_i2c_transfer(mp_obj_base_t* self_in, uint16_t addr, size_t n, mp_mac
         return data_len;
     }
 
-    // on error, we return 0.
-    return 0;
+    // on error, we return -1.
+    return -1;
 }
 
 /******************************************************************************/
