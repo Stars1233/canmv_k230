@@ -92,6 +92,7 @@ int machine_i2c_transfer(mp_obj_base_t* self_in, uint16_t addr, size_t n, mp_mac
 
     int msg_cnt   = n;
     int msg_flags = 0;
+    int data_len = 0;
 
     uint8_t temp = 0x00;
 
@@ -101,6 +102,8 @@ int machine_i2c_transfer(mp_obj_base_t* self_in, uint16_t addr, size_t n, mp_mac
         msgs[i].addr = addr;
         msgs[i].buf  = bufs->buf;
         msgs[i].len  = bufs->len;
+
+        data_len += msgs[i].len;
 
         if ((flags & MP_MACHINE_I2C_FLAG_READ)) {
             msg_flags |= DRV_I2C_RD;
@@ -121,7 +124,12 @@ int machine_i2c_transfer(mp_obj_base_t* self_in, uint16_t addr, size_t n, mp_mac
         ++bufs;
     }
 
-    return drv_i2c_transfer(self->inst, msgs, msg_cnt);
+    if(0x00 == drv_i2c_transfer(self->inst, msgs, msg_cnt)) {
+        return data_len;
+    }
+
+    // on error, we return 0.
+    return 0;
 }
 
 /******************************************************************************/
