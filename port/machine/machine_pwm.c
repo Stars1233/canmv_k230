@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, Canaan Bright Sight Co., Ltd
+/* Copyright (c) 2025, Canaan Bright Sight Co., Ltd
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -22,279 +22,273 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-
-#include "py/runtime.h"
+#include "mpprint.h"
 #include "py/obj.h"
+#include "py/runtime.h"
 
-#include "modmachine.h"
+#include "extmod/machine_pwm.h"
 
-#define PWM_DEVICE_NAME     "/dev/pwm"
-#define PWM_CHANNEL_MAX     6
-#define	KD_PWM_CMD_ENABLE   _IOW('P', 0, int)
-#define	KD_PWM_CMD_DISABLE  _IOW('P', 1, int)
-#define	KD_PWM_CMD_SET      _IOW('P', 2, int)
-#define	KD_PWM_CMD_GET      _IOW('P', 3, int)
+#include "drv_fpioa.h"
+#include "drv_pwm.h"
 
-typedef struct _machine_pwm_obj_t {
+struct _machine_pwm_obj_t {
     mp_obj_base_t base;
-    uint8_t channel;
-    double freq;
-    double duty;
-    bool active;
-    bool valid;
-} machine_pwm_obj_t;
-
-typedef struct {
-    uint32_t channel; /* 0-5 */
-    uint32_t period;  /* unit:ns 1ns~4.29s:1Ghz~0.23hz */
-    uint32_t pulse;   /* unit:ns (pulse<=period) */
-} pwm_config_t;
-
-typedef struct {
-    int fd;
-    int refcnt;
-    uint8_t used[PWM_CHANNEL_MAX];
-} k230_pwm_obj_t;
-
-STATIC k230_pwm_obj_t k230_pwm_obj = {
-    .fd = -1,
+    uint8_t       channel;
+    bool          active;
+    bool          invert;
 };
 
-/******************************************************************************/
-// MicroPython bindings for PWM
-
-STATIC void mp_machine_pwm_obj_check(machine_pwm_obj_t *self) {
-    if (self->valid == 0)
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("The PWM channel object has been deleted"));
+// Print PWM info
+void mp_machine_pwm_print(const mp_print_t* print, mp_obj_t self_in, mp_print_kind_t kind)
+{
+    machine_pwm_obj_t* self = MP_OBJ_TO_PTR(self_in);
+    mp_printf(print, "PWM(channel=%u, freq=%d, duty_u16=%d, invert=%d)", self->channel, mp_machine_pwm_freq_get(self),
+              mp_machine_pwm_duty_get_u16(self), self->invert);
 }
 
-STATIC void mp_machine_pwm_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    machine_pwm_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    pwm_config_t config;
-
-    mp_machine_pwm_obj_check(self);
-    config.channel = self->channel;
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_GET, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u get config error"), self->channel);
-    mp_printf(print, "pwm chanel %u: period = %u ns, pulse = %u ns, %s", self->channel,
-        config.period, config.pulse, self->active ? "enabled" : "disabled");
-}
-
-STATIC void mp_machine_pwm_init_helper(machine_pwm_obj_t *self, size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    enum { ARG_freq, ARG_duty, ARG_enable };
+// Create new PWM object following official API
+mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
+{
+    enum { ARG_channel, ARG_freq, ARG_duty_u16, ARG_duty_ns, ARG_invert, ARG_enable };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_freq, MP_ARG_OBJ | MP_ARG_REQUIRED },
-        { MP_QSTR_duty, MP_ARG_OBJ, {.u_obj  = mp_const_none} },
-        { MP_QSTR_enable,  MP_ARG_BOOL | MP_ARG_KW_ONLY, {.u_bool = false} },
+        { MP_QSTR_channel, MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_freq, MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
+        { MP_QSTR_duty_u16, MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
+
+        { MP_QSTR_duty_ns, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_invert, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
+        { MP_QSTR_enable, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
     };
-    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
-    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
 
-    self->freq = mp_obj_get_float(args[ARG_freq].u_obj);
-    self->duty = mp_const_none == args[ARG_duty].u_obj ? 50.0 : mp_obj_get_float(args[ARG_duty].u_obj);
-    self->freq = self->freq <= 0 ? 1 : self->freq;
-    self->duty = self->duty < 0 ? 0 : self->duty > 100 ? 100 : self->duty;
+    mp_arg_check_num(n_args, n_kw, 1, 6, true);
 
-    pwm_config_t config;
-    config.channel = self->channel;
-    config.period = (uint32_t)(1000000000.0 / self->freq);
-    config.pulse = (uint32_t)(self->duty / 100 * config.period);
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_SET, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u config error"), self->channel);
-    self->active = args[ARG_enable].u_bool;
-    if (self->active && ioctl(k230_pwm_obj.fd, KD_PWM_CMD_ENABLE, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u enable error"), self->channel);
-}
+    mp_arg_parse_all_kw_array(n_args, n_kw, args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
 
-STATIC mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    int channel;
-
-    mp_arg_check_num(n_args, n_kw, 2, 4, true);
-
-    if (mp_obj_is_int(args[0])) {
-        channel = mp_obj_get_int(args[0]);
-        if (channel < 0 || channel >= PWM_CHANNEL_MAX)
-            mp_raise_ValueError(MP_ERROR_TEXT("invalid channel"));
-        if (k230_pwm_obj.used[channel])
-            mp_raise_ValueError(MP_ERROR_TEXT("channel busy"));
-    } else {
-        mp_raise_ValueError(MP_ERROR_TEXT("invalid channel"));
+    uint8_t channel = vals[ARG_channel].u_int;
+    if ((0 > channel) || (5 < channel)) {
+        mp_raise_ValueError("invalid PWM channel");
     }
 
-    if (k230_pwm_obj.refcnt == 0 && k230_pwm_obj.fd == -1) {
-        k230_pwm_obj.fd = open(PWM_DEVICE_NAME, O_RDWR);
-        if (k230_pwm_obj.fd < 0)
-            mp_raise_OSError_with_filename(errno, PWM_DEVICE_NAME);
+    // Create new PWM object
+    machine_pwm_obj_t* self = m_new_obj(machine_pwm_obj_t);
+    self->base.type         = &machine_pwm_type;
+    self->channel           = channel;
+    self->active            = false;
+    self->invert            = false;
+
+    // Initialize PWM driver if needed
+    if (drv_pwm_init() != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "PWM init failed");
     }
 
-    machine_pwm_obj_t *self = m_new_obj_with_finaliser(machine_pwm_obj_t);
-    self->base.type = &machine_pwm_type;
-    self->channel = channel;
+    // Configure inversion if supported
+    self->invert = vals[ARG_invert].u_bool;
+    if (self->invert) {
+        mp_printf(&mp_plat_print, "K230 not support pwm invert");
+    }
 
-    mp_map_t kw_args;
-    mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
-    mp_machine_pwm_init_helper(self, n_args - 1, args + 1, &kw_args);
+    if (vals[ARG_enable].u_bool) {
+        mp_printf(&mp_plat_print, "arg enable is removed");
+    }
 
-    k230_pwm_obj.used[channel] = 1;
-    k230_pwm_obj.refcnt++;
-    self->valid = true;
+    // Initialize with provided parameters
+    if (n_args - 1) {
+        mp_map_t kw_args;
+
+        mp_map_init_fixed_table(&kw_args, n_kw - 1, args + n_args);
+        mp_machine_pwm_init_helper(self, n_args - 1, args + 1, &kw_args);
+    }
 
     return MP_OBJ_FROM_PTR(self);
 }
 
-STATIC void mp_machine_pwm_deinit(machine_pwm_obj_t *self) {
-    pwm_config_t config;
+// Initialize PWM with settings
+void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
+{
+    enum { ARG_freq, ARG_duty_u16, ARG_duty_ns, ARG_invert, ARG_enable };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_freq, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_duty_u16, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_duty_ns, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
 
-    if (self->valid == 0)
-        return;
+        /* not support */
+        { MP_QSTR_invert, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
+        { MP_QSTR_enable, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
+    };
 
-    self->valid = 0;
-    k230_pwm_obj.used[self->channel] = 0;
+    mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
 
-    config.channel = self->channel;
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_DISABLE, &config)) {
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u disable failed"), self->channel);
+    // Set frequency if provided
+    if (vals[ARG_freq].u_int != -1) {
+        mp_machine_pwm_freq_set(self, vals[ARG_freq].u_int);
     }
 
-    if (k230_pwm_obj.refcnt)
-        k230_pwm_obj.refcnt--;
+    // Check for multiple duty specifications
+    int duty_specs = 0;
+    if (vals[ARG_duty_u16].u_int != -1) {
+        duty_specs++;
+    }
+    if (vals[ARG_duty_ns].u_int != -1) {
+        duty_specs++;
+    }
 
-    if (k230_pwm_obj.refcnt == 0) {
-        close(k230_pwm_obj.fd);
-        k230_pwm_obj.fd = -1;
+    if (duty_specs > 1) {
+        mp_raise_ValueError("only one of duty_u16 or duty_ns can be specified");
+    }
+
+    // Set duty cycle if provided
+    if (vals[ARG_duty_u16].u_int != -1) {
+        mp_machine_pwm_duty_set_u16(self, vals[ARG_duty_u16].u_int);
+    } else if (vals[ARG_duty_ns].u_int != -1) {
+        mp_machine_pwm_duty_set_ns(self, vals[ARG_duty_ns].u_int);
     }
 }
 
-STATIC mp_obj_t mp_machine_pwm_freq_get(machine_pwm_obj_t *self) {
-    pwm_config_t config;
-
-    mp_machine_pwm_obj_check(self);
-    config.channel = self->channel;
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_GET, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u get config error"), self->channel);
-
-    return mp_obj_new_float_from_d(1000000000.0 / config.period);
-}
-
-STATIC void mp_machine_pwm_freq_set(machine_pwm_obj_t *self, mp_float_t freq) {
-    pwm_config_t config;
-
-    mp_machine_pwm_obj_check(self);
-    self->freq = freq <= 0 ? 1 : freq;
-    config.channel = self->channel;
-    config.period = (uint32_t)(1000000000.0 / self->freq);
-    config.pulse = (uint32_t)(self->duty / 100 * config.period);
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_SET, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u config error"), self->channel);
-}
-
-STATIC mp_obj_t mp_machine_pwm_duty_get(machine_pwm_obj_t *self) {
-    pwm_config_t config;
-
-    mp_machine_pwm_obj_check(self);
-    config.channel = self->channel;
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_GET, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u get config error"), self->channel);
-
-    return mp_obj_new_float_from_d((double)100.0f - ((double)config.pulse * 100 / (double)config.period));
-}
-
-STATIC void mp_machine_pwm_duty_set(machine_pwm_obj_t *self, mp_float_t duty) {
-    pwm_config_t config;
-
-    mp_machine_pwm_obj_check(self);
-    self->duty = duty < 0 ? 0 : duty > 100 ? 100 : duty;
-    config.channel = self->channel;
-    config.period = (uint32_t)(1000000000.0 / self->freq);
-    config.pulse = (uint32_t)(self->duty / 100 * config.period);
-    if (ioctl(k230_pwm_obj.fd, KD_PWM_CMD_SET, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u config error"), self->channel);
-}
-
-STATIC void mp_machine_pwm_enable(machine_pwm_obj_t *self, bool enable) {
-    pwm_config_t config;
-
-    mp_machine_pwm_obj_check(self);
-    config.channel = self->channel;
-    self->active = enable;
-    if (ioctl(k230_pwm_obj.fd, self->active ? KD_PWM_CMD_ENABLE : KD_PWM_CMD_DISABLE, &config))
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("PWM channel %u %s error"),
-            self->channel, self->active ? "enabled" : "disabled");
-}
-
-STATIC mp_obj_t machine_pwm_deinit(mp_obj_t self_in) {
-    machine_pwm_obj_t *self = MP_OBJ_TO_PTR(self_in);
-
-    mp_machine_pwm_deinit(self);
-
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_pwm_deinit_obj, machine_pwm_deinit);
-
-STATIC mp_obj_t machine_pwm_freq(size_t n_args, const mp_obj_t *args) {
-    machine_pwm_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-
-    if (n_args == 1) {
-        // Get frequency.
-        return mp_machine_pwm_freq_get(self);
-    } else {
-        // Set the frequency.
-        mp_float_t freq = mp_obj_get_float(args[1]);
-        mp_machine_pwm_freq_set(self, freq);
-        return mp_const_none;
+// Deinitialize PWM
+void mp_machine_pwm_deinit(machine_pwm_obj_t* self)
+{
+    if (self->active) {
+        drv_pwm_disable(self->channel);
+        self->active = false;
     }
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_pwm_freq_obj, 1, 2, machine_pwm_freq);
 
-STATIC mp_obj_t machine_pwm_duty(size_t n_args, const mp_obj_t *args) {
-    machine_pwm_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+// Get frequency
+mp_obj_t mp_machine_pwm_freq_get(machine_pwm_obj_t* self)
+{
+    uint32_t freq;
+    if (drv_pwm_get_freq(self->channel, &freq) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get frequency");
+    }
+    return MP_OBJ_NEW_SMALL_INT(freq);
+}
 
-    if (n_args == 1) {
-        // Get duty cycle.
-        return mp_machine_pwm_duty_get(self);
-    } else {
-        // Set duty cycle.
-        mp_float_t duty = mp_obj_get_float(args[1]);
-        mp_machine_pwm_duty_set(self, duty);
-        return mp_const_none;
+// Set frequency
+void mp_machine_pwm_freq_set(machine_pwm_obj_t* self, mp_int_t freq)
+{
+    if (freq <= 0) {
+        mp_raise_ValueError("frequency must be > 0");
+    }
+
+    if (drv_pwm_set_freq(self->channel, freq) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to set frequency");
+    }
+
+    if (!self->active) {
+        drv_pwm_enable(self->channel);
+        self->active = true;
     }
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_pwm_duty_obj, 1, 2, machine_pwm_duty);
 
-STATIC mp_obj_t machine_pwm_enable(mp_obj_t self_o, mp_obj_t enable) {
-    machine_pwm_obj_t *self = MP_OBJ_TO_PTR(self_o);
-
-    mp_machine_pwm_enable(self, mp_obj_is_true(enable));
-
-    return mp_const_none;
+// Get duty cycle as percentage (0-100)
+mp_obj_t mp_machine_pwm_duty_get(machine_pwm_obj_t* self)
+{
+    uint32_t duty;
+    if (drv_pwm_get_duty(self->channel, &duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to get duty cycle");
+    }
+    return MP_OBJ_NEW_SMALL_INT(duty); // duty is already in 0-100 range
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(machine_pwm_enable_obj, machine_pwm_enable);
 
-STATIC const mp_rom_map_elem_t machine_pwm_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_pwm_deinit_obj) },
-    { MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&machine_pwm_deinit_obj) },
-    { MP_ROM_QSTR(MP_QSTR_freq), MP_ROM_PTR(&machine_pwm_freq_obj) },
-    { MP_ROM_QSTR(MP_QSTR_duty), MP_ROM_PTR(&machine_pwm_duty_obj) },
-    { MP_ROM_QSTR(MP_QSTR_enable), MP_ROM_PTR(&machine_pwm_enable_obj) },
-};
-STATIC MP_DEFINE_CONST_DICT(machine_pwm_locals_dict, machine_pwm_locals_dict_table);
+// Set duty cycle as percentage (0-100)
+void mp_machine_pwm_duty_set(machine_pwm_obj_t* self, mp_int_t duty)
+{
+    // Validate input range
+    if (duty < 0 || duty > 100) {
+        mp_raise_ValueError("duty must be 0-100");
+    }
 
-/* clang-format off */
-MP_DEFINE_CONST_OBJ_TYPE(
-    machine_pwm_type,
-    MP_QSTR_PWM,
-    MP_TYPE_FLAG_NONE,
-    make_new, mp_machine_pwm_make_new,
-    print, mp_machine_pwm_print,
-    locals_dict, &machine_pwm_locals_dict
-);
-/* clang-format on */
+    // Set duty cycle through driver
+    if (drv_pwm_set_duty(self->channel, (uint32_t)duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to set duty cycle");
+    }
+
+    // Auto-enable PWM if not already active
+    if (!self->active) {
+        if (drv_pwm_enable(self->channel) != 0) {
+            mp_raise_msg(&mp_type_RuntimeError, "Failed to enable PWM");
+        }
+        self->active = true;
+    }
+}
+
+// Get duty cycle (16-bit)
+mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self)
+{
+    uint32_t duty;
+    if (drv_pwm_get_duty(self->channel, &duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get duty");
+    }
+    // Convert percentage to 16-bit value
+    return MP_OBJ_NEW_SMALL_INT((duty * 65535) / 100);
+}
+
+// Set duty cycle (16-bit)
+void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16)
+{
+    if (duty_u16 < 0 || duty_u16 > 65535) {
+        mp_raise_ValueError("duty_u16 must be 0-65535");
+    }
+
+    // Convert 16-bit to percentage
+    uint32_t duty = (duty_u16 * 100) / 65535;
+    if (drv_pwm_set_duty(self->channel, duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
+    }
+
+    if (!self->active) {
+        drv_pwm_enable(self->channel);
+        self->active = true;
+    }
+}
+
+// Get duty cycle (nanoseconds)
+mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self)
+{
+    uint32_t freq, duty;
+    if (drv_pwm_get_freq(self->channel, &freq) != 0 || drv_pwm_get_duty(self->channel, &duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get duty_ns");
+    }
+
+    if (freq == 0) {
+        return MP_OBJ_NEW_SMALL_INT(0);
+    }
+
+    uint32_t period_ns = 1000000000 / freq;
+    return MP_OBJ_NEW_SMALL_INT((period_ns * duty) / 100);
+}
+
+// Set duty cycle (nanoseconds)
+void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns)
+{
+    if (duty_ns < 0) {
+        mp_raise_ValueError("duty_ns must be >= 0");
+    }
+
+    uint32_t freq;
+    if (drv_pwm_get_freq(self->channel, &freq) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get frequency");
+    }
+
+    if (freq == 0) {
+        mp_raise_ValueError("cannot set duty_ns when frequency is 0");
+    }
+
+    uint32_t period_ns = 1000000000 / freq;
+    uint32_t duty      = (duty_ns * 100) / period_ns;
+
+    if (duty > 100) {
+        mp_raise_ValueError("duty_ns exceeds period");
+    }
+
+    if (drv_pwm_set_duty(self->channel, duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
+    }
+
+    if (!self->active) {
+        drv_pwm_enable(self->channel);
+        self->active = true;
+    }
+}
