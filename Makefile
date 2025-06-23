@@ -42,6 +42,11 @@ copy_examples:
 	else \
 		rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/boot.py; \
 	fi;\
+	if [ -f $(SDK_CANMV_SRC_DIR)/resources/fallback.py ]; then \
+		cp -f $(SDK_CANMV_SRC_DIR)/resources/fallback.py ${SDK_BUILD_IMAGES_DIR}/sdcard/fallback.py; \
+	else \
+		rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/fallback.py; \
+	fi;\
 	rsync -aq --delete --exclude='.git' $(SDK_CANMV_SRC_DIR)/resources/examples/ ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/
 
 .PHONY: copy_kmodels
