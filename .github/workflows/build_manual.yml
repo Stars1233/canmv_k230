@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload images to PreRelease Asset
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/heads/main')
+        if: startsWith(github.ref, 'refs/heads/canmv_k230')
         with:
           tag_name: PreRelease
           files: |
