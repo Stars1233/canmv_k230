@@ -723,69 +723,73 @@ MP_NOINLINE int main_(int argc, char **argv) {
         }
     }
 
-    int stage = 0;
-
     extern bool ide_dbg_attach(void);
     extern void ide_dbg_on_script_start(void);
     extern void ide_dbg_on_script_end(void);
+
     if (!ide_dbg_attach() && !is_repl_intr) {
-        // boot.py
+        FILE*      script_file = NULL;
+        const int* stage_ptr   = NULL;
+        char*      script_str  = NULL;
 
-        FILE* script_file;
-        long script_size;
-        char* script_str;
-        script_file = fopen(SDCARD_MOUNT "/boot.py", "r");
-        if (script_file == NULL) {
-            goto skip_bootpy;
+        char* scripts_to_run[2]   = { SDCARD_MOUNT "/boot.py", SDCARD_MOUNT "/main.py" };
+        int   scripts_stage[2][2] = { { STAGE_BOOTPY_START, STAGE_BOOTPY_END }, { STAGE_MAINPY_START, STAGE_MAINPY_END } };
+
+        // Check file conditions
+        bool main_exists     = (access(SDCARD_MOUNT "/main.py", F_OK) == 0);
+        bool bad_main_exists = (access(SDCARD_MOUNT "/bad_main.py", F_OK) == 0);
+        bool use_fallback    = (!main_exists && bad_main_exists);
+
+        if (use_fallback) {
+            scripts_to_run[1] = SDCARD_MOUNT "/fallback.py";
+
+            scripts_stage[1][0] = STAGE_FALLBACK_PY_START;
+            scripts_stage[1][1] = STAGE_FALLBACK_PY_END;
         }
-        fseek(script_file, 0, SEEK_END);
-        script_size = ftell(script_file);
-        script_str = malloc(script_size + 1);
-        fseek(script_file, 0, SEEK_SET);
-        fread(script_str, 1, script_size, script_file);
-        fclose(script_file);
-        script_str[script_size] = '\0';
 
-        ide_dbg_on_script_start();
-        stage = STAGE_BOOTPY_START;
-        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+        // Process both boot.py and main/fallback scripts
+        for (size_t i = 0; i < sizeof(scripts_to_run) / sizeof(scripts_to_run[0]); i++) {
+            if (0x00 != access(scripts_to_run[i], F_OK)) {
+                continue;
+            }
 
-        do_str(script_str);
+            script_file = fopen(scripts_to_run[i], "r");
+            if (script_file != NULL) {
+                stage_ptr = scripts_stage[i];
 
-        ide_dbg_on_script_end();
-        stage = STAGE_BOOTPY_END;
-        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+                // Get file size
+                if (fseek(script_file, 0, SEEK_END) == 0) {
+                    long script_size = ftell(script_file);
+                    if (script_size >= 0 && fseek(script_file, 0, SEEK_SET) == 0) {
+                        script_str = malloc(script_size + 1);
+                        if (script_str != NULL) {
+                            size_t bytes_read = fread(script_str, 1, script_size, script_file);
+                            if (bytes_read == (size_t)script_size) {
+                                script_str[script_size] = '\0';
 
-skip_bootpy:
+                                // Execute script
+                                ide_dbg_on_script_start();
+                                int stage = stage_ptr[0];
+                                canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
 
-        // main.py
-        script_file = fopen(SDCARD_MOUNT "/main.py", "r");
-        if (script_file == NULL) {
-            goto skip_mainpy;
+                                do_str(script_str);
+
+                                ide_dbg_on_script_end();
+                                stage = stage_ptr[1];
+                                canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
+                            } else {
+                                printf("read auto boot script failed\n");
+                            }
+                            free(script_str);
+                        }
+                    }
+                }
+
+                fclose(script_file);
+            }
         }
-        fseek(script_file, 0, SEEK_END);
-        script_size = ftell(script_file);
-        script_str = malloc(script_size + 1);
-        fseek(script_file, 0, SEEK_SET);
-        fread(script_str, 1, script_size, script_file);
-        fclose(script_file);
-        script_str[script_size] = '\0';
 
-        ide_dbg_on_script_start();
-        stage = STAGE_MAINPY_START;
-        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
-
-        do_str(script_str);
-
-        ide_dbg_on_script_end();
-        stage = STAGE_MAINPY_END;
-        canmv_misc_dev_ioctl(MISC_DEV_CMD_SET_AUTO_EXEC_PY_STAGE, &stage);
-
-skip_mainpy:
-        // pass
-        ;
-
-        if((is_repl_intr) || ide_dbg_attach()) {
+        if ((is_repl_intr) || ide_dbg_attach()) {
             goto main_thread_exit;
         }
     }
