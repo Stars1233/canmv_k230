@@ -217,11 +217,13 @@ LVGL_SRC_C_EXCLUDE = \
 		hal/lv_hal_tick.c \
 		libs/png/lodepng.c \
 		libs/png/lv_png.c \
+		libs/freetype/lv_freetype.c \
 	)
 LVGL_SRC_C := $(filter-out $(LVGL_SRC_C_EXCLUDE),$(LVGL_SRC_C_ALL))
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/hal/lv_hal_tick.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/freetype/lv_freetype.c
 
 CANMV_SRC_C += $(LVGL_SRC_C)
 CLEAN_EXTRA += $(LVGL_PP) $(LVGL_MPY)
