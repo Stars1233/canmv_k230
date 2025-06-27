@@ -46,69 +46,13 @@ void mp_machine_pwm_print(const mp_print_t* print, mp_obj_t self_in, mp_print_ki
               mp_machine_pwm_duty_get_u16(self), self->invert);
 }
 
-// Create new PWM object following official API
-mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
-{
-    enum { ARG_channel, ARG_freq, ARG_duty_u16, ARG_duty_ns, ARG_invert, ARG_enable };
-    static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_channel, MP_ARG_INT, { .u_int = -1 } },
-        { MP_QSTR_freq, MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
-        { MP_QSTR_duty_u16, MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
-
-        { MP_QSTR_duty_ns, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
-        { MP_QSTR_invert, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
-        { MP_QSTR_enable, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
-    };
-    mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
-
-    mp_arg_check_num(n_args, n_kw, 1, 6, true);
-
-    mp_arg_parse_all_kw_array(n_args, n_kw, args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
-
-    uint8_t channel = vals[ARG_channel].u_int;
-    if ((0 > channel) || (5 < channel)) {
-        mp_raise_ValueError("invalid PWM channel");
-    }
-
-    // Create new PWM object
-    machine_pwm_obj_t* self = m_new_obj(machine_pwm_obj_t);
-    self->base.type         = &machine_pwm_type;
-    self->channel           = channel;
-    self->active            = false;
-    self->invert            = false;
-
-    // Initialize PWM driver if needed
-    if (drv_pwm_init() != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "PWM init failed");
-    }
-
-    // Configure inversion if supported
-    self->invert = vals[ARG_invert].u_bool;
-    if (self->invert) {
-        mp_printf(&mp_plat_print, "K230 not support pwm invert");
-    }
-
-    if (vals[ARG_enable].u_bool) {
-        mp_printf(&mp_plat_print, "arg enable is removed");
-    }
-
-    // Initialize with provided parameters
-    if (n_args - 1) {
-        mp_map_t kw_args;
-
-        mp_map_init_fixed_table(&kw_args, n_kw - 1, args + n_args);
-        mp_machine_pwm_init_helper(self, n_args - 1, args + 1, &kw_args);
-    }
-
-    return MP_OBJ_FROM_PTR(self);
-}
-
 // Initialize PWM with settings
 void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
-    enum { ARG_freq, ARG_duty_u16, ARG_duty_ns, ARG_invert, ARG_enable };
+    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_invert, ARG_enable };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_freq, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_freq, MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_duty, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty_u16, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty_ns, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
 
@@ -127,6 +71,9 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
 
     // Check for multiple duty specifications
     int duty_specs = 0;
+    if (vals[ARG_duty].u_int != -1) {
+        duty_specs++;
+    }
     if (vals[ARG_duty_u16].u_int != -1) {
         duty_specs++;
     }
@@ -135,15 +82,46 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
     }
 
     if (duty_specs > 1) {
-        mp_raise_ValueError("only one of duty_u16 or duty_ns can be specified");
+        mp_raise_ValueError("only one of duty or duty_u16 or duty_ns can be specified");
     }
 
     // Set duty cycle if provided
-    if (vals[ARG_duty_u16].u_int != -1) {
+    if (vals[ARG_duty].u_int != -1) {
+        mp_machine_pwm_duty_set(self, vals[ARG_duty].u_int);
+    } else if (vals[ARG_duty_u16].u_int != -1) {
         mp_machine_pwm_duty_set_u16(self, vals[ARG_duty_u16].u_int);
     } else if (vals[ARG_duty_ns].u_int != -1) {
         mp_machine_pwm_duty_set_ns(self, vals[ARG_duty_ns].u_int);
     }
+}
+
+// Create new PWM object following official API
+mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
+{
+    mp_arg_check_num(n_args, n_kw, 1, MP_OBJ_FUN_ARGS_MAX, true);
+
+    int channel = mp_obj_get_int(args[0]);
+    if ((0 > channel) || (5 < channel)) {
+        mp_raise_ValueError("invalid PWM channel");
+    }
+
+    // Create new PWM object
+    machine_pwm_obj_t* self = m_new_obj(machine_pwm_obj_t);
+    self->base.type         = &machine_pwm_type;
+    self->channel           = channel;
+    self->active            = false;
+    self->invert            = false;
+
+    // Initialize PWM driver if needed
+    if (drv_pwm_init() != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "PWM init failed");
+    }
+
+    mp_map_t kw_args;
+    mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
+    mp_machine_pwm_init_helper(self, 0, NULL, &kw_args);
+
+    return MP_OBJ_FROM_PTR(self);
 }
 
 // Deinitialize PWM
