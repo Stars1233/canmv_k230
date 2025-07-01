@@ -632,12 +632,45 @@ class Sensor:
         if height > self._dev_attr.acq_win.height or height < CAM_OUT_HEIGHT_MIN:
             raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild height({height}), should be {CAM_OUT_HEIGHT_MIN} - {self._dev_attr.acq_win.height}")
 
+        crop_en = False
+        crop_x, crop_y, crop_w, crop_h = 0, 0, 0, 0
+        if 'crop' in kwargs:
+            crop = kwargs.get('crop', (0,0,0,0)) # (x, y, w, h)
+            if len(crop) == 4:
+                crop_en = True
+                crop_x, crop_y, crop_w, crop_h = crop
+
+                if crop_x < 0 or crop_y < 0 or crop_w < 0 or crop_h < 0:
+                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) and should be >= 0")
+                if crop_x + crop_w < width or crop_y + crop_h < height:
+                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) with x+w >= {width} and y+h >= {height}")
+            else:
+                raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h)")
+
         self._chn_attr[chn].chn_enable = True
+        self._chn_attr[chn].crop_enable = False
+        self._chn_attr[chn].scale_enable = False
+
+        # output window
         self._chn_attr[chn].out_win.h_start = 0
         self._chn_attr[chn].out_win.v_start = 0
         self._chn_attr[chn].out_win.width = width
         self._chn_attr[chn].out_win.height = height
         self._chn_attr[chn].alignment = alignment
+
+        # crop window
+        if crop_en and crop_w > 0 and crop_h > 0:
+            self._chn_attr[chn].crop_enable = True
+            self._chn_attr[chn].crop_win.h_start = crop_x
+            self._chn_attr[chn].crop_win.v_start = crop_y
+            self._chn_attr[chn].crop_win.width = crop_w
+            self._chn_attr[chn].crop_win.height = crop_h
+
+            self._chn_attr[chn].scale_enable = True
+            self._chn_attr[chn].scale_win.h_start = 0
+            self._chn_attr[chn].scale_win.v_start = 0
+            self._chn_attr[chn].scale_win.width = width
+            self._chn_attr[chn].scale_win.height = height
 
         if self._chn_attr[chn].pix_format:
             buf_size = 0
