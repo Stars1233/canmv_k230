@@ -642,8 +642,10 @@ class Sensor:
 
                 if crop_x < 0 or crop_y < 0 or crop_w < 0 or crop_h < 0:
                     raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) and should be >= 0")
-                if crop_x + crop_w < width or crop_y + crop_h < height:
-                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) with x+w >= {width} and y+h >= {height}")
+                # if crop_x + crop_w < width or crop_y + crop_h < height:
+                #     raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) with x+w >= {width} and y+h >= {height}")
+                if crop_x + crop_w > self._dev_attr.acq_win.width or crop_y + crop_h > self._dev_attr.acq_win.height:
+                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) with x+w <= {self._dev_attr.acq_win.width} and y+h <= {self._dev_attr.acq_win.height}")
             else:
                 raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h)")
 
