@@ -57,6 +57,8 @@ class ClassificationApp(AIBase):
     # 自定义当前任务的后处理，results是模型输出的array列表
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
+            self.cur_result["label"]=""
+            self.cur_result["score"]=0.0
             if self.num_classes>2:
                 softmax_res=softmax(results[0][0])
                 res_idx=np.argmax(softmax_res)
@@ -150,6 +152,9 @@ class DetectionApp(AIBase):
     # 自定义当前任务的后处理,这里调用了aicube模块的后处理接口
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
+            self.cur_result["boxes"].clear()
+            self.cur_result["scores"].clear()
+            self.cur_result["idx"].clear()
             # AnchorBaseDet模型的后处理
             if self.model_type == "AnchorBaseDet":
                 det_boxes = aicube.anchorbasedet_post_process( results[0], results[1], results[2], self.model_input_size, self.rgb888p_size, self.strides, self.num_classes, self.confidence_threshold, self.nms_threshold, self.anchors, self.nms_option)
@@ -231,6 +236,7 @@ class SegmentationApp(AIBase):
     # 自定义当前任务的后处理
     def postprocess(self,input_np):
         with ScopedTiming("postprocess",self.debug_mode > 0):
+            self.cur_result["mask"]=None
             # 这里使用了aicube封装的接口seg_post_process做后处理，返回一个和display_size相同分辨率的mask图
             mask = aicube.seg_post_process(self.results[0], self.num_classes, [self.model_input_size[1],self.model_input_size[0]], [self.display_size[1],self.display_size[0]])
             # 在mask数据上创建osd图像并返回
@@ -475,6 +481,8 @@ class MetricLearningApp(AIBase):
     # 自学习任务推理流程
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
+            self.cur_result["label"]=""
+            self.cur_result["score"]=0.0
             if len(self.embeddings)>0:
                 # 计算特征向量和向量库中所有向量的最大相似度和相似向量的索引
                 idx,score=self.compute_similar(results[0][0])
