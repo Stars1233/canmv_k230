@@ -5,6 +5,9 @@ CROSS_COMPILE=$(SDK_TOOLCHAIN_DIR)/riscv64-linux-musleabi_for_x86_64-pc-linux-gn
 # Strip quotes and then whitespaces
 qstrip = $(strip $(subst ",,$(1)))
 
+GIT_INFO := $(shell python3 $(SDK_CANMV_SRC_DIR)/tools/get_git_version.py $(SDK_CANMV_SRC_DIR))
+$(foreach line,$(GIT_INFO),$(eval export $(line)))
+
 BOARD_DIR = boards/$(call qstrip,$(CONFIG_BOARD))
 BUILD = $(SDK_CANMV_BUILD_DIR)
 
