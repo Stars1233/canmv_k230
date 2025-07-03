@@ -241,7 +241,7 @@ class Display:
                     cls._panel_flag = _flag
                     cls._connector_type = ST7701_V1_MIPI_2LAN_368X544_60FPS
                 else:
-                    raise ValueError(f"ST7701 unsupoort {_width}x{_height}")
+                    raise ValueError(f"ST7701 unsupport {_width}x{_height}")
 
                 _width = None
                 _height = None
@@ -257,7 +257,7 @@ class Display:
                 elif _width == 1080 and _height == 1920:
                     cls._connector_type = HX8399_V2_MIPI_4LAN_1080X1920_30FPS
                 else:
-                    raise ValueError(f"HX8399 unsupoort {_width}x{_height}")
+                    raise ValueError(f"HX8399 unsupport {_width}x{_height}")
 
                 _width = None
                 _height = None
@@ -273,7 +273,7 @@ class Display:
                 elif _width == 480 and _height == 800:
                     cls._connector_type = ILI9806_MIPI_2LAN_480X800_30FPS
                 else:
-                    raise ValueError(f"ILI9806 unsupoort {_width}x{_height}")
+                    raise ValueError(f"ILI9806 unsupport {_width}x{_height}")
 
                 _width = None
                 _height = None
@@ -298,7 +298,7 @@ class Display:
                 elif _width == 640 and _height == 480:
                     cls._connector_type = LT9611_MIPI_4LAN_640X480_60FPS
                 else:
-                    raise ValueError(f"LT9611 unsupoort {_width}x{_height}@{_fps}")
+                    raise ValueError(f"LT9611 unsupport {_width}x{_height}@{_fps}")
 
                 _width = None
                 _height = None
@@ -314,7 +314,7 @@ class Display:
                 elif _width == 800 and _height == 1280:
                     cls._connector_type = ILI9881_MIPI_4LAN_800X1280_60FPS
                 else:
-                    raise ValueError(f"ILI9806 unsupoort {_width}x{_height}")
+                    raise ValueError(f"ILI9806 unsupport {_width}x{_height}")
 
                 _width = None
                 _height = None
@@ -330,7 +330,7 @@ class Display:
                 elif _width == 540 and _height == 960:
                     cls._connector_type = NT35516_MIPI_2LAN_540X960_30FPS
                 else:
-                    raise ValueError(f"NT35516 unsupoort {_width}x{_height}")
+                    raise ValueError(f"NT35516 unsupport {_width}x{_height}")
 
                 _width = None
                 _height = None
