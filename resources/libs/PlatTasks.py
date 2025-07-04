@@ -57,8 +57,7 @@ class ClassificationApp(AIBase):
     # 自定义当前任务的后处理，results是模型输出的array列表
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
-            self.cur_result["label"]=""
-            self.cur_result["score"]=0.0
+            self.cur_result={"label":"","score":0.0}
             if self.num_classes>2:
                 softmax_res=softmax(results[0][0])
                 res_idx=np.argmax(softmax_res)
@@ -152,9 +151,7 @@ class DetectionApp(AIBase):
     # 自定义当前任务的后处理,这里调用了aicube模块的后处理接口
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
-            self.cur_result["boxes"].clear()
-            self.cur_result["scores"].clear()
-            self.cur_result["idx"].clear()
+            self.cur_result={"boxes":[],"scores":[], "idx":[]}
             # AnchorBaseDet模型的后处理
             if self.model_type == "AnchorBaseDet":
                 det_boxes = aicube.anchorbasedet_post_process( results[0], results[1], results[2], self.model_input_size, self.rgb888p_size, self.strides, self.num_classes, self.confidence_threshold, self.nms_threshold, self.anchors, self.nms_option)
@@ -315,8 +312,7 @@ class OCRDetectionApp(AIBase):
             # det_boxes结构为[[crop_array_nhwc,[p1_x,p1_y,p2_x,p2_y,p3_x,p3_y,p4_x,p4_y]],...]，crop_array_nhwc是切割的检测框数据，后八个数据表示检测框的左上，右上，右下，左下的坐标
             det_boxes = aicube.ocr_post_process(results[0][:,:,:,0].reshape(-1), hwc_array.reshape(-1),self.model_input_size,self.rgb888p_size, self.mask_threshold, self.box_threshold)
             # 只取坐标值
-            self.cur_result["crop_images"].clear()
-            self.cur_result["boxes"].clear()
+            self.cur_result={"boxes":[],"crop_images":[]}
             for det_box in det_boxes:
                 self.cur_result["crop_images"].append(det_box[0])
                 self.cur_result["boxes"].append(det_box[1])
@@ -481,8 +477,7 @@ class MetricLearningApp(AIBase):
     # 自学习任务推理流程
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
-            self.cur_result["label"]=""
-            self.cur_result["score"]=0.0
+            self.cur_result={"label":"","score":0.0}
             if len(self.embeddings)>0:
                 # 计算特征向量和向量库中所有向量的最大相似度和相似向量的索引
                 idx,score=self.compute_similar(results[0][0])
@@ -561,8 +556,7 @@ class MultiLabelClassificationApp(AIBase):
     # 自定义当前任务的后处理
     def postprocess(self,results):
         with ScopedTiming("postprocess",self.debug_mode > 0):
-            self.cur_result["labels"].clear()
-            self.cur_result["scores"].clear()
+            self.cur_result={"labels":[],"scores":[]}
             # 依次计算所有类别中的所属类别，对每一个类别做二分类
             for i in range(len(self.labels)):
                 score=sigmoid(results[0][0][i])
