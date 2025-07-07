@@ -40,6 +40,7 @@
 
 #define GPIO_MODE_INPUT     (GPIO_DM_INPUT)
 #define GPIO_MODE_OUTPUT    (GPIO_DM_OUTPUT)
+#define GPIO_MODE_OUTPUT_OD (GPIO_DM_OUTPUT_OD)
 #define GPIO_MODE_PULL_NONE (1 << 2)
 #define GPIO_MODE_PULL_UP   (1 << 3)
 #define GPIO_MODE_PULL_DOWN (1 << 4)
@@ -77,6 +78,8 @@ int machine_pin_value_get(mp_obj_t self_in)
     return drv_gpio_value_get(self->inst);
 }
 
+drv_gpio_inst_t* machine_pin_get_inst(mp_obj_t self_in) { return ((machine_pin_obj_t*)MP_OBJ_TO_PTR(self_in))->inst; }
+
 STATIC void machine_pin_init_helper(machine_pin_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
     enum { ARG_mode, ARG_pull, ARG_value, ARG_drive, ARG_alt };
@@ -101,6 +104,41 @@ STATIC void machine_pin_init_helper(machine_pin_obj_t* self, size_t n_args, cons
         mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("pin(%d) invalid"), pin);
     }
 
+    int mode = parsed_args[ARG_mode].u_int;
+    if (GPIO_DM_MAX <= mode) {
+        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("pin(%d) mode invalid"), pin);
+    }
+
+    int pull_up = 0, pull_down = 0;
+
+    int pull = parsed_args[ARG_pull].u_int;
+    if (((-1) != pull) && (-1 != mode)) {
+        if (GPIO_DM_INPUT == mode) {
+            if (GPIO_MODE_PULL_UP == (pull & GPIO_MODE_PULL_UP)) {
+                mode = GPIO_DM_INPUT_PULLUP;
+            } else if (GPIO_MODE_PULL_DOWN == (pull & GPIO_MODE_PULL_DOWN)) {
+                mode = GPIO_DM_INPUT_PULLDOWN;
+            }
+        } else /* if (GPIO_DM_OUTPUT == mode) */ {
+            if (GPIO_MODE_PULL_UP == (pull & GPIO_MODE_PULL_UP)) {
+                pull_up = 1;
+            }
+
+            if (GPIO_MODE_PULL_DOWN == (pull & GPIO_MODE_PULL_DOWN)) {
+                pull_down = 1;
+            }
+        }
+    }
+
+    if ((-1) != mode) {
+        drv_gpio_mode_set(self->inst, mode);
+    }
+
+    int value = parsed_args[ARG_value].u_int;
+    if ((-1) != value) {
+        drv_gpio_value_set(self->inst, value);
+    }
+
     fpioa_iomux_cfg_t iomux, new_iomux;
 
     if (0x00 != drv_fpioa_get_pin_cfg(pin, &iomux.u.value)) {
@@ -108,28 +146,12 @@ STATIC void machine_pin_init_helper(machine_pin_obj_t* self, size_t n_args, cons
     }
     new_iomux.u.value = iomux.u.value;
 
-    int mode = parsed_args[ARG_mode].u_int;
-    if ((-1) != mode) {
-        if (GPIO_MODE_INPUT == mode) {
-            new_iomux.u.bit.ie = 1;
-        } else if (GPIO_MODE_OUTPUT == mode) {
-            new_iomux.u.bit.oe = 1;
-        }
+    if (pull_up) {
+        new_iomux.u.bit.pu = 1;
     }
 
-    int pull = parsed_args[ARG_pull].u_int;
-    if ((-1) != pull) {
-        if (GPIO_MODE_PULL_NONE == (pull & GPIO_MODE_PULL_NONE)) {
-            new_iomux.u.bit.pu = 0;
-            new_iomux.u.bit.pd = 0;
-        } else {
-            if (GPIO_MODE_PULL_UP == (pull & GPIO_MODE_PULL_UP)) {
-                new_iomux.u.bit.pu = 1;
-            }
-            if (GPIO_MODE_PULL_DOWN == (pull & GPIO_MODE_PULL_DOWN)) {
-                new_iomux.u.bit.pd = 1;
-            }
-        }
+    if (pull_down) {
+        new_iomux.u.bit.pd = 1;
     }
 
     int drive = parsed_args[ARG_drive].u_int;
@@ -144,15 +166,6 @@ STATIC void machine_pin_init_helper(machine_pin_obj_t* self, size_t n_args, cons
         if (0x00 != drv_fpioa_set_pin_cfg(pin, new_iomux.u.value)) {
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set pin(%d) iomux failed"), pin);
         }
-    }
-
-    if ((-1) != mode) {
-        drv_gpio_mode_set(self->inst, mode);
-    }
-
-    int value = parsed_args[ARG_value].u_int;
-    if ((-1) != value) {
-        drv_gpio_value_set(self->inst, value);
     }
 }
 
@@ -286,6 +299,8 @@ STATIC mp_obj_t machine_pin_irq(size_t n_args, const mp_obj_t* pos_args, mp_map_
     if (0x00 != drv_gpio_register_irq(self->inst, trigger, debounce, machie_pin_irq_handler, self)) {
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("pin register irq failed"));
     }
+
+    drv_gpio_enable_irq(self->inst);
 
     return MP_OBJ_FROM_PTR(irq);
 }
@@ -491,6 +506,7 @@ STATIC const mp_rom_map_elem_t machine_pin_locals_dict_table[] = {
     // mode
     { MP_ROM_QSTR(MP_QSTR_IN), MP_ROM_INT(GPIO_MODE_INPUT) },
     { MP_ROM_QSTR(MP_QSTR_OUT), MP_ROM_INT(GPIO_MODE_OUTPUT) },
+    { MP_ROM_QSTR(MP_QSTR_OPEN_DRAIN), MP_ROM_INT(GPIO_MODE_OUTPUT_OD) },
     // pull
     { MP_ROM_QSTR(MP_QSTR_PULL_NONE), MP_ROM_INT(GPIO_MODE_PULL_NONE) },
     { MP_ROM_QSTR(MP_QSTR_PULL_UP), MP_ROM_INT(GPIO_MODE_PULL_UP) },

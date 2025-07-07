@@ -133,6 +133,7 @@ PY_O_EXCLUDE = \
 		extmod/modcryptolib.o \
 		extmod/modhashlib.o \
 		extmod/modssl_mbedtls.o\
+		extmod/modonewire.o\
 		py/modgc.o \
 	)
 PY_O := $(filter-out $(PY_O_EXCLUDE),$(PY_O))
@@ -143,6 +144,7 @@ SRC_QSTR_EXCLUDE = \
 		extmod/modcryptolib.c \
 		extmod/modhashlib.c \
 		extmod/modssl_mbedtls.c\
+		extmod/modonewire.c\
 		py/modgc.c
 
 SRC_QSTR := $(filter-out $(SRC_QSTR_EXCLUDE),$(SRC_QSTR))
@@ -183,6 +185,7 @@ CANMV_SRC_C += \
 	mp_modules/overlay_modcryptolib.c \
 	mp_modules/overlay_modhashlib.c \
 	mp_modules/overlay_modssl_mbedtls.c \
+	mp_modules/overlay_modonewire.c \
 
 CANMV_SRC_C += $(addprefix shared/,\
 	runtime/gchelper_generic.c \
@@ -191,6 +194,10 @@ CANMV_SRC_C += $(addprefix shared/,\
 	timeutils/timeutils.c \
 	readline/readline.c \
 	netutils/netutils.c \
+	)
+
+CANMV_SRC_C += $(addprefix drivers/,\
+	dht/dht.c \
 	)
 
 ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LAN)),)

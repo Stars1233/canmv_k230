@@ -28,11 +28,14 @@
 
 #include "py/obj.h"
 
+#include "drv_gpio.h"
+
 void *machine_i2c_obj_get_inst(mp_obj_t self_in);
 
 int  machine_pin_get_pin_numer(mp_obj_t self_in);
 void machine_pin_value_set(mp_obj_t self_in, int value);
 int  machine_pin_value_get(mp_obj_t self_in);
+drv_gpio_inst_t *machine_pin_get_inst(mp_obj_t self_in);
 
 extern const mp_obj_type_t machine_adc_type;
 extern const mp_obj_type_t machine_fft_type;

@@ -24,6 +24,7 @@
  * THE SOFTWARE.
  */
 #include <errno.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #ifndef CHAR_CTRL_C
@@ -81,3 +82,26 @@ static inline int mp_hal_readline(vstr_t *vstr, const char *p) {
             break; \
         } \
 }
+
+uint32_t mp_hal_quiet_timing_enter(void);
+void mp_hal_quiet_timing_exit(uint32_t irq_state);
+
+void mp_hal_delay_us_fast(uint64_t us);
+
+#include "modmachine.h"
+
+#define MP_HAL_PIN_FMT "%u"
+#define mp_hal_pin_obj_t drv_gpio_inst_t *
+
+mp_hal_pin_obj_t mp_hal_get_pin_obj(mp_obj_t o);
+int mp_hal_pin_name(mp_hal_pin_obj_t pin);
+
+void mp_hal_pin_input(mp_hal_pin_obj_t pin);
+void mp_hal_pin_output(mp_hal_pin_obj_t pin);
+void mp_hal_pin_open_drain(mp_hal_pin_obj_t pin);
+
+void mp_hal_pin_od_low(mp_hal_pin_obj_t pin);
+void mp_hal_pin_od_high(mp_hal_pin_obj_t pin);
+
+int mp_hal_pin_read(mp_hal_pin_obj_t pin);
+void mp_hal_pin_write(mp_hal_pin_obj_t pin, int value);

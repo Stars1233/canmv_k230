@@ -25,6 +25,7 @@
  */
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -250,4 +251,77 @@ uint64_t mp_hal_time_ns(void) {
 
 mp_uint_t mp_hal_ticks_cpu(void) {
     return (mp_uint_t)utils_cpu_ticks();
+}
+
+void mp_hal_delay_us_fast(uint64_t us)
+{
+    uint64_t end = utils_cpu_ticks_us() + us;
+    while (utils_cpu_ticks_us() < end) { }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// C-level pin HAL ////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+#include "modmachine.h"
+
+mp_hal_pin_obj_t mp_hal_get_pin_obj(mp_obj_t o)
+{
+    return machine_pin_get_inst(o);
+}
+
+int mp_hal_pin_name(mp_hal_pin_obj_t pin)
+{
+    return pin->pin;
+}
+
+void mp_hal_pin_input(mp_hal_pin_obj_t pin)
+{
+    drv_gpio_mode_set(pin, GPIO_DM_INPUT);
+}
+
+void mp_hal_pin_output(mp_hal_pin_obj_t pin)
+{
+    drv_gpio_mode_set(pin, GPIO_DM_OUTPUT);
+}
+
+void mp_hal_pin_open_drain(mp_hal_pin_obj_t pin)
+{
+    drv_gpio_mode_set(pin, GPIO_DM_OUTPUT_OD);
+}
+
+void mp_hal_pin_od_low(mp_hal_pin_obj_t pin)
+{
+    drv_gpio_value_set(pin, 0);
+}
+
+void mp_hal_pin_od_high(mp_hal_pin_obj_t pin)
+{
+    drv_gpio_value_set(pin, 1);
+}
+
+int mp_hal_pin_read(mp_hal_pin_obj_t pin)
+{
+    return drv_gpio_value_get(pin);
+}
+
+void mp_hal_pin_write(mp_hal_pin_obj_t pin, int value)
+{
+    drv_gpio_value_set(pin, value);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Irq Releated ///////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+#include "hal_syscall.h"
+
+uint32_t mp_hal_quiet_timing_enter(void)
+{
+    uint32_t irq_state = 0;
+    // irq_state = rt_hw_interrupt_disable();
+    return irq_state;
+}
+
+void mp_hal_quiet_timing_exit(uint32_t irq_state)
+{
+    // rt_hw_interrupt_enable(irq_state);
 }

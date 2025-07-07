@@ -37,6 +37,10 @@
 
 #include "extmod/machine_mem.h"
 
+#if MICROPY_PY_MACHINE_DHT
+#include "drivers/dht/dht.h"
+#endif
+
 #include "modmachine.h"
 
 #if MICROPY_PY_MACHINE
@@ -170,6 +174,10 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_chipid), MP_ROM_PTR(&machine_read_chipid_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem_copy), MP_ROM_PTR(&machine_mem_copy_obj) },
     { MP_ROM_QSTR(MP_QSTR_temperature), MP_ROM_PTR(&machine_read_temp_obj) },
+
+#if MICROPY_PY_MACHINE_DHT
+    { MP_ROM_QSTR(MP_QSTR_dht_readinto), MP_ROM_PTR(&dht_readinto_obj) },
+#endif
 
     { MP_ROM_QSTR(MP_QSTR_UART), MP_ROM_PTR(&machine_uart_type) },
     { MP_ROM_QSTR(MP_QSTR_PWM), MP_ROM_PTR(&machine_pwm_type) },
