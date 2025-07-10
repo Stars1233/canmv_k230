@@ -107,7 +107,7 @@ void usb_rx_clear(void) {
 
 int usb_tx(const void* buffer, size_t size)
 {
-#define BLOCK_SIZE 1024
+#define BLOCK_SIZE (2 * 1024)
 
     int    result = 0;
     size_t send = 0, chunk = 0, total = size;
@@ -145,7 +145,7 @@ void print_raw(const uint8_t* data, size_t size) {
 
 static uint32_t ide_script_running = 0;
 // ringbuffer
-#define TX_BUF_SIZE 1024
+#define TX_BUF_SIZE (1024 * 128)
 static char tx_buf[TX_BUF_SIZE];
 static uint32_t tx_buf_w_ptr = 0;
 static uint32_t tx_buf_r_ptr = 0;
@@ -861,6 +861,16 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         };
                         if (!enable_pic || fb_from == FB_FROM_NONE)
                             goto skip;
+
+                        static uint64_t last_frame_ticks_ms = 0;
+                        uint64_t curr_frame_ticks_ms = 0;
+
+                        curr_frame_ticks_ms = mp_hal_ticks_ms();
+                        if(33 > (curr_frame_ticks_ms - last_frame_ticks_ms)) {
+                            goto skip;
+                        }
+                        last_frame_ticks_ms = curr_frame_ticks_ms;
+
                         fb_from_current = fb_from;
                         if (fb_from_current == FB_FROM_USER_SET) {
                             pthread_mutex_lock(&fb_mutex);

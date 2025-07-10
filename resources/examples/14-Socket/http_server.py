@@ -52,7 +52,14 @@ def main(micropython_optimize=True):
     counter = 0
     while True:
         #接受连接
-        res = s.accept()
+        try:
+            res = s.accept()
+        except Exception as e:
+            if e.errno == 11:
+                continue    
+            else:
+                raise
+
         client_sock = res[0]
         client_addr = res[1]
         print("Client address:", client_addr)

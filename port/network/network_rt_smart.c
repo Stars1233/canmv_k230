@@ -35,7 +35,7 @@
 
 #include "py_assert.h" // use openmv marco, PY_ASSERT_TYPE
 
-#include "network_rt_smart.h"
+#include "hal_netmgmt.h"
 
 #define debug_printf(...) // mp_printf(&mp_plat_print, __VA_ARGS__)
 
@@ -45,35 +45,25 @@
 
 static __attribute__((unused)) uint16_t bind_port = BIND_PORT_RANGE_MIN;
 
-#define CHECK_FD_VALID()                                                       \
-  do {                                                                         \
-    if (0 > s_net_mgmt_dev_fd) {                                              \
-      mp_raise_msg(&mp_type_OSError,                                           \
-                   MP_ERROR_TEXT("rt_net_mgmt device is not open"));          \
-    }                                                                          \
-  } while (0)
-
 typedef struct _py_rt_net_obj_t {
     mp_obj_base_t base;
-    uint32_t itf;
+    enum rt_netif_t itf;
 } py_rt_net_obj_t;
 
-STATIC int s_net_mgmt_dev_fd = -1;
-
 STATIC mp_obj_t network_rt_net_active(size_t n_args, const mp_obj_t *args) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
     if (n_args == 1) {
-        int isactive = self->itf;
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_LAN_GET_ISACTIVE, &isactive)) {
+        int isactive = -1;
+        enum rt_netif_t itf = self->itf;
+
+        if(0x00 != netmgmt_utils_probe_device(itf, &isactive)) {
             mp_printf(&mp_plat_print, "run get isactive failed.\n");
             return mp_const_false;
         }
         return mp_obj_new_bool(0x00 != isactive);
     } else {
-        mp_printf(&mp_plat_print, "network(rt_smart) not support set active state\n");
+        mp_printf(&mp_plat_print, "Network (rt-smart) is always active and cannot be disabled.\n");
 
         return mp_const_none;
     }
@@ -81,28 +71,13 @@ STATIC mp_obj_t network_rt_net_active(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_net_active_obj, 1, 2, network_rt_net_active);
 
 STATIC mp_obj_t network_rt_net_ifconfig(size_t n_args, const mp_obj_t *args) {
-    struct ifconfig {
-        uint16_t net_if;            /* 0: sta, 1: ap, 2:lan, 3:... */
-        uint16_t set;               /* 0:get, 1:set */
-        ip_addr_t ip;               /* IP address */
-        ip_addr_t gw;               /* gateway */
-        ip_addr_t netmask;          /* subnet mask */
-        ip_addr_t dns;              /* DNS server */
-    };
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-
-    struct ifconfig ifconfig;
-
-    ifconfig.net_if = self->itf;
+    enum rt_netif_t itf = self->itf;
+    struct ifconfig_t ifconfig;
 
     if (n_args == 1) {
-        // get ifconfig info
-        ifconfig.set = 0;
-
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_IFCONFIG, &ifconfig)) {
-            mp_printf(&mp_plat_print, "run ifconfig failed.\n");
+        if(0x00 != netmgmt_utils_get_ifconfig(itf, &ifconfig)) {
+            mp_printf(&mp_plat_print, "get ifconfig failed.\n");
             return mp_const_none;
         }
 
@@ -118,26 +93,27 @@ STATIC mp_obj_t network_rt_net_ifconfig(size_t n_args, const mp_obj_t *args) {
         if (mp_obj_is_str(args[1])) {
             switch (mp_obj_str_get_qstr(args[1])) {
                 case MP_QSTR_dhcp: {
-                    ifconfig.set = 2; // enable dhcp
+                    if(0x00 != netmgmt_utils_set_ifconfig_dhcp(itf)) {
+                        mp_printf(&mp_plat_print, "set ifconfig dhcp failed.\n");
+                        return mp_const_false;
+                    }
                 } break;
                 default: {
                     mp_raise_ValueError(MP_ERROR_TEXT("unknown config param"));
                 } break;
             }
         } else {
-            ifconfig.set = 1;   // disable dhcp, set static ip
-
             mp_obj_t *items;
             mp_obj_get_array_fixed_n(args[1], 4, &items);
             netutils_parse_ipv4_addr(items[0], (uint8_t *)&ifconfig.ip.addr, NETUTILS_BIG);
             netutils_parse_ipv4_addr(items[1], (uint8_t *)&ifconfig.netmask.addr, NETUTILS_BIG);
             netutils_parse_ipv4_addr(items[2], (uint8_t *)&ifconfig.gw.addr, NETUTILS_BIG);
             netutils_parse_ipv4_addr(items[3], (uint8_t *)&ifconfig.dns.addr, NETUTILS_BIG);
-        }
 
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_IFCONFIG, &ifconfig)) {
-            mp_printf(&mp_plat_print, "run ifconfig failed.\n");
-            return mp_const_false;
+            if(0x00 != netmgmt_utils_set_ifconfig_static(itf, &ifconfig)) {
+                mp_printf(&mp_plat_print, "set ifconfig static failed.\n");
+                return mp_const_false;
+            }
         }
 
         return mp_const_true;
@@ -240,35 +216,26 @@ STATIC mp_uint_t network_rt_wlan_socket_auto_bind(mod_network_socket_obj_t *_soc
 }
 
 // API for non-socket operations
+
 STATIC int network_rt_wlan_socket_gethostbyname(mp_obj_t nic, const char *name, mp_uint_t len, uint8_t *ip_out)
 {
-    struct result {
-        uint8_t ip[4];
-        int name_len; // max 256
-        char name[0];
-    };
-
-    CHECK_FD_VALID();
-
-    uint64_t buffer[(sizeof(struct result) + 256) / sizeof(uint64_t) + 1];
-    struct result *result = (struct result *)buffer;
-    int err = 0;
-
-    if(len > 256) {
-        mp_printf(&mp_plat_print, "Host name length max 256 bytes.\n");
+    if (len >= 256) {
+        mp_printf(&mp_plat_print, "Host name length exceeds maximum of 255 bytes.\n");
         return -3;
     }
 
-    result->name_len = len;
-    memcpy(result->name, name, len);
+    // Make a null-terminated copy of hostname
+    char hostname[256] = {0};
+    memcpy(hostname, name, len);
+    hostname[len] = '\0';
 
-    if(0x00 != (err = ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_GETHOSTBYNAME, result))) {
-        debug_printf("socket_getsockopt() -> err %d\n", err);
-        return err;
+    struct hostent *he = gethostbyname(hostname);
+    if (he == NULL || he->h_addrtype != AF_INET || he->h_length != 4) {
+        mp_printf(&mp_plat_print, "Failed to resolve hostname: %s\n", hostname);
+        return -1;
     }
 
-    memcpy(ip_out, result->ip, sizeof(result->ip));
-
+    memcpy(ip_out, he->h_addr, 4);
     return 0;
 }
 
@@ -652,22 +619,17 @@ STATIC mp_uint_t network_rt_wlan_socket_recvfrom(struct _mod_network_socket_obj_
 
 _check_timeout:
         if(0x00 == timeout_ms) { // non blocking
-            *port = ntohs(addr.sin_port);
-            memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
-        
-            return received;
+            goto _exit;
         } else if((-1) == timeout_ms) { // blocking
         } else {
             curr_tick_ms = mp_hal_ticks_ms();
             if(curr_tick_ms > stop_ms) {
-                *port = ntohs(addr.sin_port);
-                memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
-            
-                return received;
+                goto _exit;
             }
         }
     } while(received < len);
 
+_exit:
     *port = ntohs(addr.sin_port);
     memcpy(ip, &addr.sin_addr.s_addr, sizeof(addr.sin_addr));
 
@@ -802,13 +764,11 @@ STATIC const mod_network_nic_protocol_t mod_network_nic_protocol_rtt_posix = {
 #ifdef CONFIG_ENABLE_NETWORK_RT_LAN
 /* network_rt_lan ************************************************************/
 STATIC mp_obj_t network_rt_lan_isconnected(mp_obj_t self_in) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(self_in);
     (void)self;
 
     int isconnected = 0;
-    if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_LAN_GET_ISCONNECTED, &isconnected)) {
+    if(0x00 != netmgmt_lan_get_isconnected(&isconnected)) {
         mp_printf(&mp_plat_print, "run get isconnected failed.\n");
         return mp_const_false;
     }
@@ -816,17 +776,14 @@ STATIC mp_obj_t network_rt_lan_isconnected(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_lan_isconnected_obj, network_rt_lan_isconnected);
 
-
 STATIC mp_obj_t network_rt_lan_status(size_t n_args, const mp_obj_t *args) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     (void)self;
 
     if (n_args == 1) {
         int status = 0;
 
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_LAN_GET_STATUS, &status)) {
+        if(0x00 != netmgmt_lan_get_link_status(&status)) {
             status = 0; // failed
 
             mp_printf(&mp_plat_print, "run get status failed.\n");
@@ -838,8 +795,6 @@ STATIC mp_obj_t network_rt_lan_status(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_lan_status_obj, 1, 2, network_rt_lan_status);
 
 STATIC mp_obj_t network_rt_lan_config(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     (void)self;
 
@@ -853,7 +808,7 @@ STATIC mp_obj_t network_rt_lan_config(size_t n_args, const mp_obj_t *args, mp_ma
             case MP_QSTR_mac: {
                 uint8_t buf[6];
 
-                if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_LAN_GET_MAC, &buf[0])) {
+                if(0x00 != netmgmt_lan_get_mac(&buf[0])) {
                     memset(&buf[0], 0, sizeof(buf)); // failed
 
                     mp_printf(&mp_plat_print, "run get mac failed.\n");
@@ -880,8 +835,8 @@ STATIC mp_obj_t network_rt_lan_config(size_t n_args, const mp_obj_t *args, mp_ma
                         if (buf.len != 6) {
                             mp_raise_ValueError(NULL);
                         }
-
-                        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_LAN_SET_MAC, buf.buf)) {
+                        
+                        if(0x00 != netmgmt_lan_set_mac(buf.buf)) {
                             mp_printf(&mp_plat_print, "run set mac failed.\n");
                         }
 
@@ -903,15 +858,7 @@ const struct _mp_obj_type_t network_type_eth_lan;
 STATIC py_rt_net_obj_t network_rt_eth_lan = {{(mp_obj_type_t *)&network_type_eth_lan}, 2};
 
 STATIC mp_obj_t py_rt_eth_lan_type_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
-    mp_obj_t rt_net_obj;
-
-    if(0 > s_net_mgmt_dev_fd) {
-        if(0 > (s_net_mgmt_dev_fd = open("/dev/canmv_net_mgmt", O_RDWR))) {
-            mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("could not open /dev/canmv_net_mgmt"));
-        }
-    }
-
-    rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lan);
+    mp_obj_t rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lan);
 
     // Register with network module
     mod_network_register_nic(rt_net_obj);
@@ -945,10 +892,10 @@ STATIC const mp_obj_type_t py_rt_wlan_info_type;
 
 typedef struct _py_rt_wlan_info_obj_t {
     mp_obj_base_t base;
-    struct rt_wlan_info _cobj;
+    struct rt_wlan_info_t _cobj;
 } py_rt_wlan_info_obj_t;
 
-STATIC const char *rt_wlan_security_string(rt_wlan_security_t security)
+STATIC const char *rt_wlan_security_string(enum rt_wlan_security_t security)
 {
     switch (security) {
         case SECURITY_OPEN: return "SECURITY_OPEN";
@@ -975,7 +922,7 @@ STATIC const char *rt_wlan_security_string(rt_wlan_security_t security)
     return NULL;
 }
 
-STATIC const char *rt_wlan_band_string(rt_802_11_band_t band)
+STATIC const char *rt_wlan_band_string(enum rt_802_11_band_t band)
 {
     switch(band) {
         case RT_802_11_BAND_5GHZ: return "5G";
@@ -986,7 +933,7 @@ STATIC const char *rt_wlan_band_string(rt_802_11_band_t band)
     return NULL;
 }
 
-STATIC mp_obj_t py_rt_wlan_info_from_struct(struct rt_wlan_info *info)
+STATIC mp_obj_t py_rt_wlan_info_from_struct(struct rt_wlan_info_t *info)
 {
     py_rt_wlan_info_obj_t *o = m_new_obj_with_finaliser(py_rt_wlan_info_obj_t);
     o->base.type = &py_rt_wlan_info_type;
@@ -1008,8 +955,8 @@ STATIC mp_obj_t py_rt_wlan_info_make_new(const mp_obj_type_t *type, size_t n_arg
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    struct rt_wlan_info info;
-    INVALID_INFO(&info);
+    struct rt_wlan_info_t info;
+    memset(&info, 0, sizeof(info));
 
     if(mp_const_none != args[ARG_ssid].u_obj) {
         const char *ssid = mp_obj_str_get_str(args[ARG_ssid].u_obj);
@@ -1017,7 +964,8 @@ STATIC mp_obj_t py_rt_wlan_info_make_new(const mp_obj_type_t *type, size_t n_arg
         if ((0x00 == ssid_len) || (RT_WLAN_SSID_MAX_LENGTH < ssid_len)) {
             mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("SSID can't be empty, and can't longer than %d"), RT_WLAN_SSID_MAX_LENGTH);
         }
-        SSID_SET(&info, ssid);
+        strncpy((char *)info.ssid.val, ssid, RT_WLAN_SSID_MAX_LENGTH);
+        info.ssid.len = strlen(ssid);
     }
 
     if(mp_const_none != args[ARG_bssid].u_obj) {
@@ -1045,7 +993,7 @@ STATIC void *py_rt_wlan_info_cobj(mp_obj_t rt_wlan_info) {
 
 STATIC void py_rt_wlan_info_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
     py_rt_wlan_info_obj_t *self = self_in;
-    struct rt_wlan_info *info = py_rt_wlan_info_cobj(self);
+    struct rt_wlan_info_t *info = py_rt_wlan_info_cobj(self);
 
     mp_printf(print,
               "{\"ssid\":\"%s\", \"bssid\":%02X:%02X:%02X:%02X:%02X:%02X, \"channel\":%d, \"rssi\":%d, \"security\":\"%s\", \"band\":\"%s\", \"hidden\":%d}",
@@ -1057,7 +1005,7 @@ STATIC void py_rt_wlan_info_print(const mp_print_t *print, mp_obj_t self_in, mp_
 
 STATIC void py_rt_wlan_info_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
     py_rt_wlan_info_obj_t *self = self_in;
-    struct rt_wlan_info *info = py_rt_wlan_info_cobj(self);
+    struct rt_wlan_info_t *info = py_rt_wlan_info_cobj(self);
 
     if(MP_OBJ_NULL == dest[0]) {
         // load attribute
@@ -1092,7 +1040,9 @@ STATIC void py_rt_wlan_info_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
         switch(attr) {
             case MP_QSTR_ssid:
                 const char *ssid = mp_obj_str_get_str(dest[1]);
-                SSID_SET(info, ssid);
+
+                strncpy((char *)info->ssid.val, ssid, RT_WLAN_SSID_MAX_LENGTH);
+                info->ssid.len = strlen(ssid);
                 break;
             case MP_QSTR_bssid:
                 uint8_t bssid[RT_WLAN_BSSID_MAX_LENGTH];
@@ -1137,68 +1087,47 @@ STATIC MP_DEFINE_CONST_OBJ_TYPE(
 
 /* network_rt_wlan ***********************************************************/
 STATIC mp_obj_t network_rt_wlan_scan(size_t n_args, const mp_obj_t *args) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_obj_t scan_list;
 
-    struct rt_wlan_scan_result *scan_result = NULL;
-    size_t scan_result_info_size = 0;
+    int ap_num = -1, result = -1;
+    struct rt_wlan_info_t ap_infos[RT_WLAN_STA_SCAN_MAX_AP];
     const char *ssid = NULL;
 
     if(MOD_NETWORK_STA_IF != self->itf) {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("ap mode not support scan"));
     }
 
-    scan_result_info_size = sizeof(struct rt_wlan_info) * RT_WLAN_STA_SCAN_MAX_AP;
-    scan_result = (struct rt_wlan_scan_result *)malloc(sizeof(struct rt_wlan_scan_result) + scan_result_info_size);
-    if(NULL == scan_result) {
-        mp_printf(&mp_plat_print, "no memory for scan result.\n");
-        return mp_const_none;
-    }
-    memset(scan_result, 0, sizeof(struct rt_wlan_scan_result) + scan_result_info_size);
-
-    scan_result->num = RT_WLAN_STA_SCAN_MAX_AP;
-    scan_result->info = (struct rt_wlan_info *)(((uint8_t *)scan_result) + sizeof(struct rt_wlan_scan_result));
-    INVALID_INFO(&scan_result->info[0]);
-
     if(0x02 == n_args) {
         ssid = mp_obj_str_get_str(args[1]);
-
-        if(0x00 != strlen(ssid)) {
-            SSID_SET(&scan_result->info[0], ssid);
+        if(0x00 == strlen(ssid)) {
+            ssid = NULL;
         }
     }
 
-    if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_SCAN, scan_result)) {
-        scan_result->num = 0;
+    if(ssid) {
+        ap_num = 1;
+        result = netmgmt_wlan_sta_scan_with_ssid((char *)ssid, ap_infos);
+    } else {
+        result = netmgmt_wlan_sta_scan(&ap_num, ap_infos);
+    }
+
+    if(0x00 != result) {
+        ap_num = 0;
         mp_printf(&mp_plat_print, "run scan failed.\n");
     }
     scan_list = mp_obj_new_list(0, NULL);
 
-    for(int32_t i = 0; i < scan_result->num; i++) {
-        mp_obj_t info = py_rt_wlan_info_from_struct(&scan_result->info[i]);
+    for(int32_t i = 0; i < ap_num; i++) {
+        mp_obj_t info = py_rt_wlan_info_from_struct(&ap_infos[i]);
         mp_obj_list_append(scan_list, info);
     }
-
-    free(scan_result);
 
     return scan_list;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_wlan_scan_obj, 1, 2, network_rt_wlan_scan);
 
 STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
-    struct rt_wlan_connect_config {
-        int use_info;
-        union {
-            rt_wlan_ssid_t ssid;
-            struct rt_wlan_info info;
-        };
-        rt_wlan_key_t key;
-    };
-
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
 
     enum { ARG_ssid, ARG_key, ARG_info };
@@ -1211,24 +1140,23 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    struct rt_wlan_connect_config config;
-    memset(&config, 0, sizeof(config));
+    int use_info = 0, result = -1;
+    struct rt_wlan_info_t info;
+    const char *ssid = NULL;
 
     if (mp_const_none != args[ARG_ssid].u_obj) {
-        const char *ssid = mp_obj_str_get_str(args[ARG_ssid].u_obj);
+        use_info = 0x00;
+
+        ssid = mp_obj_str_get_str(args[ARG_ssid].u_obj);
         int ssid_len = strlen(ssid);
         if ((0x00 == ssid_len) || (RT_WLAN_SSID_MAX_LENGTH < ssid_len)) {
             mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("SSID can't be empty, and can't longer than %d"), RT_WLAN_SSID_MAX_LENGTH);
         }
-        config.use_info = 0;
-
-        config.ssid.len = ssid_len;
-        strncpy((char *)&config.ssid.val[0], ssid, RT_WLAN_SSID_MAX_LENGTH);
-        config.ssid.val[ssid_len] = '\0';
     } else if (mp_const_none != args[ARG_info].u_obj) {
-        struct rt_wlan_info *info = py_rt_wlan_info_cobj(args[ARG_info].u_obj);
-        config.use_info = 1;
-        memcpy(&config.info, info, sizeof(struct rt_wlan_info));
+        use_info = 1;
+
+        struct rt_wlan_info_t *_info = py_rt_wlan_info_cobj(args[ARG_info].u_obj);
+        memcpy(&info, _info, sizeof(struct rt_wlan_info_t));
     } else {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("should set ssid or ap"));
     }
@@ -1244,17 +1172,25 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
         mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Key length(%d) should be 8 - %d"), key_len, RT_WLAN_PASSWORD_MAX_LENGTH);
     }
 
-    config.key.len = key_len;
-    strncpy((char *)&config.key.val[0], key, RT_WLAN_PASSWORD_MAX_LENGTH);
-    config.key.val[config.key.len] = '\0';
-
     if(MOD_NETWORK_STA_IF == self->itf) {
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_CONNECT, &config)) {
+        if(0x00 == use_info) {
+            result = netmgmt_wlan_sta_connect_with_ssid((char *)ssid, (char *)key);
+        } else {
+            result = netmgmt_wlan_sta_connect_with_scan_info(&info, (char *)key);
+        }
+
+        if(0x00 != result) {
             mp_printf(&mp_plat_print, "run connect failed.\n");
             return mp_const_false;
         }
     } else {
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_START, &config)) {
+        if(0x00 == use_info) {
+            result = netmgmt_wlan_ap_start_with_ssid((char *)ssid, (char *)key);
+        } else {
+            result = netmgmt_wlan_ap_start_with_info(&info, (char *)key);
+        }
+
+        if(0x00 != result) {
             mp_printf(&mp_plat_print, "start ap failed.\n");
             return mp_const_false;
         }
@@ -1265,12 +1201,10 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(network_rt_wlan_connect_obj, 1, network_rt_wlan_connect);
 
 STATIC mp_obj_t network_rt_wlan_disconnect(size_t n_args, const mp_obj_t *args) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
     if(MOD_NETWORK_STA_IF == self->itf) {
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_DISCONNECT, NULL)) {
+        if(0x00 != netmgmt_wlan_sta_disconnect_ap()) {
             mp_printf(&mp_plat_print, "run disconnect failed.\n");
             return mp_const_false;
         }
@@ -1281,7 +1215,8 @@ STATIC mp_obj_t network_rt_wlan_disconnect(size_t n_args, const mp_obj_t *args) 
         for(int i = 0; i < 6; i++) {
             mac[i] = (uint8_t)mp_obj_get_int(items[i]);
         }
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_DEAUTH_STA, mac)) {
+
+        if(0x00 != netmgmt_wlan_ap_disconnect_sta(mac)) {
             mp_printf(&mp_plat_print, "run ap deauth failed.\n");
             return mp_const_false;
         }
@@ -1292,8 +1227,6 @@ STATIC mp_obj_t network_rt_wlan_disconnect(size_t n_args, const mp_obj_t *args) 
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_wlan_disconnect_obj, 1, 2, network_rt_wlan_disconnect);
 
 STATIC mp_obj_t network_rt_wlan_isconnected(mp_obj_t self_in) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(self_in);
     int status = -1;
 
@@ -1301,7 +1234,7 @@ STATIC mp_obj_t network_rt_wlan_isconnected(mp_obj_t self_in) {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("ap mode not support connect"));
     }
 
-    if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_IS_CONNECTED, &status)) {
+    if(0x00 != netmgmt_wlan_sta_isconnected(&status)) {
         status = false;
         mp_printf(&mp_plat_print, "run isconnected failed.\n");
     }
@@ -1312,8 +1245,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_wlan_isconnected_obj, network_rt_wla
 
 STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
-    CHECK_FD_VALID();
-
     // py_rt_net_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
 
     if (kw_args->used == 0) {
@@ -1326,8 +1257,8 @@ STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_a
         switch(attr) {
             case MP_QSTR_mac: {
                 uint8_t mac[6];
-
-                if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_GET_MAC, mac)) {
+                
+                if(0x00 != netmgmt_wlan_sta_get_mac(&mac[0])) {
                     mp_printf(&mp_plat_print, "run get mac failed.\n");
                     return mp_const_none;
                 }
@@ -1337,7 +1268,7 @@ STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_a
             case MP_QSTR_auto_reconnect: {
                 int auto_reconnect = 0;
 
-                if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_GET_AUTO_RECONNECT, &auto_reconnect)) {
+                if(0x00 != netmgmt_wlan_sta_get_auto_reconnect(&auto_reconnect)) {
                     auto_reconnect = 0;
                     mp_printf(&mp_plat_print, "run get auto reconnect failed.\n");
                 }
@@ -1361,7 +1292,7 @@ STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_a
                 mac[i] = (uint8_t)mp_obj_get_int(items[i]);
             }
 
-            if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_SET_MAC, mac)) {
+            if(0x00 != netmgmt_wlan_sta_set_mac(&mac[0])) {
                 mp_printf(&mp_plat_print, "run set mac failed.\n");
                 return mp_const_false;
             }
@@ -1374,7 +1305,7 @@ STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_a
                 auto_reconnect = 1;
             }
 
-            if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_SET_AUTO_RECONNECT, &auto_reconnect)) {
+            if(0x00 != netmgmt_wlan_sta_set_auto_reconnect(auto_reconnect)) {
                 mp_printf(&mp_plat_print, "run set auto_reconnect failed.\n");
                 return mp_const_false;
             }
@@ -1392,11 +1323,9 @@ STATIC mp_obj_t _network_rt_wlan_ap_get_info(mp_obj_t self_in)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("only ap if can get info"));
     }
 
-    CHECK_FD_VALID();
-
-    struct rt_wlan_info info;
-
-    if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_GET_INFO, &info)) {
+    struct rt_wlan_info_t info;
+    
+    if(0x00 != netmgmt_wlan_ap_get_info(&info)) {
         mp_printf(&mp_plat_print, "run get ap info failed.\n");
         return mp_const_none;
     }
@@ -1407,8 +1336,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_wlan_ap_get_info_obj, _network_rt_wl
 
 STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
-    CHECK_FD_VALID();
-
     // py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
     if (kw_args->used == 0) {
@@ -1423,9 +1350,9 @@ STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_ar
                 return _network_rt_wlan_ap_get_info(pos_args[0]);
             } break;
             case MP_QSTR_country: {
-                int country = RT_COUNTRY_CHINA;
-                if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_GET_COUNTRY, &country)) {
-                    country = -1;
+                int country =  -1;
+
+                if(0x00 != netmgmt_wlan_ap_get_country(&country)) {
                     mp_printf(&mp_plat_print, "run get ap country failed.\n");
                 }
                 return MP_OBJ_NEW_SMALL_INT(country);
@@ -1450,7 +1377,8 @@ STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_ar
 
         if((-1) != args[ARG_country].u_int) {
             int country = args[ARG_country].u_int;
-            if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_SET_COUNTRY, &country)) {
+
+            if(0x00 != netmgmt_wlan_ap_set_country(country)) {
                 mp_printf(&mp_plat_print, "run set ap country failed.\n");
                 return mp_const_false;
             }
@@ -1471,8 +1399,6 @@ STATIC mp_obj_t network_rt_wlan_config(size_t n_args, const mp_obj_t *args, mp_m
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(network_rt_wlan_config_obj, 1, network_rt_wlan_config);
 
 STATIC mp_obj_t _network_rt_wlan_get_sta_status(size_t n_args, const mp_obj_t *args) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
     if(0x01 == n_args) {
@@ -1483,16 +1409,16 @@ STATIC mp_obj_t _network_rt_wlan_get_sta_status(size_t n_args, const mp_obj_t *a
         case MP_QSTR_rssi: {
             int rssi = -99;
 
-            if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_GET_RSSI, &rssi)) {
+            if(0x00 != netmgmt_wlan_sta_get_rssi(&rssi)) {
                 rssi = -99;
                 mp_printf(&mp_plat_print, "run sta get rssi failed.\n");
             }
             return MP_OBJ_NEW_SMALL_INT(rssi);
         } break;
         case MP_QSTR_ap: {
-            struct rt_wlan_info info;
+            struct rt_wlan_info_t info;
 
-            if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_STA_GET_AP_INFO, &info)) {
+            if(0x00 != netmgmt_wlan_sta_get_ap_info(&info)) {
                 mp_printf(&mp_plat_print, "run get ap info failed.\n");
                 return mp_const_none;
             }
@@ -1505,13 +1431,11 @@ STATIC mp_obj_t _network_rt_wlan_get_sta_status(size_t n_args, const mp_obj_t *a
 }
 
 STATIC mp_obj_t _network_rt_wlan_get_ap_status(size_t n_args, const mp_obj_t *args) {
-    CHECK_FD_VALID();
-
     if(0x01 == n_args) {
         // check is actived
         int active = 0;
 
-        if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_IS_ACTIVE, &active)) {
+        if(0x00 != netmgmt_wlan_ap_isactived(&active)) {
             mp_printf(&mp_plat_print, "run ap isactive failed.\n");
             return mp_const_false;
         }
@@ -1520,37 +1444,21 @@ STATIC mp_obj_t _network_rt_wlan_get_ap_status(size_t n_args, const mp_obj_t *ar
 
     switch (mp_obj_str_get_qstr(args[1])) {
         case MP_QSTR_stations: {
-            struct rt_wlan_scan_result *station_result = NULL;
-            size_t station_result_info_size = 0;
+            int sta_num = 0;
+            struct rt_wlan_info_t sta_infos[RT_WLAN_STA_SCAN_MAX_AP];
 
-            const int max_ap_num = 10;
-
-            station_result_info_size = sizeof(struct rt_wlan_info) * max_ap_num;
-            station_result = (struct rt_wlan_scan_result *)malloc(sizeof(struct rt_wlan_scan_result) + station_result_info_size);
-            if(NULL == station_result) {
-                mp_printf(&mp_plat_print, "no memory for connected station info.\n");
-                return mp_const_none;
-            }
-            memset(station_result, 0, sizeof(struct rt_wlan_scan_result) + station_result_info_size);
-
-            station_result->num = max_ap_num;
-            station_result->info = (struct rt_wlan_info *)(((uint8_t *)station_result) + sizeof(struct rt_wlan_scan_result));
-
-            if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_GET_STA_INFO, station_result)) {
-                free(station_result);
+            if(0x00 != netmgmt_wlan_ap_get_sta_info(&sta_num, sta_infos)) {
                 mp_printf(&mp_plat_print, "run ap get connected station info failed.\n");
                 return mp_const_none;
             }
 
             mp_obj_t station_list = mp_obj_new_list(0, NULL);
 
-            for(int32_t i = 0; i < station_result->num; i++) {
-                struct rt_wlan_info *info = &station_result->info[i];
+            for(int32_t i = 0; i < sta_num; i++) {
+                struct rt_wlan_info_t *info = &sta_infos[i];
                 mp_obj_t bssid = mp_obj_new_bytes(info->bssid, RT_WLAN_BSSID_MAX_LENGTH);
                 mp_obj_list_append(station_list, bssid);
             }
-
-            free(station_result);
 
             return station_list;
         } break;
@@ -1570,15 +1478,13 @@ STATIC mp_obj_t network_rt_wlan_status(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_wlan_status_obj, 1, 2, network_rt_wlan_status);
 
 STATIC mp_obj_t network_rt_wlan_stop(mp_obj_t self_in) {
-    CHECK_FD_VALID();
-
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
     if(MOD_NETWORK_AP_IF != self->itf) {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("sta mode not support stop"));
     }
 
-    if(0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_WM_AP_STOP, NULL)) {
+    if(0x00 != netmgmt_wlan_ap_stop()) {
         mp_printf(&mp_plat_print, "run stop failed.\n");
         return mp_const_false;
     }
@@ -1678,12 +1584,6 @@ STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
 {
     int itf = MOD_NETWORK_STA_IF;
 
-    if(0 > s_net_mgmt_dev_fd) {
-        if(0 > (s_net_mgmt_dev_fd = open("/dev/canmv_net_mgmt", O_RDWR))) {
-            mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("could not open /dev/canmv_net_mgmt"));
-        }
-    }
-
     if(0x01 == n_args) {
         itf = mp_obj_get_int(args[0]);
     }
@@ -1728,9 +1628,6 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_wlan_make_new_obj, 0, 1, network_wla
 
 void network_rt_wlan_deinit(void)
 {
-    close(s_net_mgmt_dev_fd);
-    s_net_mgmt_dev_fd = -1;
-
 #ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
     network_type_sta_init_flag = 0;
     network_type_ap_init_flag = 0;
@@ -1746,9 +1643,7 @@ STATIC mp_obj_t network_rt_set_dft_dev(mp_obj_t name)
         mp_raise_ValueError(MP_ERROR_TEXT("invalid device name"));
     }
 
-    CHECK_FD_VALID();
-
-    if (0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_SET_DEV_DEFAULT, dev_name)) {
+    if(0x00 != netmgmt_utils_set_defeault_dev((char *)dev_name)) {
         mp_printf(&mp_plat_print, "run set default netdev failed.\n");
         return mp_const_false;
     }
@@ -1761,9 +1656,7 @@ STATIC mp_obj_t network_rt_get_dft_dev(void)
 {
     char dev_name[32];
 
-    CHECK_FD_VALID();
-
-    if (0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_GET_DEV_DEFAULT, &dev_name[0])) {
+    if(0x00 != netmgmt_utils_get_defeault_dev(dev_name)) {
         mp_printf(&mp_plat_print, "run get default netdev failed.\n");
         return mp_const_none;
     }
@@ -1774,37 +1667,23 @@ MP_DEFINE_CONST_FUN_OBJ_0(network_rt_get_dft_dev_obj, network_rt_get_dft_dev);
 
 STATIC mp_obj_t network_rt_get_dev_list(void)
 {
-#define NET_DEV_MAX_CNT 8
+    int dev_num = 0;
+    char names[NET_DEV_MAX_CNT][32];
 
     mp_obj_t dev_list;
-    mp_obj_t name_obj;
 
-    int name_len = 0;
-
-    char names[32 * NET_DEV_MAX_CNT], *pname = NULL; /* we max support 8 netdev */
-
-    CHECK_FD_VALID();
-
-    if (0x00 != ioctl(s_net_mgmt_dev_fd, IOCTRL_NET_GET_DEV_LIST, &names[0])) {
+    if(0x00 != netmgmt_utils_get_dev_list(&dev_num, names)) {
         mp_printf(&mp_plat_print, "run get netdev list failed.\n");
         return mp_const_none;
     }
 
     dev_list = mp_obj_new_list(0, NULL);
-    for (int i = 0; i < NET_DEV_MAX_CNT; i++) {
-        pname         = &names[i * 32];
-        pname[32 - 1] = '\0';
-        name_len      = strlen(pname);
-
-        if (name_len) {
-            name_obj = mp_obj_new_str_via_qstr(pname, name_len);
-            mp_obj_list_append(dev_list, name_obj);
-        }
+    for (int i = 0; i < dev_num; i++) {
+        mp_obj_t name_obj = mp_obj_new_str_via_qstr(names[i], strlen(names[i]));
+        mp_obj_list_append(dev_list, name_obj);
     }
 
     return dev_list;
-
-#undef NET_DEV_MAX_CNT
 }
 MP_DEFINE_CONST_FUN_OBJ_0(network_rt_get_dev_list_obj, network_rt_get_dev_list);
 

@@ -447,25 +447,23 @@ class Sensor:
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
-        # if (self._dev_id > CAM_DEV_ID_MAX - 1):
-        #     raise AssertionError(f"invaild sensor id {self._dev_id}, should < {CAM_DEV_ID_MAX - 1}")
+        if chn is not None:
+            if (chn > CAM_CHN_ID_MAX - 1):
+                raise AssertionError(f"invaild chn id {chn}, should < {CAM_CHN_ID_MAX - 1}")
 
-        if (chn > CAM_CHN_ID_MAX - 1):
-            raise AssertionError(f"invaild chn id {chn}, should < {CAM_CHN_ID_MAX - 1}")
-
-        return self._chn_attr[chn].out_win.width
+            return self._chn_attr[chn].out_win.width
+        return self._dev_attr.sensor_info.width
 
     def height(self, chn = CAM_CHN_ID_0):
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
-        # if (self._dev_id > CAM_DEV_ID_MAX - 1):
-        #     raise AssertionError(f"invaild sensor id {self._dev_id}, should < {CAM_DEV_ID_MAX - 1}")
+        if chn is not None:
+            if (chn > CAM_CHN_ID_MAX - 1):
+                raise AssertionError(f"invaild chn id {chn}, should < {CAM_CHN_ID_MAX - 1}")
 
-        if (chn > CAM_CHN_ID_MAX - 1):
-            raise AssertionError(f"invaild chn id {chn}, should < {CAM_CHN_ID_MAX - 1}")
-
-        return self._chn_attr[chn].out_win.height
+            return self._chn_attr[chn].out_win.height
+        return self._dev_attr.sensor_info.height
 
     @wrap
     def get_fb(self):
