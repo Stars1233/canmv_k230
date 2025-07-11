@@ -764,6 +764,8 @@ MP_NOINLINE int main_(int argc, char **argv) {
                         script_str = malloc(script_size + 1);
                         if (script_str != NULL) {
                             size_t bytes_read = fread(script_str, 1, script_size, script_file);
+                            fclose(script_file);
+                            script_file = NULL;
                             if (bytes_read == (size_t)script_size) {
                                 script_str[script_size] = '\0';
 
@@ -784,7 +786,9 @@ MP_NOINLINE int main_(int argc, char **argv) {
                         }
                     }
                 }
+            }
 
+            if (script_file != NULL) {
                 fclose(script_file);
             }
         }
