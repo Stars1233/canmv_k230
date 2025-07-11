@@ -105,9 +105,23 @@ void usb_rx_clear(void) {
     }
 }
 
+#define CDC_GET_DTR                 _IOR('c', 1, int)
+
+int usb_cdc_get_dtr(void)
+{
+    int dtr = 0;
+
+    if (0 != ioctl(usb_cdc_fd, CDC_GET_DTR, &dtr)) {
+        printf("failed to get dtr\n");
+        return -1;
+    }
+
+    return dtr;
+}
+
 int usb_tx(const void* buffer, size_t size)
 {
-#define BLOCK_SIZE (2 * 1024)
+#define BLOCK_SIZE (4 * 1024)
 
     int    result = 0;
     size_t send = 0, chunk = 0, total = size;

@@ -170,16 +170,10 @@ void mp_hal_stdout_tx_strn(const char *str, size_t len) {
         mpy_stdout_tx(str, len);
     } else {
         extern int usb_tx(const void* buffer, size_t size);
-        int ret;
-        static uint64_t timeout;
+        extern int usb_cdc_get_dtr(void);
 
-        if ((int64_t)(timeout - utils_cpu_ticks_ms()) > 0) {
-            return;
-        }
-
-        ret = usb_tx(str, len);
-        if ((len != 0) && (ret < len)) {
-            timeout = utils_cpu_ticks_ms() + 1000;
+        if (usb_cdc_get_dtr()) {
+            usb_tx(str, len);
         }
     }
     mp_os_dupterm_tx_strn(str, len);
