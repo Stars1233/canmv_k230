@@ -753,37 +753,58 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                     }
                     case USBDBG_VERIFYFILE: {
                         pr_verb("cmd: USBDBG_VERIFYFILE");
-                        // TODO: use hardware sha256
+
                         uint32_t resp = USBDBG_SVFILE_VERIFY_ERR_NONE;
-                        if (ide_dbg_sv_file.file == NULL) {
-                            resp = USBDBG_SVFILE_VERIFY_NOT_OPEN;
+
+                        if (ide_dbg_sv_file.file != NULL) {
+                            fclose(ide_dbg_sv_file.file);
+                            ide_dbg_sv_file.file = NULL;
                         }
-                        fclose(ide_dbg_sv_file.file);
-                        ide_dbg_sv_file.file = NULL;
-                        char filepath[120] = "/sdcard/";
-                        memcpy(filepath + strlen(filepath), ide_dbg_sv_file.info.name, strlen(ide_dbg_sv_file.info.name));
-                        FILE* f = fopen(filepath, "r");
+
+                        const char *name = ide_dbg_sv_file.info.name;
+                        char filepath[120] = {0};
+
+                        // Protect against empty or malicious names
+                        if (strlen(name) == 0 || strstr(name, "..")) {
+                            resp = USBDBG_SVFILE_VERIFY_NOT_OPEN;
+                            goto verify_end;
+                        }
+
+                        // Determine filepath
+                        if (name[0] == '/') {
+                            snprintf(filepath, sizeof(filepath), "%s", name);
+                        } else {
+                            snprintf(filepath, sizeof(filepath), "/sdcard/%s", name);
+                        }
+
+                        FILE *f = fopen(filepath, "r");
                         if (f == NULL) {
                             resp = USBDBG_SVFILE_VERIFY_NOT_OPEN;
                             goto verify_end;
                         }
+
                         unsigned char buffer[256];
                         CRYAL_SHA256_CTX sha256;
                         sha256_init(&sha256);
+
                         size_t nbytes;
                         do {
                             nbytes = fread(buffer, 1, sizeof(buffer), f);
                             sha256_update(&sha256, buffer, nbytes);
                         } while (nbytes == sizeof(buffer));
+
                         fclose(f);
+
                         uint8_t sha256_result[32];
                         sha256_final(&sha256, sha256_result);
+
                         if (strncmp((const char *)sha256_result, (const char *)ide_dbg_sv_file.info.sha256, sizeof(sha256_result)) != 0) {
                             resp = USBDBG_SVFILE_VERIFY_SHA2_ERR;
                             pr_verb("file sha256 unmatched");
                             print_sha256(sha256_result);
                         }
-                        verify_end:
+
+                    verify_end:
                         usb_tx(&resp, sizeof(resp));
                         ide_dbg_sv_file.file = NULL;
                         break;
@@ -796,28 +817,45 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                             pr_verb("Warning: CREATEFILE expect data length %lu, got %u", sizeof(ide_dbg_sv_file.info), state->data_length);
                             break;
                         }
-                        // continue receiving
+
                         read_until(usb_cdc_fd, &ide_dbg_sv_file.info, sizeof(ide_dbg_sv_file.info));
                         pr_verb("create file: chunk_size(%d), name(%s)",
-                            ide_dbg_sv_file.info.chunk_size, ide_dbg_sv_file.info.name
-                        );
+                                ide_dbg_sv_file.info.chunk_size, ide_dbg_sv_file.info.name);
                         print_sha256(ide_dbg_sv_file.info.sha256);
-                        // FIXME: use micropython API
-                        // if file is opened, we close it.
+
                         if (ide_dbg_sv_file.file != NULL) {
                             fclose(ide_dbg_sv_file.file);
                         }
+
                         if (ide_dbg_sv_file.chunk_buffer) {
                             free(ide_dbg_sv_file.chunk_buffer);
                             ide_dbg_sv_file.chunk_buffer = NULL;
                         }
-                        char filepath[120] = "/sdcard/";
-                        memcpy(filepath + strlen(filepath), ide_dbg_sv_file.info.name, strlen(ide_dbg_sv_file.info.name));
+
+                        const char *name = ide_dbg_sv_file.info.name;
+                        char filepath[120] = {0};
+
+                        // 1. if name is empty or dangerous, reject
+                        if (strlen(name) == 0 || strstr(name, "..")) {
+                            ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_PATH_ERR;
+                            break;
+                        }
+
+                        // 2. if name starts with '/', it's an absolute path: use as-is
+                        if (name[0] == '/') {
+                            snprintf(filepath, sizeof(filepath), "%s", name);
+                        }
+                        // 3. else treat as relative and prepend default path
+                        else {
+                            snprintf(filepath, sizeof(filepath), "/sdcard/%s", name);
+                        }
+
                         ide_dbg_sv_file.file = fopen(filepath, "w");
                         if (ide_dbg_sv_file.file == NULL) {
                             ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_OPEN_ERR;
                             break;
                         }
+
                         ide_dbg_sv_file.chunk_buffer = malloc(ide_dbg_sv_file.info.chunk_size);
                         ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_NONE;
                         break;
