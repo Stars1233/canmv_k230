@@ -258,7 +258,7 @@ STATIC mp_obj_t machine_fpioa_get_pin_num(mp_obj_t self, mp_obj_t obj)
         mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("invalid func %d"), pin_func);
     }
 
-    if (0x00 <= (curr_pin = drv_fpioa_get_func_assigned_pin(pin_func))) {
+    if (0x00 <= (curr_pin = drv_fpioa_find_pin_by_func(pin_func))) {
         return MP_OBJ_NEW_SMALL_INT(curr_pin);
     }
 
@@ -321,7 +321,7 @@ STATIC mp_obj_t machine_fpioa_help(size_t n_args, const mp_obj_t* pos_args, mp_m
         }
         mp_printf(&mp_plat_print, "\r\n");
 
-        if (0x00 <= (curr_pin = drv_fpioa_get_func_assigned_pin(num))) {
+        if (0x00 <= (curr_pin = drv_fpioa_find_pin_by_func(num))) {
             mp_printf(&mp_plat_print, "current set PIN%d as %s\r\n", curr_pin, pin_func_name);
         }
     } else {

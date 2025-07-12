@@ -482,6 +482,17 @@ STATIC mp_obj_t machine_pin_call(mp_obj_t self_in, size_t n_args, size_t n_kw, c
     return machine_pin_value(n_args + 1, (mp_obj_t[]) { self_in, args[0] });
 }
 
+STATIC mp_obj_t machine_pin_unary_op (mp_unary_op_t op, mp_obj_t self_in) {
+    machine_pin_obj_t* self = MP_OBJ_TO_PTR(self_in);
+
+    switch (op) {
+        case MP_UNARY_OP_INT_MAYBE:
+            return mp_obj_new_int(self->inst->pin);
+        default:
+            return MP_OBJ_NULL;
+    }
+}
+
 void _machine_pin_init(void)
 {
     for (size_t i = 0; i < GPIO_MAX_NUM; i++) {
@@ -545,6 +556,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     make_new, machine_pin_make_new,
     print, machine_pin_print,
     call, machine_pin_call,
+    unary_op, machine_pin_unary_op,
     locals_dict, &machine_pin_locals_dict
 );
 /* clang-format on */

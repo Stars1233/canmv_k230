@@ -24,6 +24,8 @@
  * THE SOFTWARE.
  */
 
+#include <stdint.h>
+
 #include "obj.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
@@ -36,7 +38,7 @@
 #include "py_assert.h" // use openmv marco, PY_ASSERT_TYPE
 
 #include "drv_i2c.h"
-#include <stdint.h>
+#include "drv_fpioa.h"
 
 #define I2C_DEFAULT_TIMEOUT_US (50000) // 50ms
 
@@ -173,6 +175,33 @@ mp_obj_t machine_i2c_make_new(const mp_obj_type_t* type, size_t n_args, size_t n
     }
     if (args[ARG_sda].u_obj != MP_OBJ_NULL) {
         pin_sda = mp_obj_get_int(args[ARG_sda].u_obj);
+    }
+
+    if(5 > i2c_id) {
+        fpioa_func_t func_scl = IIC0_SCL + i2c_id * 2;
+        fpioa_func_t func_sda = IIC0_SDA + i2c_id * 2;
+
+        // SCL validation
+        if ((mp_int_t)0xFF == pin_scl) {
+            if (0 > drv_fpioa_find_pin_by_func(func_scl)) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("I2C(%d) scl not configured, see machine.FPIOA"), i2c_id);
+            }
+        } else {
+            if (!drv_fpioa_is_func_supported_by_pin(pin_scl, func_scl)) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to I2C(%d) scl"), pin_scl, i2c_id);
+            }
+        }
+
+        // SDA validation
+        if ((mp_int_t)0xFF == pin_sda) {
+            if (0 > drv_fpioa_find_pin_by_func(func_sda)) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("I2C(%d) sda not configured, see machine.FPIOA"), i2c_id);
+            }
+        } else {
+            if (!drv_fpioa_is_func_supported_by_pin(pin_sda, func_sda)) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to I2C(%d) sda"), pin_sda, i2c_id);
+            }
+        }
     }
 
     // Get static peripheral object

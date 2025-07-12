@@ -33,6 +33,8 @@
 #include "py/stream.h"
 
 #include "drv_uart.h"
+#include "drv_fpioa.h"
+
 #include "modmachine.h"
 
 typedef struct {
@@ -56,16 +58,57 @@ STATIC void machine_uart_print(const mp_print_t* print, mp_obj_t self_in, mp_pri
 
 STATIC void machine_uart_init_helper(machine_uart_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
-    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_timeout };
+    enum { ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_timeout, ARG_tx, ARG_rx };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_baudrate, MP_ARG_INT, { .u_int = 115200 } },
         { MP_QSTR_bits, MP_ARG_INT, { .u_int = 8 } },
         { MP_QSTR_parity, MP_ARG_INT, { .u_int = PARITY_NONE } },
         { MP_QSTR_stop, MP_ARG_INT, { .u_int = STOP_BITS_1 } },
         { MP_QSTR_timeout, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = 10 } },
+        { MP_QSTR_tx, MP_ARG_KW_ONLY | MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
+        { MP_QSTR_rx, MP_ARG_KW_ONLY | MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_int_t pin_tx = -1, pin_rx = -1;
+
+    // Set SCL/SDA pins if given
+    if (args[ARG_tx].u_obj != MP_OBJ_NULL) {
+        pin_tx = mp_obj_get_int(args[ARG_tx].u_obj);
+    }
+    if (args[ARG_rx].u_obj != MP_OBJ_NULL) {
+        pin_rx = mp_obj_get_int(args[ARG_rx].u_obj);
+    }
+
+    {
+        int uart_id = self->index;
+
+        fpioa_func_t func_tx = UART0_TXD + uart_id * 4;
+        fpioa_func_t func_rx = UART0_RXD + uart_id * 4;
+
+        // TX validation
+        if (pin_tx != -1) {
+            if (!drv_fpioa_is_func_supported_by_pin(pin_tx, func_tx)) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to UART(%d) tx"), pin_tx, uart_id);
+            }
+        } else {
+            if (drv_fpioa_find_pin_by_func(func_tx) < 0) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("UART(%d) tx not configured, see machine.FPIOA"), uart_id);
+            }
+        }
+
+        // RX validation
+        if (pin_rx != -1) {
+            if (!drv_fpioa_is_func_supported_by_pin(pin_rx, func_rx)) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to UART(%d) rx"), pin_rx, uart_id);
+            }
+        } else {
+            if (drv_fpioa_find_pin_by_func(func_rx) < 0) {
+                mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("UART(%d) rx not configured, see machine.FPIOA"), uart_id);
+            }
+        }
+    }
 
     self->baudrate = args[ARG_baudrate].u_int;
     self->bitwidth = args[ARG_bits].u_int;
