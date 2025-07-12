@@ -200,7 +200,7 @@ CANMV_SRC_C += $(addprefix drivers/,\
 	dht/dht.c \
 	)
 
-ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LAN)),)
+ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB)),)
     CANMV_SRC_C += $(wildcard network/*.c)
 endif
 

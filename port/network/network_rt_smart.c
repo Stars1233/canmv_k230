@@ -761,7 +761,7 @@ STATIC const mod_network_nic_protocol_t mod_network_nic_protocol_rtt_posix = {
     .ioctl = network_rt_wlan_socket_ioctl,
 };
 
-#ifdef CONFIG_ENABLE_NETWORK_RT_LAN
+#ifdef CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB
 /* network_rt_lan ************************************************************/
 STATIC mp_obj_t network_rt_lan_isconnected(mp_obj_t self_in) {
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -884,7 +884,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     protocol, &mod_network_nic_protocol_rtt_posix
     );
 
-#endif // CONFIG_ENABLE_NETWORK_RT_LAN
+#endif // CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB
 
 #ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
 /* rt_wlan_info **************************************************************/

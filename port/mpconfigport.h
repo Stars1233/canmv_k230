@@ -94,7 +94,7 @@ typedef long long mp_off_t;
 #define MICROPY_PY_THREAD           (1)
 #define MICROPY_SCHEDULER_DEPTH     (8)
 
-#ifdef CONFIG_ENABLE_NETWORK_RT_LAN
+#ifdef CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB
     extern const struct _mp_obj_type_t network_type_eth_lan;
     #define MICROPY_BOARD_NETWORK_RT_LAN   { MP_ROM_QSTR(MP_QSTR_LAN), MP_ROM_PTR(&network_type_eth_lan) },
 #else
@@ -108,7 +108,7 @@ typedef long long mp_off_t;
     #define MICROPY_BOARD_NETWORK_RT_WLAN
 #endif
 
-#if defined (CONFIG_ENABLE_NETWORK_RT_LAN) || defined (CONFIG_ENABLE_NETWORK_RT_WLAN)
+#if defined (CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB) || defined (CONFIG_ENABLE_NETWORK_RT_WLAN)
     extern const struct _mp_obj_fun_builtin_fixed_t network_rt_get_dev_list_obj;
     extern const struct _mp_obj_fun_builtin_fixed_t network_rt_set_dft_dev_obj;
     extern const struct _mp_obj_fun_builtin_fixed_t network_rt_get_dft_dev_obj;
