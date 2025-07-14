@@ -105,6 +105,11 @@ mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_
         mp_raise_ValueError("invalid PWM channel");
     }
 
+    fpioa_func_t func_pwm = PWM0 + channel;
+    if(drv_fpioa_find_pin_by_func(func_pwm) < 0) {
+        mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("PWM(%d) not configured, see machine.FPIOA"), channel);
+    }
+
     // Create new PWM object
     machine_pwm_obj_t* self = m_new_obj(machine_pwm_obj_t);
     self->base.type         = &machine_pwm_type;

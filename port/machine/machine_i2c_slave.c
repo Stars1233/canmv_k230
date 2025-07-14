@@ -15,6 +15,8 @@
 #include "py/runtime.h"
 #include "py/obj.h"
 
+#include "drv_fpioa.h"
+
 #include "modmachine.h"
 
 #define I2C_SLAVE_IOCTL_SET_BUFFER_SIZE               0
@@ -32,11 +34,27 @@ typedef struct {
 
 STATIC mp_obj_t machine_i2c_slave_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) 
 {
+    char path[32];
+
     mp_arg_check_num(n_args, n_kw, 1, 3, true);
     mp_int_t i2c_number = mp_obj_get_int(args[0]);
 
-    char path[32];
+    if (i2c_number < 0 || i2c_number > 4) {
+        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("I2C number must be between 0 and 4"));
+        return mp_const_none;
+    }
     snprintf(path, sizeof(path), "/dev/i2c%ld_slave",i2c_number);
+    
+    fpioa_func_t func_scl = IIC0_SCL + i2c_number * 2;
+    fpioa_func_t func_sda = IIC0_SDA + i2c_number * 2;
+
+    // Check if the pins are already configured
+    if (0 > drv_fpioa_find_pin_by_func(func_scl)) {
+        mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("I2C(%d) scl not configured, see machine.FPIOA"), i2c_number);
+    }
+    if (0 > drv_fpioa_find_pin_by_func(func_sda)) {
+        mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("I2C(%d) sda not configured, see machine.FPIOA"), i2c_number);     
+    }
 
     int fd = open(path, O_RDWR);
     if (fd < 0) 
