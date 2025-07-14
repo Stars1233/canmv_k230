@@ -107,6 +107,9 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t* self, size_t n_args, co
             if (!drv_fpioa_is_func_supported_by_pin(pin_tx, func_tx)) {
                 mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to UART(%d) tx"), pin_tx, uart_id);
             }
+            if(0x00 != drv_fpioa_set_pin_func(pin_tx, func_tx)) {
+                mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set Pin(%d) to fpioa func %d failed"), pin_tx, func_tx);
+            }
         } else {
             if (drv_fpioa_find_pin_by_func(func_tx) < 0) {
                 mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("UART(%d) tx not configured, see machine.FPIOA"), uart_id);
@@ -117,6 +120,9 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t* self, size_t n_args, co
         if (pin_rx != -1) {
             if (!drv_fpioa_is_func_supported_by_pin(pin_rx, func_rx)) {
                 mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to UART(%d) rx"), pin_rx, uart_id);
+            }
+            if(0x00 != drv_fpioa_set_pin_func(pin_rx, func_rx)) {
+                mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set Pin(%d) to fpioa func %d failed"), pin_rx, func_rx);
             }
         } else {
             if (drv_fpioa_find_pin_by_func(func_rx) < 0) {

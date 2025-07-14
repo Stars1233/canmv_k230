@@ -190,6 +190,9 @@ mp_obj_t machine_i2c_make_new(const mp_obj_type_t* type, size_t n_args, size_t n
             if (!drv_fpioa_is_func_supported_by_pin(pin_scl, func_scl)) {
                 mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to I2C(%d) scl"), pin_scl, i2c_id);
             }
+            if(0x00 != drv_fpioa_set_pin_func(pin_scl, func_scl)) {
+                mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set Pin(%d) to fpioa func %d failed"), pin_scl, func_scl);
+            }
         }
 
         // SDA validation
@@ -200,6 +203,9 @@ mp_obj_t machine_i2c_make_new(const mp_obj_type_t* type, size_t n_args, size_t n
         } else {
             if (!drv_fpioa_is_func_supported_by_pin(pin_sda, func_sda)) {
                 mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin(%d) can not set to I2C(%d) sda"), pin_sda, i2c_id);
+            }
+            if(0x00 != drv_fpioa_set_pin_func(pin_sda, func_sda)) {
+                mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set Pin(%d) to fpioa func %d failed"), pin_scl, func_scl);
             }
         }
     }
