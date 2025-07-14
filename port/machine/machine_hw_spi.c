@@ -261,14 +261,32 @@ STATIC mp_obj_t machine_spi_deinit(mp_obj_t self) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_spi_deinit_obj, machine_spi_deinit);
 
+STATIC mp_obj_t machine_spi_read(size_t n_args, const mp_obj_t *args) {
+    vstr_t vstr;
+    vstr_init_len(&vstr, mp_obj_get_int(args[1]));
+    memset(vstr.buf, n_args == 3 ? mp_obj_get_int(args[2]) : 0, vstr.len);
+    machine_hw_spi_transfer(args[0], vstr.len, NULL, (uint8_t *)vstr.buf);
+    return mp_obj_new_bytes_from_vstr(&vstr);
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_spi_read_obj, 2, 3, machine_spi_read);
+
+STATIC mp_obj_t machine_spi_readinto(size_t n_args, const mp_obj_t *args) {
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_WRITE);
+    memset(bufinfo.buf, n_args == 3 ? mp_obj_get_int(args[2]) : 0, bufinfo.len);
+    machine_hw_spi_transfer(args[0], bufinfo.len, NULL, bufinfo.buf);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_spi_readinto_obj, 2, 3, machine_spi_readinto);
+
 STATIC const mp_rom_map_elem_t machine_spi_locals_dict_table_k230[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_spi_deinit_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&machine_spi_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&machine_spi_deinit_obj) },
 
-    { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&mp_machine_spi_read_obj) },
-    { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&mp_machine_spi_readinto_obj) },
+    { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&machine_spi_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&machine_spi_readinto_obj) },
     { MP_ROM_QSTR(MP_QSTR_write), MP_ROM_PTR(&mp_machine_spi_write_obj) },
     { MP_ROM_QSTR(MP_QSTR_write_readinto), MP_ROM_PTR(&mp_machine_spi_write_readinto_obj) },
 };
