@@ -84,8 +84,23 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t* self, size_t n_args, co
     {
         int uart_id = self->index;
 
-        fpioa_func_t func_tx = UART0_TXD + uart_id * 4;
-        fpioa_func_t func_rx = UART0_RXD + uart_id * 4;
+#define UART_TXD_FUNC(id)  ((id) == 0 ? UART0_TXD : \
+                            (id) == 1 ? UART1_TXD : \
+                            (id) == 2 ? UART2_TXD : \
+                            (id) == 3 ? UART3_TXD : \
+                            (id) == 4 ? UART4_TXD : -1)
+
+#define UART_RXD_FUNC(id)  ((id) == 0 ? UART0_RXD : \
+                            (id) == 1 ? UART1_RXD : \
+                            (id) == 2 ? UART2_RXD : \
+                            (id) == 3 ? UART3_RXD : \
+                            (id) == 4 ? UART4_RXD : -1)
+
+        fpioa_func_t func_tx = UART_TXD_FUNC(uart_id);
+        fpioa_func_t func_rx = UART_RXD_FUNC(uart_id);
+
+#undef UART_TXD_FUNC
+#undef UART_RXD_FUNC
 
         // TX validation
         if (pin_tx != -1) {
