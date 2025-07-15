@@ -34,6 +34,7 @@
 struct _machine_pwm_obj_t {
     mp_obj_base_t base;
     uint8_t       channel;
+    uint8_t       pin;
     bool          active;
     bool          invert;
 };
@@ -42,19 +43,25 @@ struct _machine_pwm_obj_t {
 void mp_machine_pwm_print(const mp_print_t* print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     machine_pwm_obj_t* self = MP_OBJ_TO_PTR(self_in);
-    mp_printf(print, "PWM(channel=%u, freq=%d, duty_u16=%d, invert=%d)", self->channel, mp_machine_pwm_freq_get(self),
-              mp_machine_pwm_duty_get_u16(self), self->invert);
+
+    mp_int_t freq = mp_obj_get_int(mp_machine_pwm_freq_get(self));
+    mp_int_t duty = mp_obj_get_int(mp_machine_pwm_duty_get(self));
+
+    mp_printf(print, "PWM(channel=%u, pin=%d, freq=%d, duty=%d)", self->channel, self->pin, freq, duty);
 }
 
 // Initialize PWM with settings
 void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
-    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_invert, ARG_enable };
-    static const mp_arg_t allowed_args[] = {
+    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_pin, ARG_invert, ARG_enable };
+
+    const mp_arg_t allowed_args[] = {
         { MP_QSTR_freq, MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty_u16, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty_ns, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
+
+        { MP_QSTR_pin, MP_ARG_KW_ONLY | MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
 
         /* not support */
         { MP_QSTR_invert, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
@@ -63,6 +70,28 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
 
     mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
+
+    mp_int_t     pin      = -1;
+    fpioa_func_t func_pwm = PWM0 + self->channel;
+
+    if (vals[ARG_pin].u_obj != MP_OBJ_NULL) {
+        pin = mp_obj_get_int(vals[ARG_pin].u_obj);
+    }
+    // Validate pin
+    if (pin != -1) {
+        if (!drv_fpioa_is_func_supported_by_pin(pin, func_pwm)) {
+            mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin %d not supported for PWM(%d)"), pin, self->channel);
+        }
+        if (0x00 != drv_fpioa_set_pin_func(pin, func_pwm)) {
+            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set Pin(%d) to fpioa func %d failed"), pin, func_pwm);
+        }
+    } else {
+        if (0 > (pin = drv_fpioa_find_pin_by_func(func_pwm))) {
+            mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("PWM(%d) not configured, see machine.FPIOA"),
+                              self->channel);
+        }
+    }
+    self->pin = pin;
 
     // Set frequency if provided
     if (vals[ARG_freq].u_int != -1) {
@@ -105,11 +134,6 @@ mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_
         mp_raise_ValueError("invalid PWM channel");
     }
 
-    fpioa_func_t func_pwm = PWM0 + channel;
-    if(drv_fpioa_find_pin_by_func(func_pwm) < 0) {
-        mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("PWM(%d) not configured, see machine.FPIOA"), channel);
-    }
-
     // Create new PWM object
     machine_pwm_obj_t* self = m_new_obj(machine_pwm_obj_t);
     self->base.type         = &machine_pwm_type;
@@ -124,7 +148,7 @@ mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_
 
     mp_map_t kw_args;
     mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
-    mp_machine_pwm_init_helper(self, 0, NULL, &kw_args);
+    mp_machine_pwm_init_helper(self, n_args - 1, args + 1, &kw_args);
 
     return MP_OBJ_FROM_PTR(self);
 }
