@@ -1,6 +1,10 @@
-from machine import I2C
+from machine import FPIOA, I2C
 
-i2c = I2C(4, freq=400000)          # create I2C peripheral at frequency of 400kHz
+fpioa = FPIOA()
+fpioa.set_function(11, machine.FPIOA.IIC2_SCL)
+fpioa.set_function(12, machine.FPIOA.IIC2_SDA)
+
+i2c = I2C(2, freq=400000)          # create I2C peripheral at frequency of 400kHz
                                 # depending on the port, extra parameters may be required
                                 # to select the peripheral and/or pins to use
 

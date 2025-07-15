@@ -36,7 +36,7 @@ def test_https_baidu():
 
         # Read and print the response
         while True:
-            data = ssl_sock.read(1024)
+            data = ssl_sock.read()
             if not data:
                 break
             print(data.decode(), end='')
