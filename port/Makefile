@@ -128,7 +128,6 @@ LDFLAGS += $(LDFLAGS_MOD) $(LDFLAGS_ARCH) $(LIB_LDFLAGS) $(LDFLAGS_EXTRA)
 # remove some python project source files
 PY_O_EXCLUDE = \
 	$(addprefix $(BUILD)/,\
-		extmod/vfs_posix.o \
 		extmod/modos.o \
 		extmod/modcryptolib.o \
 		extmod/modhashlib.o \
@@ -139,7 +138,6 @@ PY_O_EXCLUDE = \
 PY_O := $(filter-out $(PY_O_EXCLUDE),$(PY_O))
 
 SRC_QSTR_EXCLUDE = \
-		extmod/vfs_posix.c \
 		extmod/modos.c \
 		extmod/modcryptolib.c \
 		extmod/modhashlib.c \
@@ -181,7 +179,6 @@ CANMV_SRC_C += \
 	mp_modules/modtermios.c \
 	mp_modules/overlay_modos.c \
 	mp_modules/overlay_modgc.c \
-	mp_modules/overlay_vfs_posix.c \
 	mp_modules/overlay_modcryptolib.c \
 	mp_modules/overlay_modhashlib.c \
 	mp_modules/overlay_modssl_mbedtls.c \
