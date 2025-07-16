@@ -218,7 +218,7 @@ STATIC mp_obj_t machine_timer_make_new(const mp_obj_type_t* type, size_t n_args,
     if ((n_args + n_kw) > 1) {
         mp_map_t kw_args;
         mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
-        machine_timer_init_helper(self, n_args, args, &kw_args);
+        machine_timer_init_helper(self, n_args - 1, args + 1, &kw_args);
     }
 
     return MP_OBJ_FROM_PTR(self);
