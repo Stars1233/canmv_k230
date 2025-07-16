@@ -158,7 +158,7 @@ STATIC mp_obj_t ai_swap_left_right(mp_obj_t state)
     uint32_t reg = *(uint32_t*)(mem + 0x08);
     reg &= ~0x03;
     if (enable) {
-        reg |= 0x01;
+        reg |= 0x03;
     }
     *(uint32_t*)(mem + 0x08) = reg;
 
