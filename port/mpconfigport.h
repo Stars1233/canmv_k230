@@ -289,6 +289,7 @@ extern const struct _mp_print_t mp_stderr_print;
 #define MICROPY_PY_MACHINE_SOFTSPI      (0)
 
 #define MICROPY_PY_MACHINE_I2C          (1)
+#define MICROPY_PY_MACHINE_I2C_TRANSFER_WRITE1 (1)
 
 #define MICROPY_PY_NNCASE_RUNTIME      (1)
 
