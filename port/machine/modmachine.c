@@ -41,54 +41,38 @@
 #include "drivers/dht/dht.h"
 #endif
 
+#include "hal_utils.h"
+
 #include "modmachine.h"
 
 #if MICROPY_PY_MACHINE
 
-STATIC mp_obj_t machine_reset(void) {
-    int fd = -1;
-    void *mem = NULL;
-
-    if (0 > (fd = open("/dev/mem", O_RDWR | O_SYNC))) {
-        mp_raise_OSError(errno);
+NORETURN mp_obj_t machine_reset(void) {
+    if(0x00 != utils_reboot()) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("reboot failed."));
     }
 
-    if (NULL == (mem = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x91102000))) {
-        mp_raise_OSError(errno);
+    for (;;) {
     }
-
-    *(uint32_t *)(mem + 0x60) = 0x10001;
-
-    munmap(mem, 4096);
-
-    close(fd);
-
-    return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_obj, machine_reset);
 
+NORETURN mp_obj_t machine_bootloader(size_t n_args, const mp_obj_t *args) {
+    if(0x00 != utils_reboot_to_bootloader()) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("enter bootloader failed."));
+    }
+
+    for (;;) {
+    }
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_bootloader_obj, 0, 1, machine_bootloader);
+
 STATIC mp_obj_t machine_read_chipid(void) {
-    int fd = -1;
-    void *mem = NULL;
-    uint8_t *reg = NULL;
     uint8_t chip_id[32];
 
-    if (0 > (fd = open("/dev/mem", O_RDWR | O_SYNC))) {
-        mp_raise_OSError(errno);
+    if(0x00 != utils_read_chipid(chip_id)) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("read chip id failed."));
     }
-
-    if (NULL == (mem = mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, 0x91213000))) {
-        mp_raise_OSError(errno);
-    }
-
-    reg = (uint8_t *)mem + 0x300;
-    for(size_t i = 0; i < sizeof(chip_id); i++) {
-        chip_id[i] = ((uint8_t *)reg)[i];
-    }
-
-    munmap(mem, 4096);
-
-    close(fd);
 
     return mp_obj_new_bytearray(sizeof(chip_id), chip_id);
 }
@@ -171,6 +155,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_machine) },
 
     { MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&machine_reset_obj) },
+    { MP_ROM_QSTR(MP_QSTR_bootloader), MP_ROM_PTR(&machine_bootloader_obj) },
     { MP_ROM_QSTR(MP_QSTR_chipid), MP_ROM_PTR(&machine_read_chipid_obj) },
     { MP_ROM_QSTR(MP_QSTR_mem_copy), MP_ROM_PTR(&machine_mem_copy_obj) },
     { MP_ROM_QSTR(MP_QSTR_temperature), MP_ROM_PTR(&machine_read_temp_obj) },
