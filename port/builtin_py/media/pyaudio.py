@@ -310,12 +310,12 @@ class Read_stream(Stream):
             if (0 != ret):
                 raise ValueError(("kd_mpi_ai_enable_chn failed:%d")%(ret))
 
-            import os
-            brd = os.uname()[-1]
-            if brd == "k230_canmv_lckfb":
-                self.swap_left_right()
-            del brd
-            del os
+            # import os
+            # brd = os.uname()[-1]
+            # if brd == "k230_canmv_lckfb":
+            #     self.swap_left_right()
+            # del brd
+            # del os
 
             self._start_stream = True
 
