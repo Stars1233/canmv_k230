@@ -166,6 +166,8 @@ STATIC mp_obj_t ai_swap_left_right(mp_obj_t state)
 
     close(fd);
 
+    usleep(1000); // wait for the hardware to take effect
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(ai_swap_left_right_obj, ai_swap_left_right);
