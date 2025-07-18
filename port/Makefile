@@ -53,6 +53,7 @@ INC += -Iinclude/ai_cube
 INC += -Iinclude/ai_demo
 INC += -Iinclude/ai_demo/kws
 INC += -Iinclude/ai_demo/tts_zh
+INC += -Iinclude/cv_lite
 INC += -Iinclude/core
 INC += -Iinclude/kpu
 INC += -Iinclude/machine
@@ -164,6 +165,8 @@ CANMV_SRC_C += $(wildcard kpu/*.c)
 CANMV_SRC_C += $(wildcard ai_cube/*.c)
 # aidemo
 CANMV_SRC_C += $(wildcard ai_demo/*.c)
+# cv_lite
+CANMV_SRC_C += $(wildcard cv_lite/*.c)
 # omv
 CANMV_SRC_C += $(wildcard omv/*.c)
 CANMV_SRC_C += $(wildcard omv/*/*.c)
@@ -242,6 +245,7 @@ CANMV_SRC_CXX += $(wildcard ai_cube/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/kws/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/tts_zh/*.cpp)
+CANMV_SRC_CXX += $(wildcard cv_lite/opencv_code/*.cpp)
 CANMV_SRC_CXX += $(wildcard modules/*.cpp)
 CANMV_SRC_CXX += $(wildcard modules/*/*.cpp)
 CANMV_SRC_CXX += $(wildcard multi_media/*.cpp)
