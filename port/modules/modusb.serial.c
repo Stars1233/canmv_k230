@@ -97,7 +97,7 @@ STATIC mp_obj_t py_usb_serial_make_new(const mp_obj_type_t* type, size_t n_args,
     mp_map_t     kw_args;
     mp_arg_val_t parsed_args[MP_ARRAY_SIZE(allowed_args)];
 
-    mp_arg_check_num(n_args, n_kw, 2, 5, true);
+    mp_arg_check_num(n_args, n_kw, 1, 2, true);
     mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
 
     mp_arg_parse_all(n_args, args, &kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, parsed_args);

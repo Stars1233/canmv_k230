@@ -53,7 +53,7 @@ void mp_machine_pwm_print(const mp_print_t* print, mp_obj_t self_in, mp_print_ki
 // Initialize PWM with settings
 void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
-    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_pin, ARG_invert, ARG_enable };
+    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_pin, ARG_invert };
 
     const mp_arg_t allowed_args[] = {
         { MP_QSTR_freq, MP_ARG_INT, { .u_int = -1 } },
@@ -65,7 +65,6 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
 
         /* not support */
         { MP_QSTR_invert, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
-        { MP_QSTR_enable, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
     };
 
     mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
@@ -221,30 +220,52 @@ void mp_machine_pwm_duty_set(machine_pwm_obj_t* self, mp_int_t duty)
     }
 }
 
+// Set duty cycle (16-bit)
+void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16) {
+    if (duty_u16 < 0 || duty_u16 > 65535) {
+        mp_raise_ValueError("duty_u16 must be 0-65535");
+    }
+    // Directly map 16-bit to 0-100 (no redundant /100 later)
+    uint32_t duty = (duty_u16 + 32768) / 65536;  // Round to nearest integer percentage
+    if (drv_pwm_set_duty(self->channel, duty) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
+    }
+    if (!self->active) {
+        drv_pwm_enable(self->channel);
+        self->active = true;
+    }
+}
+
 // Get duty cycle (16-bit)
-mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self)
-{
+mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self) {
     uint32_t duty;
     if (drv_pwm_get_duty(self->channel, &duty) != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "failed to get duty");
     }
-    // Convert percentage to 16-bit value
-    return MP_OBJ_NEW_SMALL_INT((duty * 65535) / 100);
+    // Directly scale 0-100 → 0-65535
+    return MP_OBJ_NEW_SMALL_INT((duty * 65535 + 50) / 100);  // Round to nearest 16-bit value
 }
 
-// Set duty cycle (16-bit)
-void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16)
-{
-    if (duty_u16 < 0 || duty_u16 > 65535) {
-        mp_raise_ValueError("duty_u16 must be 0-65535");
+// Set duty cycle (nanoseconds)
+void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns) {
+    if (duty_ns < 0) {
+        mp_raise_ValueError("duty_ns must be >= 0");
     }
-
-    // Convert 16-bit to percentage
-    uint32_t duty = (duty_u16 * 100) / 65535;
+    uint32_t freq;
+    if (drv_pwm_get_freq(self->channel, &freq) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get frequency");
+    }
+    if (freq == 0) {
+        mp_raise_ValueError("cannot set duty_ns when frequency is 0");
+    }
+    uint32_t period_ns = 1000000000 / freq;
+    uint32_t duty = (duty_ns * 100 + period_ns/2) / period_ns;  // Round to nearest percentage
+    if (duty > 100) {
+        mp_raise_ValueError("duty_ns exceeds period");
+    }
     if (drv_pwm_set_duty(self->channel, duty) != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
     }
-
     if (!self->active) {
         drv_pwm_enable(self->channel);
         self->active = true;
@@ -252,50 +273,14 @@ void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16)
 }
 
 // Get duty cycle (nanoseconds)
-mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self)
-{
+mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self) {
     uint32_t freq, duty;
     if (drv_pwm_get_freq(self->channel, &freq) != 0 || drv_pwm_get_duty(self->channel, &duty) != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "failed to get duty_ns");
     }
-
     if (freq == 0) {
         return MP_OBJ_NEW_SMALL_INT(0);
     }
-
     uint32_t period_ns = 1000000000 / freq;
-    return MP_OBJ_NEW_SMALL_INT((period_ns * duty) / 100);
-}
-
-// Set duty cycle (nanoseconds)
-void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns)
-{
-    if (duty_ns < 0) {
-        mp_raise_ValueError("duty_ns must be >= 0");
-    }
-
-    uint32_t freq;
-    if (drv_pwm_get_freq(self->channel, &freq) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get frequency");
-    }
-
-    if (freq == 0) {
-        mp_raise_ValueError("cannot set duty_ns when frequency is 0");
-    }
-
-    uint32_t period_ns = 1000000000 / freq;
-    uint32_t duty      = (duty_ns * 100) / period_ns;
-
-    if (duty > 100) {
-        mp_raise_ValueError("duty_ns exceeds period");
-    }
-
-    if (drv_pwm_set_duty(self->channel, duty) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
-    }
-
-    if (!self->active) {
-        drv_pwm_enable(self->channel);
-        self->active = true;
-    }
+    return MP_OBJ_NEW_SMALL_INT((period_ns * duty + 50) / 100);  // Round to nearest ns
 }
