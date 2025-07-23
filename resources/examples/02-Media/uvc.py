@@ -1,4 +1,4 @@
-import time, os, urandom, sys
+import time, os, urandom, sys, gc
 
 from media.display import *
 from media.media import *
@@ -35,6 +35,7 @@ while True:
             img = img.to_rgb565()
             Display.show_image(img)
             img.__del__()
+            gc.collect()
         except OSError as e:
             pass
 

@@ -1,4 +1,4 @@
-import time, os, urandom, sys
+import time, os, urandom, sys, gc
 
 from media.display import *
 from media.media import *
@@ -40,6 +40,7 @@ while True:
         img = csc.convert(img)
         Display.show_image(img)
         img.__del__()
+        gc.collect()
 
     print(f"fps: {clock.fps()}")
 
