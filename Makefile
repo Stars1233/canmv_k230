@@ -109,7 +109,7 @@ build:
 	@$(MAKE) -j$(NCPUS) -C port || exit $?;
 
 .PHONY: gen_image
-gen_image: build copy_freetype_fonts copy_libs copy_examples copy_kmodels copy_micropython
+gen_image: build copy_micropython copy_libs copy_examples copy_kmodels copy_freetype_fonts
 
 all: gen_image
 	@echo "Make canmv done."
