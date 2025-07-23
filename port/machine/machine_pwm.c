@@ -22,6 +22,7 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include "misc.h"
 #include "mpprint.h"
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -53,15 +54,13 @@ void mp_machine_pwm_print(const mp_print_t* print, mp_obj_t self_in, mp_print_ki
 // Initialize PWM with settings
 void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
-    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_pin, ARG_invert };
+    enum { ARG_freq, ARG_duty, ARG_duty_u16, ARG_duty_ns, ARG_invert };
 
     const mp_arg_t allowed_args[] = {
-        { MP_QSTR_freq, MP_ARG_INT, { .u_int = -1 } },
+        { MP_QSTR_freq, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty_u16, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_duty_ns, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = -1 } },
-
-        { MP_QSTR_pin, MP_ARG_KW_ONLY | MP_ARG_OBJ, { .u_obj = MP_OBJ_NULL } },
 
         /* not support */
         { MP_QSTR_invert, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
@@ -70,28 +69,6 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
     mp_arg_val_t vals[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, vals);
 
-    mp_int_t     pin      = -1;
-    fpioa_func_t func_pwm = PWM0 + self->channel;
-
-    if (vals[ARG_pin].u_obj != MP_OBJ_NULL) {
-        pin = mp_obj_get_int(vals[ARG_pin].u_obj);
-    }
-    // Validate pin
-    if (pin != -1) {
-        if (!drv_fpioa_is_func_supported_by_pin(pin, func_pwm)) {
-            mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("Pin %d not supported for PWM(%d)"), pin, self->channel);
-        }
-        if (0x00 != drv_fpioa_set_pin_func(pin, func_pwm)) {
-            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set Pin(%d) to fpioa func %d failed"), pin, func_pwm);
-        }
-    } else {
-        if (0 > (pin = drv_fpioa_find_pin_by_func(func_pwm))) {
-            mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("PWM(%d) not configured, see machine.FPIOA"),
-                              self->channel);
-        }
-    }
-    self->pin = pin;
-
     // Set frequency if provided
     if (vals[ARG_freq].u_int != -1) {
         mp_machine_pwm_freq_set(self, vals[ARG_freq].u_int);
@@ -99,18 +76,15 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
 
     // Check for multiple duty specifications
     int duty_specs = 0;
-    if (vals[ARG_duty].u_int != -1) {
+    if (vals[ARG_duty].u_int != -1)
         duty_specs++;
-    }
-    if (vals[ARG_duty_u16].u_int != -1) {
+    if (vals[ARG_duty_u16].u_int != -1)
         duty_specs++;
-    }
-    if (vals[ARG_duty_ns].u_int != -1) {
+    if (vals[ARG_duty_ns].u_int != -1)
         duty_specs++;
-    }
 
     if (duty_specs > 1) {
-        mp_raise_ValueError("only one of duty or duty_u16 or duty_ns can be specified");
+        mp_raise_ValueError("only one of duty, duty_u16, or duty_ns can be specified");
     }
 
     // Set duty cycle if provided
@@ -123,26 +97,51 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
     }
 }
 
-// Create new PWM object following official API
 mp_obj_t mp_machine_pwm_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
 {
     mp_arg_check_num(n_args, n_kw, 1, MP_OBJ_FUN_ARGS_MAX, true);
 
-    int channel = mp_obj_get_int(args[0]);
-    if ((0 > channel) || (5 < channel)) {
-        mp_raise_ValueError("invalid PWM channel");
+    int arg     = mp_obj_get_int(args[0]);
+    int channel = -1;
+    int pin     = -1;
+
+    if (arg >= 0 && arg <= 5) {
+        // It's a valid PWM channel
+        channel = arg;
+        pin     = drv_fpioa_find_pin_by_func(PWM0 + channel);
+        if (pin < 0) {
+            mp_raise_msg_varg(&mp_type_AssertionError, MP_ERROR_TEXT("PWM(%d) not configured to any pin, see machine.FPIOA"),
+                              channel);
+        }
+    } else {
+        // Treat as pin number
+        pin        = arg;
+        bool found = false;
+        for (int ch = 0; ch <= 5; ++ch) {
+            fpioa_func_t func = PWM0 + ch;
+            if (drv_fpioa_is_func_supported_by_pin(pin, func)) {
+                if (drv_fpioa_set_pin_func(pin, func) != 0) {
+                    mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to assign pin %d to PWM(%d)"), pin, ch);
+                }
+                channel = ch;
+                found   = true;
+                break;
+            }
+        }
+        if (!found) {
+            mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("Pin %d does not support any PWM function"), pin);
+        }
     }
 
-    // Create new PWM object
-    machine_pwm_obj_t* self = m_new_obj(machine_pwm_obj_t);
+    machine_pwm_obj_t* self = m_new_obj_with_finaliser(machine_pwm_obj_t);
     self->base.type         = &machine_pwm_type;
     self->channel           = channel;
+    self->pin               = pin;
     self->active            = false;
     self->invert            = false;
 
-    // Initialize PWM driver if needed
     if (drv_pwm_init() != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "PWM init failed");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("PWM init failed"));
     }
 
     mp_map_t kw_args;
@@ -221,15 +220,24 @@ void mp_machine_pwm_duty_set(machine_pwm_obj_t* self, mp_int_t duty)
 }
 
 // Set duty cycle (16-bit)
-void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16) {
+void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16)
+{
     if (duty_u16 < 0 || duty_u16 > 65535) {
         mp_raise_ValueError("duty_u16 must be 0-65535");
     }
-    // Directly map 16-bit to 0-100 (no redundant /100 later)
-    uint32_t duty = (duty_u16 + 32768) / 65536;  // Round to nearest integer percentage
-    if (drv_pwm_set_duty(self->channel, duty) != 0) {
+
+    // Convert 16-bit duty to percent with rounding
+    // (duty_u16 / 65535) * 100 → percent
+    uint32_t percent = ((uint64_t)duty_u16 * 100 + 32767) / 65535;
+
+    if (percent > 100) {
+        percent = 100; // Clamp just in case
+    }
+
+    if (drv_pwm_set_duty(self->channel, percent) != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
     }
+
     if (!self->active) {
         drv_pwm_enable(self->channel);
         self->active = true;
@@ -237,17 +245,31 @@ void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16) {
 }
 
 // Get duty cycle (16-bit)
-mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self) {
-    uint32_t duty;
-    if (drv_pwm_get_duty(self->channel, &duty) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get duty");
+mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self)
+{
+    uint32_t freq, percent;
+
+    if (drv_pwm_get_freq(self->channel, &freq) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get PWM frequency");
     }
-    // Directly scale 0-100 → 0-65535
-    return MP_OBJ_NEW_SMALL_INT((duty * 65535 + 50) / 100);  // Round to nearest 16-bit value
+    if (drv_pwm_get_duty(self->channel, &percent) != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "failed to get PWM duty");
+    }
+
+    if (freq == 0) {
+        return MP_OBJ_NEW_SMALL_INT(0);
+    }
+
+    uint32_t period_ns = 1000000000UL / freq;
+    uint32_t duty_ns   = (period_ns * percent + 50) / 100;
+
+    uint32_t duty_u16 = ((uint64_t)duty_ns * 65535 + period_ns / 2) / period_ns;
+    return MP_OBJ_NEW_SMALL_INT(duty_u16);
 }
 
 // Set duty cycle (nanoseconds)
-void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns) {
+void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns)
+{
     if (duty_ns < 0) {
         mp_raise_ValueError("duty_ns must be >= 0");
     }
@@ -258,8 +280,8 @@ void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns) {
     if (freq == 0) {
         mp_raise_ValueError("cannot set duty_ns when frequency is 0");
     }
-    uint32_t period_ns = 1000000000 / freq;
-    uint32_t duty = (duty_ns * 100 + period_ns/2) / period_ns;  // Round to nearest percentage
+    uint32_t period_ns = 1000000000UL / freq;
+    uint32_t duty      = (duty_ns * 100 + period_ns / 2) / period_ns; // Round to nearest percentage
     if (duty > 100) {
         mp_raise_ValueError("duty_ns exceeds period");
     }
@@ -273,7 +295,8 @@ void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns) {
 }
 
 // Get duty cycle (nanoseconds)
-mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self) {
+mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self)
+{
     uint32_t freq, duty;
     if (drv_pwm_get_freq(self->channel, &freq) != 0 || drv_pwm_get_duty(self->channel, &duty) != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "failed to get duty_ns");
@@ -281,6 +304,6 @@ mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self) {
     if (freq == 0) {
         return MP_OBJ_NEW_SMALL_INT(0);
     }
-    uint32_t period_ns = 1000000000 / freq;
-    return MP_OBJ_NEW_SMALL_INT((period_ns * duty + 50) / 100);  // Round to nearest ns
+    uint32_t period_ns = 1000000000UL / freq;
+    return MP_OBJ_NEW_SMALL_INT((period_ns * duty + 50) / 100); // Round to nearest ns
 }

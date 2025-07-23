@@ -134,6 +134,7 @@ PY_O_EXCLUDE = \
 		extmod/modhashlib.o \
 		extmod/modssl_mbedtls.o\
 		extmod/modonewire.o\
+		extmod/machine_pwm.o\
 		py/modgc.o \
 	)
 PY_O := $(filter-out $(PY_O_EXCLUDE),$(PY_O))
@@ -144,6 +145,7 @@ SRC_QSTR_EXCLUDE = \
 		extmod/modhashlib.c \
 		extmod/modssl_mbedtls.c\
 		extmod/modonewire.c\
+		extmod/machine_pwm.c\
 		py/modgc.c
 
 SRC_QSTR := $(filter-out $(SRC_QSTR_EXCLUDE),$(SRC_QSTR))
@@ -186,6 +188,7 @@ CANMV_SRC_C += \
 	mp_modules/overlay_modhashlib.c \
 	mp_modules/overlay_modssl_mbedtls.c \
 	mp_modules/overlay_modonewire.c \
+	mp_modules/overlay_machine_pwm.c \
 
 CANMV_SRC_C += $(addprefix shared/,\
 	runtime/gchelper_generic.c \
