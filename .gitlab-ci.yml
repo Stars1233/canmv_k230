@@ -23,7 +23,7 @@ before_script:
   - eval $(ssh-agent -s)
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
-  - cp "$MY_SSH_PRIVATE_KEY" ~/.ssh/id_rsa
+  - cp "$DNLD_SRV_KEY" ~/.ssh/id_rsa
   - chmod 600 ~/.ssh/id_rsa
   - eval "$(ssh-agent -s)"
   - ssh-add ~/.ssh/id_rsa
