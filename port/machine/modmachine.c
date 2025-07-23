@@ -41,6 +41,10 @@
 #include "drivers/dht/dht.h"
 #endif
 
+#if MICROPY_PY_MACHINE_BITSTREAM
+#include "extmod/machine_bitstream.h"
+#endif
+
 #include "hal_utils.h"
 
 #include "modmachine.h"
@@ -162,6 +166,10 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
 
 #if MICROPY_PY_MACHINE_DHT
     { MP_ROM_QSTR(MP_QSTR_dht_readinto), MP_ROM_PTR(&dht_readinto_obj) },
+#endif
+
+#if MICROPY_PY_MACHINE_BITSTREAM
+    { MP_ROM_QSTR(MP_QSTR_bitstream), MP_ROM_PTR(&machine_bitstream_obj) },
 #endif
 
     { MP_ROM_QSTR(MP_QSTR_UART), MP_ROM_PTR(&machine_uart_type) },

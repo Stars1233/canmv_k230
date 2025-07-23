@@ -10,6 +10,7 @@ require("mip")
 require("umqtt.simple")
 
 require("dht")
+require("neopixel")
 
 # canmv media modules
 package("mpp", base_path="../builtin_py", opt=3)

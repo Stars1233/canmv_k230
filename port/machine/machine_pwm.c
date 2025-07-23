@@ -22,8 +22,6 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "misc.h"
-#include "mpprint.h"
 #include "py/obj.h"
 #include "py/runtime.h"
 
