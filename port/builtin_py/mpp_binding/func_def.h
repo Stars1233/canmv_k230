@@ -272,6 +272,34 @@ STATIC mp_obj_t _##x(size_t n_args, const mp_obj_t *args) {             \
 }                                                                       \
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(x##_obj, 4, 4, _##x);
 
+#define DEF_INT_FUNC_STRUCTPTR_INT(x, struct_type)                      \
+STATIC mp_obj_t _##x(mp_obj_t obj0, mp_obj_t obj1) {                    \
+    mp_buffer_info_t bufinfo;                                           \
+    mp_get_buffer_raise(obj0, &bufinfo, MP_BUFFER_READ);                \
+    if (sizeof(struct_type) != bufinfo.len)                             \
+        mp_raise_msg_varg(&mp_type_TypeError,                           \
+            MP_ERROR_TEXT("struct expect size: %u, actual size: %u"),   \
+            sizeof(struct_type), bufinfo.len);                          \
+    size_t ret = x((struct_type*)(bufinfo.buf), mp_obj_get_int(obj1));  \
+    return mp_obj_new_int(ret);                                         \
+}                                                                       \
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(x##_obj, _##x);
+
+#define DEF_INT_FUNC_STRUCTPTR_INT_GIL(x, struct_type)                      \
+STATIC mp_obj_t _##x(mp_obj_t obj0, mp_obj_t obj1) {                    \
+    mp_buffer_info_t bufinfo;                                           \
+    mp_get_buffer_raise(obj0, &bufinfo, MP_BUFFER_READ);                \
+    if (sizeof(struct_type) != bufinfo.len)                             \
+        mp_raise_msg_varg(&mp_type_TypeError,                           \
+            MP_ERROR_TEXT("struct expect size: %u, actual size: %u"),   \
+            sizeof(struct_type), bufinfo.len);                          \
+    MP_THREAD_GIL_EXIT();                                               \
+    size_t ret = x((struct_type*)(bufinfo.buf), mp_obj_get_int(obj1));  \
+    MP_THREAD_GIL_ENTER();                                              \
+    return mp_obj_new_int(ret);                                         \
+}                                                                       \
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(x##_obj, _##x);
+
 #elif defined FUNC_ADD
 
 #define DEF_INT_FUNC_VOID(x)                        \
@@ -298,6 +326,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(x##_obj, 4, 4, _##x);
 #define DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR(x, struct0_type, struct1_type) DEF_INT_FUNC_VOID(x)
 #define DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR_INT(x, struct0_type, struct1_type) \
     DEF_INT_FUNC_VOID(x)
+#define DEF_INT_FUNC_STRUCTPTR_INT(x, struct_type) DEF_INT_FUNC_VOID(x)
+#define DEF_INT_FUNC_STRUCTPTR_INT_GIL(x, struct_type) DEF_INT_FUNC_VOID(x)
 
 #endif
 
@@ -328,3 +358,5 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(x##_obj, 4, 4, _##x);
 #undef DEF_INT_FUNC_INT_INT_STRUCTPTR_INT
 #undef DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR_INT
 #undef DEF_INT_FUNC_INT_STRUCTPTR_STRUCTPTR
+#undef DEF_INT_FUNC_STRUCTPTR_INT
+#undef DEF_INT_FUNC_STRUCTPTR_INT_GIL
