@@ -443,6 +443,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_pin_destroy_obj, machine_pin_destroy);
 
 STATIC mp_obj_t machine_pin_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
 {
+    fpioa_func_t func;
+
     mp_arg_check_num(n_args, n_kw, 1, 6, true);
 
     int pin = mp_obj_get_int(args[0]);
@@ -452,6 +454,19 @@ STATIC mp_obj_t machine_pin_make_new(const mp_obj_type_t* type, size_t n_args, s
 
     if (gpio_used[pin]) {
         mp_printf(&mp_plat_print, "pin(%d) maybe inuse\n", pin);
+    }
+
+    if (0x00 != drv_fpioa_get_pin_func(pin, &func)) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("get pin(%d) fpioa func failed"), pin);
+    }
+
+    if (GPIO63 < func) {
+        mp_printf(&mp_plat_print, "pin(%d) is not a GPIO pin, func=%d, Please notice it.\n", pin, func);
+
+        func = GPIO0 + pin; // Use GPIO0 + pin as the default GPIO function
+        if (0x00 != drv_fpioa_set_pin_func(pin, func)) {
+            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set pin(%d) fpioa func failed"), pin);
+        }
     }
 
     machine_pin_obj_t* self = m_new_obj_with_finaliser(machine_pin_obj_t);
@@ -482,14 +497,15 @@ STATIC mp_obj_t machine_pin_call(mp_obj_t self_in, size_t n_args, size_t n_kw, c
     return machine_pin_value(n_args + 1, (mp_obj_t[]) { self_in, args[0] });
 }
 
-STATIC mp_obj_t machine_pin_unary_op (mp_unary_op_t op, mp_obj_t self_in) {
+STATIC mp_obj_t machine_pin_unary_op(mp_unary_op_t op, mp_obj_t self_in)
+{
     machine_pin_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
     switch (op) {
-        case MP_UNARY_OP_INT_MAYBE:
-            return mp_obj_new_int(self->inst->pin);
-        default:
-            return MP_OBJ_NULL;
+    case MP_UNARY_OP_INT_MAYBE:
+        return mp_obj_new_int(self->inst->pin);
+    default:
+        return MP_OBJ_NULL;
     }
 }
 
