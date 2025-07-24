@@ -61,7 +61,7 @@ class FaceDetectionApp(AIBase):
 
 if __name__ == "__main__":
     # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
-    display_mode="lcd"
+    display_mode="hdmi"
     # k230保持不变，k230d可调整为[640,360]
     rgb888p_size = [1280, 720]
     # 设置模型路径和其他参数
@@ -87,13 +87,20 @@ if __name__ == "__main__":
     # 初始化自定义人脸检测实例
     face_det = FaceDetectionApp(kmodel_path, model_input_size=[320, 320], anchors=anchors, confidence_threshold=confidence_threshold, nms_threshold=nms_threshold, rgb888p_size=rgb888p_size, display_size=display_size, debug_mode=0)
     face_det.config_preprocess()  # 配置预处理
-    while True:
-        with ScopedTiming("total",1):
-            img = pl.get_frame()            # 获取当前帧数据
-            res = face_det.run(img)         # 推理当前帧
-            face_det.draw_result(pl, res)   # 绘制结果
-            pl.show_image()                 # 显示结果
-            gc.collect()                    # 垃圾回收
+
+    try:
+        while True:
+            with ScopedTiming("total",1):
+                img = pl.get_frame()            # 获取当前帧数据
+                res = face_det.run(img)         # 推理当前帧
+                face_det.draw_result(pl, res)   # 绘制结果
+                pl.show_image()                 # 显示结果
+                gc.collect()                    # 垃圾回收
+    except KeyboardInterrupt as e:
+        print("user stop: ", e)
+    except BaseException as e:
+        print(f"Exception {e}")
+
     face_det.deinit()                       # 反初始化
-    WBC_Rtsp.stop()                         # 停止WBC推流
+    WBCRtsp.stop()                         # 停止WBC推流
     pl.destroy()                            # 销毁PipeLine实例
