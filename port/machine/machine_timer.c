@@ -60,7 +60,7 @@ STATIC void machine_timer_handler(void* args)
     machine_timer_obj_t* self = MP_OBJ_TO_PTR(args);
 
     if (self && (&machine_timer_type == self->base.type)) {
-        mp_sched_schedule(self->callback, MP_OBJ_FROM_PTR(self));
+        mp_sched_schedule(self->callback, MP_OBJ_FROM_PTR(self->callback_args));
     } else {
         printf("invalid timer callback\n");
     }
