@@ -4,53 +4,76 @@ endif
 
 include $(SDK_SRC_ROOT_DIR)/tools/mkenv.mk
 
-ifneq ($(shell [ -d ${SDK_BUILD_IMAGES_DIR}/sdcard/ ] && echo 1 || echo 0),1)
-$(shell mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/)
-endif
-
 .PHONY: all clean distclean
 
-.PHONY: copy_freetype_fonts
-copy_freetype_fonts:
-	@echo "Copy freetype resources"
-	@if [ ! -d ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font ]; then \
-		mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font/; \
+all: gen_image
+	@echo "Make canmv done."
+
+clean:
+	@make -C port clean
+	@rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/
+
+distclean: clean
+	@rm -rf $(SDK_CANMV_BUILD_DIR)
+
+.PHONY: build
+build:
+	@$(MAKE) -j$(NCPUS) -C port || exit $?;
+
+.PHONY: gen_image
+gen_image: build copy_micropython copy_libs copy_sdcard copy_freetype_fonts copy_examples 
+
+.PHONY: copy_micropython
+copy_micropython:
+	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
+
+	@echo "Copy micropython"
+	@if [ ! -e $(SDK_CANMV_BUILD_DIR)/micropython ]; then \
+		echo "micropython not exists." && exit 1; \
 	fi; \
-	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/font/ ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font/
+	cp -rf $(SDK_CANMV_BUILD_DIR)/micropython ${SDK_BUILD_IMAGES_DIR}/sdcard/
+
+	@echo "Copying Python scripts"
+	@for f in main.py boot.py fallback.py; do \
+		src=$(SDK_CANMV_SRC_DIR)/resources/$$f; \
+		dst=${SDK_BUILD_IMAGES_DIR}/sdcard/$$f; \
+		if [ -f $$src ]; then \
+			cp -f $$src $$dst; \
+		else \
+			rm -f $$dst; \
+		fi; \
+	done
 
 .PHONY: copy_libs
 copy_libs:
+	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
+
 	@echo "Copy libs"
 	@if [ ! -d ${SDK_BUILD_IMAGES_DIR}/sdcard/libs ]; then \
 		mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/libs/; \
 	fi; \
 	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/libs/ ${SDK_BUILD_IMAGES_DIR}/sdcard/libs/
 
+.PHONY: copy_freetype_fonts
+copy_freetype_fonts:
+	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
+
+	@echo "Copy freetype resources"
+	@if [ ! -d ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font ]; then \
+		mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font/; \
+	fi; \
+	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/font/ ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font/
+
 .PHONY: copy_examples
 copy_examples:
+	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
+
 	@echo "Copy examples"
 	@if [ ! -d ${SDK_BUILD_IMAGES_DIR}/sdcard/examples ]; then \
 		mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/; \
 	fi; \
-	if [ -f $(SDK_CANMV_SRC_DIR)/resources/main.py ]; then \
-		cp -f $(SDK_CANMV_SRC_DIR)/resources/main.py ${SDK_BUILD_IMAGES_DIR}/sdcard/main.py; \
-	else \
-		rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/main.py; \
-	fi;\
-	if [ -f $(SDK_CANMV_SRC_DIR)/resources/boot.py ]; then \
-		cp -f $(SDK_CANMV_SRC_DIR)/resources/boot.py ${SDK_BUILD_IMAGES_DIR}/sdcard/boot.py; \
-	else \
-		rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/boot.py; \
-	fi;\
-	if [ -f $(SDK_CANMV_SRC_DIR)/resources/fallback.py ]; then \
-		cp -f $(SDK_CANMV_SRC_DIR)/resources/fallback.py ${SDK_BUILD_IMAGES_DIR}/sdcard/fallback.py; \
-	else \
-		rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/fallback.py; \
-	fi;\
 	rsync -aq --delete --exclude='.git' $(SDK_CANMV_SRC_DIR)/resources/examples/ ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/
 
-.PHONY: copy_kmodels
-copy_kmodels:
 	@echo "Copy kmodels"
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/face_detection_320.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/18-NNCase/face_detection/
 	@if [ ! -d ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel ]; then \
@@ -96,27 +119,14 @@ copy_kmodels:
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/fruit_*.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/face_liveness_rgb.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 
-.PHONY: copy_micropython
-copy_micropython:
-	@echo "Copy micropython"
-	@if [ ! -e $(SDK_CANMV_BUILD_DIR)/micropython ]; then \
-		echo "micropython not exists." && exit 1; \
-	fi; \
-	cp -rf $(SDK_CANMV_BUILD_DIR)/micropython ${SDK_BUILD_IMAGES_DIR}/sdcard/
+.PHONY: copy_sdcard
+copy_sdcard:
+	@echo "Copy user-customized sdcard resources"
 
-.PHONY: build
-build:
-	@$(MAKE) -j$(NCPUS) -C port || exit $?;
+	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/
 
-.PHONY: gen_image
-gen_image: build copy_micropython copy_libs copy_examples copy_kmodels copy_freetype_fonts
-
-all: gen_image
-	@echo "Make canmv done."
-
-clean:
-	@rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/
-	@make -C port clean
-
-distclean: clean
-	@rm -rf $(SDK_CANMV_BUILD_DIR)
+	@if [ -d "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" ]; then \
+		rsync -aq "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" "${SDK_BUILD_IMAGES_DIR}/sdcard/"; \
+	else \
+		echo "No sdcard resources found in $(SDK_CANMV_SRC_DIR)/resources/sdcard/"; \
+	fi
