@@ -7,7 +7,7 @@ from media.media import *
 from mpp.video_struct import *
 
 class ChnAttrStr:
-    def __init__(self, payloadType, profile, picWidth, picHeight,bit_rate=4000,gopLen = 30,src_frame_rate = 30,dst_frame_rate = 30):
+    def __init__(self, payloadType, profile, picWidth, picHeight,bit_rate = 4000,gopLen = 30,src_frame_rate = 30,dst_frame_rate = 30,mjpeg_quality_factor = 45):
         self.payload_type = payloadType
         self.profile = profile
         self.pic_width = picWidth
@@ -16,6 +16,7 @@ class ChnAttrStr:
         self.bit_rate = bit_rate
         self.src_frame_rate = src_frame_rate
         self.dst_frame_rate = dst_frame_rate
+        self.mjpeg_quality_factor = mjpeg_quality_factor
 
 class StreamData:
     def __init__(self):
@@ -75,6 +76,12 @@ class Encoder:
         venc_chn_attr.rc_attr.cbr.src_frame_rate = chnAttr.src_frame_rate
         venc_chn_attr.rc_attr.cbr.dst_frame_rate = chnAttr.dst_frame_rate
         venc_chn_attr.rc_attr.cbr.bit_rate = chnAttr.bit_rate
+
+        if (chnAttr.payload_type == K_PT_JPEG):
+            venc_chn_attr.rc_attr.rc_mode = K_VENC_RC_MODE_MJPEG_FIXQP
+            venc_chn_attr.rc_attr.mjpeg_fixqp.src_frame_rate = 30
+            venc_chn_attr.rc_attr.mjpeg_fixqp.dst_frame_rate = 30
+            venc_chn_attr.rc_attr.mjpeg_fixqp.q_factor = chnAttr.mjpeg_quality_factor
 
         ret = kd_mpi_venc_create_chn(chn, venc_chn_attr)
         if ret != 0:
