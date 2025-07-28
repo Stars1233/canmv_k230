@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "imlib.h"
 #include "k_type.h"
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -378,6 +379,7 @@ STATIC mp_obj_t py_nonai_2d_csc_convert(mp_uint_t n_args, const mp_obj_t* pos_ar
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("CSC.convert mmap failed"));
         }
 
+        image.alloc_type = ALLOC_VB;
         image.size = csc->frame_mmap_size;
         image.data = csc->frame_virt_addr;
 
