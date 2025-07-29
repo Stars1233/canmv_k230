@@ -10,7 +10,7 @@ if __name__=="__main__":
     labels = ['plane','ship','storage tank','baseball diamond','tennis court','basketball court','ground track field','harbor','bridge','large vehicle','small vehicle','helicopter','roundabout','soccer ball field','swimming pool']
     model_input_size=[320,320]
 
-    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="lcd"
     rgb888p_size=[640,360]
     confidence_threshold = 0.1

@@ -227,7 +227,7 @@ class FaceMesh:
 
 
 if __name__=="__main__":
-    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     # 人脸检测模型路径
     face_det_kmodel_path="/sdcard/examples/kmodel/face_detection_320.kmodel"
