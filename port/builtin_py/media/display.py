@@ -321,14 +321,14 @@ class Display:
                 _flag = None
             elif _type == Display.NT35516:
                 _width = width if width is not None else 960
-                _height = height if height is not None else 540
+                _height = height if height is not None else 536
                 _flag = flag if flag is not None else Display.FLAG_ROTATION_90
 
-                if _width == 960 and _height == 540:
+                if _width == 960 and _height == 536:
                     cls._panel_flag = _flag
-                    cls._connector_type = NT35516_MIPI_2LAN_540X960_30FPS
-                elif _width == 540 and _height == 960:
-                    cls._connector_type = NT35516_MIPI_2LAN_540X960_30FPS
+                    cls._connector_type = NT35516_MIPI_2LAN_536X960_30FPS
+                elif _width == 536 and _height == 960:
+                    cls._connector_type = NT35516_MIPI_2LAN_536X960_30FPS
                 else:
                     raise ValueError(f"NT35516 unsupport {_width}x{_height}")
 
