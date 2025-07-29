@@ -101,7 +101,7 @@ class DetectionApp(AIBase):
 
 
 if __name__=="__main__":
-    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
     display_mode="hdmi"
     # kmodel路径
     kmodel_path="/sdcard/examples/ai_test_kmodel/insect_det.kmodel"

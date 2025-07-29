@@ -21,7 +21,7 @@ class PipeLine:
             self.display_size=None
         else:
             self.display_size=[display_size[0],display_size[1]]
-        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399"
+        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399", "nt35516"
         self.display_mode=display_mode
         # sensor对象
         self.sensor=None
@@ -35,6 +35,8 @@ class PipeLine:
     def create(self,sensor=None,hmirror=None,vflip=None,fps=60,to_ide=True):
         with ScopedTiming("init PipeLine",self.debug_mode > 0):
             nn.shrink_memory_pool()
+            if self.display_mode=="nt35516":
+                fps=30
             # 初始化并配置sensor
             brd=os.uname()[-1]
             if brd=="k230d_canmv_bpi_zero":
@@ -82,6 +84,12 @@ class PipeLine:
                     Display.init(Display.HX8399, osd_num=self.osd_layer_num, to_ide=to_ide)
                 else:
                     Display.init(Display.HX8399, width=self.display_size[0], height=self.display_size[1], osd_num=self.osd_layer_num, to_ide=to_ide)
+            elif self.display_mode=="nt35516":
+                # 设置为NT35516显示，默认960x540
+                if self.display_size==None:
+                    Display.init(Display.NT35516, osd_num=self.osd_layer_num, to_ide=to_ide)
+                else:
+                    Display.init(Display.NT35516, width=self.display_size[0], height=self.display_size[1], osd_num=self.osd_layer_num, to_ide=to_ide)
             else:
                 # 设置为LT9611显示，默认1920x1080
                 Display.init(Display.LT9611,osd_num=self.osd_layer_num, to_ide = to_ide)
