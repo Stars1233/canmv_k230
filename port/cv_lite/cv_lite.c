@@ -1380,8 +1380,67 @@ STATIC mp_obj_t cv_lite_rgb888_calc_histogram(size_t n_args, const mp_obj_t *arg
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_calc_histogram_obj, 2, 2, cv_lite_rgb888_calc_histogram);
 
+STATIC mp_obj_t cv_lite_rgb888_find_corners(size_t n_args, const mp_obj_t *args)
+{
+    // 解析输入参数
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]); // HW3
+    uint8_t *img_data = data->array;
 
+    // 构造图像尺寸
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+    int maxCorners = mp_obj_get_int(args[2]);
+    double qualityLevel = mp_obj_get_float(args[3]);
+    double minDistance = mp_obj_get_float(args[4]);
+    // 调用 C++ 检测函数
+    int ret_num = 0;
+    int *ret = rgb888_find_corners(frame_shape, img_data, maxCorners, qualityLevel, minDistance, &ret_num);
 
+    // 构造返回 Python 列表 [x0, y0, x1, y1, ...]
+    mp_obj_t *items = m_new(mp_obj_t, ret_num * 2);
+    for (int i = 0; i < ret_num; ++i) {
+        items[i * 2 + 0] = mp_obj_new_int(ret[i * 2 + 0]);
+        items[i * 2 + 1] = mp_obj_new_int(ret[i * 2 + 1]);
+    }
+    mp_obj_t list_obj = mp_obj_new_list(ret_num * 2, items);
+    free(ret);
+    return list_obj;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_find_corners_obj, 5, 5, cv_lite_rgb888_find_corners);
+
+STATIC mp_obj_t cv_lite_rgb888_find_corners_fast(size_t n_args, const mp_obj_t *args)
+{
+    // 解析输入参数
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]); // HW3
+    uint8_t *img_data = data->array;
+
+    // 构造图像尺寸
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+    int maxCorners = mp_obj_get_int(args[2]);
+    double qualityLevel = mp_obj_get_float(args[3]);
+    double minDistance = mp_obj_get_float(args[4]);
+    // 调用 C++ 检测函数
+    int ret_num = 0;
+    int *ret = rgb888_find_corners_fast(frame_shape, img_data, maxCorners, qualityLevel, minDistance, &ret_num);
+
+    // 构造返回 Python 列表 [x0, y0, x1, y1, ...]
+    mp_obj_t *items = m_new(mp_obj_t, ret_num * 2);
+    for (int i = 0; i < ret_num; ++i) {
+        items[i * 2 + 0] = mp_obj_new_int(ret[i * 2 + 0]);
+        items[i * 2 + 1] = mp_obj_new_int(ret[i * 2 + 1]);
+    }
+    mp_obj_t list_obj = mp_obj_new_list(ret_num * 2, items);
+    free(ret);
+    return list_obj;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_find_corners_fast_obj, 5, 5, cv_lite_rgb888_find_corners_fast);
 
 
 STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
@@ -1433,6 +1492,9 @@ STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rgb888_blackhat), MP_ROM_PTR(&cv_lite_rgb888_blackhat_obj) },
     // 计算直方图
     { MP_ROM_QSTR(MP_QSTR_rgb888_calc_histogram), MP_ROM_PTR(&cv_lite_rgb888_calc_histogram_obj) },
+    // 找角点
+    { MP_ROM_QSTR(MP_QSTR_rgb888_find_corners), MP_ROM_PTR(&cv_lite_rgb888_find_corners_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rgb888_find_corners_fast), MP_ROM_PTR(&cv_lite_rgb888_find_corners_fast_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(cv_lite_globals, cv_lite_globals_table);
