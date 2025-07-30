@@ -438,8 +438,8 @@ void ide_dbg_init(void);
 bool command_line_mode = false;
 
 int main(int argc, char **argv) {
-    // wait /dev/ttyUSB1 and /sdcard ready
-    // usleep(1000000);
+    printf("CanMV K230 start in %ld us\n", mp_hal_ticks_us());
+
     if (argc == 1)
         ide_dbg_init();
     //dup2(usb_cdc_fd, STDOUT_FILENO);
