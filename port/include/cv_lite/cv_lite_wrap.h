@@ -86,10 +86,9 @@ extern "C" {
     // 直方图统计
     void rgb888_calc_histogram(FrameCHWSize frame_shape, uint8_t* data, uint32_t* result);
 
+    int* grayscale_find_corners(FrameCHWSize frame_shape, uint8_t* data,int maxCorners, float qualityLevel, float minDistance,int* ret_num);
     int* rgb888_find_corners(FrameCHWSize frame_shape, uint8_t* data,int maxCorners, float qualityLevel, float minDistance,int* ret_num);
     int* rgb888_find_corners_fast(FrameCHWSize frame_shape, uint8_t* data, int maxCorners,float qualityLevel, float minDistance, int* ret_num);
-
-    // void calibrate_camera(char* images_path,int board_width,int board_height,float square_size,float* camera_matrix,float* dist_coeffs);
 
 #ifdef __cplusplus
 }

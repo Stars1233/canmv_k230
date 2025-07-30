@@ -11,7 +11,7 @@ import ulab.numpy as np
 image_shape = [480, 640]
 
 # 初始化摄像头
-sensor = Sensor(id=2, width=image_shape[1], height=image_shape[0])
+sensor = Sensor(id=2, width=1280, height=720,fps=90)
 sensor.reset()
 sensor.set_framesize(width=image_shape[1], height=image_shape[0])
 sensor.set_pixformat(Sensor.RGB888)
