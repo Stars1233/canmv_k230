@@ -20,7 +20,7 @@ image_shape = [480, 640]  # 高 x 宽 / Height x Width
 # -------------------------------
 # 初始化摄像头 / Initialize camera
 # -------------------------------
-sensor = Sensor(id=2, width=image_shape[1], height=image_shape[0])  # 构建 Sensor 对象
+sensor = Sensor(id=2, width=1280, height=720,fps=90)  # 构建 Sensor 对象
 sensor.reset()                                                      # 复位摄像头
 sensor.set_framesize(width=image_shape[1], height=image_shape[0])  # 设置帧大小
 sensor.set_pixformat(Sensor.GRAYSCALE)                              # 设置为灰度图输出

@@ -20,7 +20,7 @@ image_shape = [480, 640]  # 高 x 宽 / Height x Width
 # -------------------------------
 # 初始化摄像头（灰度模式） / Initialize camera (grayscale)
 # -------------------------------
-sensor = Sensor(id=2, width=image_shape[1], height=image_shape[0])
+sensor = Sensor(id=2, width=1280, height=720,fps=90)
 sensor.reset()
 sensor.set_framesize(width=image_shape[1], height=image_shape[0])
 sensor.set_pixformat(Sensor.GRAYSCALE)  # 灰度图格式 / Grayscale format
