@@ -533,6 +533,9 @@ MP_NOINLINE int main_(int argc, char **argv) {
     extern void _machine_pin_init(void);
     _machine_pin_init();
 
+    extern void fb_alloc_init0();
+    fb_alloc_init0();
+
     #if MICROPY_VFS_POSIX
     {
         // Mount the host FS at the root of our internal VFS
@@ -860,15 +863,19 @@ main_thread_exit:
     mp_bluetooth_deinit();
     #endif
     #if CONFIG_ENABLE_NETWORK_RT_WLAN
-    void network_rt_wlan_deinit(void);
+    extern void network_rt_wlan_deinit(void);
     network_rt_wlan_deinit();
     #endif
+
     #if MICROPY_PY_THREAD
     mp_thread_deinit();
     #endif
 
-    void py_media_vbmgmt_deinit_pre(void);
+    extern void py_media_vbmgmt_deinit_pre(void);
     py_media_vbmgmt_deinit_pre();
+
+    extern void fb_free_all();
+    fb_free_all();
 
     gc_sweep_all();
 
