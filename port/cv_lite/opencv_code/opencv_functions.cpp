@@ -1932,8 +1932,210 @@ void rgb888_calc_histogram(FrameCHWSize frame_shape, uint8_t* data, uint32_t* re
     }
 }
 
+/**
+ * @brief 彩色图像查找角点（不缩放图像，优化性能）
+ * 
+ * @param frame_shape 图像尺寸
+ * @param data 图像数据（RGB888，每像素3字节）
+ * @param maxCorners 最大角点数（建议100~500）
+ * @param qualityLevel Shi-Tomasi角点质量因子（建议0.01~0.1）
+ * @param minDistance 最小角点距离（像素，建议5~20）
+ * @param ret_num 返回角点数量
+ * @return int* 角点数组，每个角点包含 x, y 坐标（int），共 ret_num*2 个元素
+ */
+int* rgb888_find_corners(FrameCHWSize frame_shape, uint8_t* data,int maxCorners, float qualityLevel, float minDistance,int* ret_num)
+{
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 构造 RGB 图像
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 转为灰度图
+    cv::Mat gray;
+    cv::cvtColor(rgb, gray, cv::COLOR_RGB2GRAY);
+
+    // Shi-Tomasi角点检测
+    std::vector<cv::Point2f> corners;
+    cv::goodFeaturesToTrack(gray, corners, maxCorners, qualityLevel, minDistance);
+
+    *ret_num = static_cast<int>(corners.size());
+    if (*ret_num == 0) return nullptr;
+
+    // 分配输出内存（每个角点2个int：x, y）
+    int* ret = static_cast<int*>(malloc(*ret_num * 2 * sizeof(int)));
+    for (int i = 0; i < *ret_num; ++i) {
+        ret[i * 2 + 0] = cvRound(corners[i].x);
+        ret[i * 2 + 1] = cvRound(corners[i].y);
+    }
+
+    return ret;
+}
+
+struct Corner {
+    int x;
+    int y;
+};
+
+// FAST 角点模板偏移（16个像素位置，围绕中心点）
+const int FAST_OFFSETS[16][2] = {
+    {0, -3}, {1, -3}, {2, -2}, {3, -1},
+    {3, 0},  {3, 1},  {2, 2},  {1, 3},
+    {0, 3},  {-1, 3}, {-2, 2}, {-3, 1},
+    {-3, 0}, {-3, -1},{-2, -2},{-1, -3}
+};
+
+// 手写 FAST 检测（简化实现，适合中小图像）
+std::vector<Corner> fast_detect(uint8_t* img, int w, int h, int threshold) {
+    std::vector<Corner> corners;
+    for (int y = 3; y < h - 3; ++y) {
+        for (int x = 3; x < w - 3; ++x) {
+            uint8_t center = img[y * w + x];
+            int brighter = 0, darker = 0;
+
+            for (int i = 0; i < 16; ++i) {
+                int dx = FAST_OFFSETS[i][0];
+                int dy = FAST_OFFSETS[i][1];
+                uint8_t p = img[(y + dy) * w + (x + dx)];
+
+                if (p > center + threshold) brighter++;
+                else if (p < center - threshold) darker++;
+            }
+
+            if (brighter >= 9 || darker >= 9) {
+                corners.push_back({x, y});
+            }
+        }
+    }
+    return corners;
+}
+
+// 主函数：RGB888 图像角点检测（使用手写 FAST）
+int* rgb888_find_corners_fast(FrameCHWSize frame_shape, uint8_t* data, int maxCorners,
+                               float qualityLevel, float minDistance, int* ret_num)
+{
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 手写 RGB888 转灰度（避免 OpenCV 依赖）
+    std::vector<uint8_t> gray_data(width * height);
+    const uint8_t* rgb_ptr = data;
+    for (int i = 0; i < width * height; ++i, rgb_ptr += 3) {
+        gray_data[i] = (77 * rgb_ptr[0] + 150 * rgb_ptr[1] + 29 * rgb_ptr[2]) >> 8;
+    }
+
+    // FAST 阈值转换
+    int fast_threshold = static_cast<int>(qualityLevel * 255);
+    if (fast_threshold < 10) fast_threshold = 10;
+
+    // 手写 FAST 角点检测
+    std::vector<Corner> raw_corners = fast_detect(gray_data.data(), width, height, fast_threshold);
+
+    // 限制最大数量 + 最小距离筛选
+    std::vector<Corner> filtered;
+    for (size_t i = 0; i < raw_corners.size(); ++i) {
+        bool keep = true;
+        for (size_t j = 0; j < filtered.size(); ++j) {
+            float dx = raw_corners[i].x - filtered[j].x;
+            float dy = raw_corners[i].y - filtered[j].y;
+            if ((dx * dx + dy * dy) < (minDistance * minDistance)) {
+                keep = false;
+                break;
+            }
+        }
+        if (keep) filtered.push_back(raw_corners[i]);
+        if ((int)filtered.size() >= maxCorners) break;
+    }
+
+    *ret_num = static_cast<int>(filtered.size());
+    if (*ret_num == 0) return nullptr;
+
+    // 输出角点：x, y int 值对
+    int* ret = static_cast<int*>(malloc(*ret_num * 2 * sizeof(int)));
+    for (int i = 0; i < *ret_num; ++i) {
+        ret[i * 2 + 0] = filtered[i].x;
+        ret[i * 2 + 1] = filtered[i].y;
+    }
+
+    return ret;
+}
 
 
+
+// void calibrate_camera(char* images_path,int board_width,int board_height,float square_size,float* camera_matrix,float* dist_coeffs)
+// {
+//     // 设置棋盘格内角点数量
+//     const int board_width = board_width;
+//     const int board_height = board_height;
+//     const float square_size = square_size; // 每个格子边长（单位：mm）
+
+//     Size board_size(board_width, board_height);
+//     vector<vector<Point3f>> object_points; // 3D 角点
+//     vector<vector<Point2f>> image_points;  // 2D 角点
+
+//     // 构造一张标准平面棋盘的 3D 点（Z=0）
+//     vector<Point3f> objp;
+//     for (int i = 0; i < board_height; i++) {
+//         for (int j = 0; j < board_width; j++) {
+//             objp.emplace_back(j * square_size, i * square_size, 0);
+//         }
+//     }
+
+//     // 从路径下读取所有图片的路径，保证所有图像分辨率一致
+//     vector<string> image_paths;
+//     DIR* dir = opendir(images_path);
+//     if (dir == nullptr) {
+//         perror("Failed to open directory");
+//         return;
+//     }
+
+//     struct dirent* entry;
+//     while ((entry = readdir(dir)) != nullptr) {
+//         if (entry->d_type == DT_REG) {
+//             string path = string(images_path) + "/" + entry->d_name;
+//             image_paths.push_back(path);
+//         }
+//     }
+//     closedir(dir);
+
+//     // 遍历所有图片，提取角点
+//     for (const auto& path : image_paths) {
+//         Mat img = imread(path);
+//         if (img.empty()) continue;
+
+//         vector<Point2f> corners;
+//         bool found = findChessboardCorners(img, board_size, corners,
+//                     CALIB_CB_ADAPTIVE_THRESH + CALIB_CB_NORMALIZE_IMAGE + CALIB_CB_FAST_CHECK);
+
+//         if (found) {
+//             Mat gray;
+//             cvtColor(img, gray, COLOR_BGR2GRAY);
+//             cornerSubPix(gray, corners, Size(11,11), Size(-1,-1),
+//                          TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 30, 0.001));
+
+//             image_points.push_back(corners);
+//             object_points.push_back(objp);
+
+//             // 可视化
+//             drawChessboardCorners(img, board_size, corners, found);
+//             imshow("Corners", img);
+//             waitKey(100);
+//         }
+//     }
+
+//     // 标定输出
+//     Mat cameraMatrix, distCoeffs;
+//     vector<Mat> rvecs, tvecs;
+
+//     calibrateCamera(object_points, image_points, Size(640, 480), // 图像分辨率
+//                     cameraMatrix, distCoeffs, rvecs, tvecs);
+
+//     cout << "Camera Matrix:\n" << cameraMatrix << endl;
+//     cout << "Distortion Coefficients:\n" << distCoeffs << endl;
+
+//     memcpy(camera_matrix, cameraMatrix.data, 9 * sizeof(double));
+//     memcpy(dist_coeffs, distCoeffs.data, 5 * sizeof(double));
+// }
 
 
 
