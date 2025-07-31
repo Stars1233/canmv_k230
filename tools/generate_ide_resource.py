@@ -31,6 +31,7 @@ SOURCE_DIRS = [
     "20-YOLO-Module-Examples",
     "21-AI-With-Others",
     "22-Others",
+    "23-CV_Lite",
     "99-HelloWorld",
 ]
 
