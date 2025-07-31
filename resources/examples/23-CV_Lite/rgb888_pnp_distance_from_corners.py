@@ -1,0 +1,117 @@
+# ============================================================
+# MicroPython 轮廓检测+PnP 距离估计测试（cv_lite 扩展）
+# Contour Detection + PnP Distance Estimation via cv_lite
+# ============================================================
+
+import time, os, gc
+from machine import Pin
+from media.sensor import *
+from media.display import *
+from media.media import *
+import _thread
+import cv_lite               # 需要实现对应的 native C 接口
+import ulab.numpy as np
+
+# -------------------------------
+# 图像尺寸 / Image size
+# -------------------------------
+image_shape = [480, 640]
+
+def calculate_crop(sensor_width, sensor_height, target_width, target_height):
+    """
+    Calculate center crop rectangle from sensor resolution to match target resolution
+    with preserved aspect ratio.
+
+    Returns:
+        (crop_x, crop_y, crop_width, crop_height)
+    """
+    scale = min(sensor_width // target_width, sensor_height // target_height)
+    crop_width = int(target_width * scale)
+    crop_height = int(target_height * scale)
+    crop_x = (sensor_width - crop_width) // 2
+    crop_y = (sensor_height - crop_height) // 2
+
+    print(crop_x, crop_y, crop_width, crop_height)
+    return (crop_x, crop_y, crop_width, crop_height)
+
+# -------------------------------
+# 摄像头初始化
+# -------------------------------
+sensor = Sensor(id=2, fps=90)
+sensor.reset()
+sensor_width = sensor.width(None)
+sensor_height = sensor.height(None)
+# 设置采集图片的分辨率
+sensor.set_framesize(w=image_shape[1], h=image_shape[0],chn=CAM_CHN_ID_0, crop = calculate_crop(sensor_width, sensor_height, image_shape[1], image_shape[0]))
+sensor.set_pixformat(Sensor.RGB888)
+sensor.set_pixformat(Sensor.RGB888)
+
+# -------------------------------
+# 虚拟显示器输出
+# -------------------------------
+Display.init(Display.VIRT, width=image_shape[1], height=image_shape[0], to_ide=True, quality=50)
+
+# -------------------------------
+# 启动媒体管理器
+# -------------------------------
+MediaManager.init()
+sensor.run()
+
+# -------------------------------
+# 相机参数
+# -------------------------------
+camera_matrix = [
+    789.1207591978101,0.0,308.8211709453399,
+    0.0,784.6402477892891,220.80604393744628,
+    0.0,0.0,1.0
+]
+dist_coeffs = [-0.0032975761115662697,-0.009984467065645562,-0.01301691382446514,-0.00805834837844004,-1.063818733754765]
+dist_len = len(dist_coeffs)
+
+# -------------------------------
+# 目标实际尺寸（单位 cm）
+# -------------------------------
+obj_width_real = 20.1
+obj_height_real = 28.9
+
+# -------------------------------
+# 帧率监控
+# -------------------------------
+clock = time.clock()
+
+# -------------------------------
+# 主循环
+# -------------------------------
+while True:
+    clock.tick()
+
+    img = sensor.snapshot()
+    img_np = img.to_numpy_ref()
+
+    # 距离估计（通过轮廓+PnP）
+    distance = cv_lite.rgb888_pnp_distance_from_corners(
+        image_shape, img_np,
+        camera_matrix, dist_coeffs, dist_len,
+        obj_width_real, obj_height_real
+    )
+
+    # 如果距离估计成功
+    if distance > 0:
+        img.draw_string_advanced(10, 10, 32, "Dist: %.2fcm" % distance, color=(0, 255, 0))
+    else:
+        img.draw_string_advanced(10, 10, 32, "No Rect Found", color=(255, 0, 0))
+
+    # 显示图像
+    Display.show_image(img)
+
+    print("contour_pnp:", clock.fps())
+    gc.collect()
+
+# -------------------------------
+# 释放资源
+# -------------------------------
+sensor.stop()
+Display.deinit()
+os.exitpoint(os.EXITPOINT_ENABLE_SLEEP)
+time.sleep_ms(100)
+MediaManager.deinit()

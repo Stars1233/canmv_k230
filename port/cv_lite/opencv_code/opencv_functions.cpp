@@ -2528,70 +2528,22 @@ void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,int* r
     std::memcpy(result, undistorted.data, width * height * 3);
 }
 
-// float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
-//                           float* camera_matrix, float* dist_coeffs, int dist_len,
-//                           float roi_width_real, float roi_height_real) {
-//     int width = frame_shape.width;
-//     int height = frame_shape.height;
-
-//     // 构建 RGB888 图像
-//     cv::Mat rgb(height, width, CV_8UC3, data);
-
-//     // 相机内参矩阵
-//     cv::Mat cam_mat(3, 3, CV_32F);
-//     std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
-
-//     // 畸变系数
-//     cv::Mat dist_mat(1, dist_len, CV_32F);
-//     std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
-
-//     // ROI 图像坐标
-//     int x = roi[0];
-//     int y = roi[1];
-//     int w = roi[2];
-//     int h = roi[3];
-
-//     // 使用实际物理尺寸构建 objectPoints（单位自定义，如 cm 或 m）
-//     std::vector<cv::Point3f> objectPoints = {
-//         {0, 0, 0},
-//         {roi_width_real, 0, 0},
-//         {roi_width_real, roi_height_real, 0},
-//         {0, roi_height_real, 0}
-//     };
-
-//     // ROI 的图像像素坐标（四角）
-//     std::vector<cv::Point2f> imagePoints = {
-//         {static_cast<float>(x), static_cast<float>(y)},
-//         {static_cast<float>(x + w), static_cast<float>(y)},
-//         {static_cast<float>(x + w), static_cast<float>(y + h)},
-//         {static_cast<float>(x), static_cast<float>(y + h)}
-//     };
-
-//     // 解算位姿
-//     cv::Mat rvec, tvec;
-//     bool ok = cv::solvePnP(objectPoints, imagePoints, cam_mat, dist_mat, rvec, tvec);
-
-//     if (ok && tvec.total() == 3) {
-//         return static_cast<float>(cv::norm(tvec));  // 返回目标到相机的距离（与输入尺寸单位一致）
-//     } else {
-//         return -1.0f; // 解算失败
-//     }
-// }
-
 float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
                           float* camera_matrix, float* dist_coeffs, int dist_len,
                           float roi_width_real, float roi_height_real) {
     int width = frame_shape.width;
     int height = frame_shape.height;
 
-    // 构建 RGB 图像
+    // 构建 RGB888 图像
     cv::Mat rgb(height, width, CV_8UC3, data);
 
-    // 去畸变（可选，提升边缘区域 ROI 的准确性）
-    cv::Mat cam_mat(3, 3, CV_32F, camera_matrix);
-    cv::Mat dist_mat(1, dist_len, CV_32F, dist_coeffs);
-    cv::Mat undistorted;
-    cv::undistort(rgb, undistorted, cam_mat, dist_mat);
+    // 相机内参矩阵
+    cv::Mat cam_mat(3, 3, CV_32F);
+    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+
+    // 畸变系数
+    cv::Mat dist_mat(1, dist_len, CV_32F);
+    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
 
     // ROI 图像坐标
     int x = roi[0];
@@ -2599,33 +2551,192 @@ float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
     int w = roi[2];
     int h = roi[3];
 
-    // 定义世界坐标系下的四个点（左上角开始，顺时针）
+    // 使用实际物理尺寸构建 objectPoints（单位自定义，如 cm 或 m）
     std::vector<cv::Point3f> objectPoints = {
-        {0.0f, 0.0f, 0.0f},
-        {roi_width_real, 0.0f, 0.0f},
-        {roi_width_real, roi_height_real, 0.0f},
-        {0.0f, roi_height_real, 0.0f}
+        {0, 0, 0},
+        {roi_width_real, 0, 0},
+        {roi_width_real, roi_height_real, 0},
+        {0, roi_height_real, 0}
     };
 
-    // 图像中 ROI 对应的四个角点（顺时针）
+    // ROI 的图像像素坐标（四角）
     std::vector<cv::Point2f> imagePoints = {
-        {static_cast<float>(x),         static_cast<float>(y)},
-        {static_cast<float>(x + w - 1), static_cast<float>(y)},
-        {static_cast<float>(x + w - 1), static_cast<float>(y + h - 1)},
-        {static_cast<float>(x),         static_cast<float>(y + h - 1)}
+        {static_cast<float>(x), static_cast<float>(y)},
+        {static_cast<float>(x + w), static_cast<float>(y)},
+        {static_cast<float>(x + w), static_cast<float>(y + h)},
+        {static_cast<float>(x), static_cast<float>(y + h)}
     };
 
-    // 位姿解算
+    // 解算位姿
     cv::Mat rvec, tvec;
-    bool ok = cv::solvePnP(objectPoints, imagePoints, cam_mat, cv::Mat(), rvec, tvec, false, cv::SOLVEPNP_IPPE_SQUARE);
+    bool ok = cv::solvePnP(objectPoints, imagePoints, cam_mat, dist_mat, rvec, tvec);
 
     if (ok && tvec.total() == 3) {
-        double distance = cv::norm(tvec);
-        if (distance > 0 && distance < 10000.0) { // 合理性判断：小于 10 米
-            return static_cast<float>(distance);
+        return static_cast<float>(cv::norm(tvec));  // 返回目标到相机的距离（与输入尺寸单位一致）
+    } else {
+        return -1.0f; // 解算失败
+    }
+}
+
+// 判断四边形是否接近矩形
+bool isRectangle(const std::vector<cv::Point>& approx, double angle_tolerance = 10.0) {
+    if (approx.size() != 4) return false;
+
+    auto angle = [](cv::Point pt1, cv::Point pt2, cv::Point pt3) {
+        cv::Point2f v1 = pt1 - pt2;
+        cv::Point2f v2 = pt3 - pt2;
+        float cos_angle = (v1.dot(v2)) / (cv::norm(v1) * cv::norm(v2));
+        return std::acos(std::clamp(cos_angle, -1.0f, 1.0f)) * 180.0 / CV_PI;
+    };
+
+    for (int i = 0; i < 4; ++i) {
+        double a = angle(approx[(i+3)%4], approx[i], approx[(i+1)%4]);
+        if (std::abs(a - 90.0) > angle_tolerance) return false;
+    }
+
+    return true;
+}
+
+// 将 4 个角点顺时针排列（左上、右上、右下、左下）
+std::vector<cv::Point2f> orderPointsClockwise(const std::vector<cv::Point2f>& pts) {
+    std::vector<cv::Point2f> rect(4);
+    std::vector<float> sum_pts, diff_pts;
+
+    for (const auto& pt : pts) {
+        sum_pts.push_back(pt.x + pt.y);
+        diff_pts.push_back(pt.y - pt.x);
+    }
+
+    rect[0] = pts[std::min_element(sum_pts.begin(), sum_pts.end()) - sum_pts.begin()]; // top-left
+    rect[2] = pts[std::max_element(sum_pts.begin(), sum_pts.end()) - sum_pts.begin()]; // bottom-right
+    rect[1] = pts[std::min_element(diff_pts.begin(), diff_pts.end()) - diff_pts.begin()]; // top-right
+    rect[3] = pts[std::max_element(diff_pts.begin(), diff_pts.end()) - diff_pts.begin()]; // bottom-left
+
+    return rect;
+}
+
+float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,
+                                       float* camera_matrix, float* dist_coeffs, int dist_len,
+                                       float obj_width_cm, float obj_height_cm) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 构造 RGB 图像
+    cv::Mat rgb(height, width, CV_8UC3, data);
+    cv::Mat undistorted;
+
+    // 相机参数
+    cv::Mat cam_mat(3, 3, CV_32F, camera_matrix);
+    cv::Mat dist_mat(1, dist_len, CV_32F, dist_coeffs);
+
+    // 畸变校正
+    cv::undistort(rgb, undistorted, cam_mat, dist_mat);
+
+    // 灰度 + 预处理
+    cv::Mat gray, blurred, edges;
+    cv::cvtColor(undistorted, gray, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(gray, blurred, cv::Size(5, 5), 0);
+    cv::Canny(blurred, edges, 50, 150);
+
+    // 查找轮廓
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(edges, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    std::vector<std::vector<cv::Point>> rectangles;
+    for (const auto& cnt : contours) {
+        if (cv::contourArea(cnt) < 1000) continue;
+
+        std::vector<cv::Point> approx;
+        cv::approxPolyDP(cnt, approx, 0.02 * cv::arcLength(cnt, true), true);
+        if (isRectangle(approx)) {
+            rectangles.push_back(approx);
         }
     }
-    return -1.0f; // 解算失败
+
+    if (rectangles.empty()) return -1.0f;
+
+    // 获取最大矩形
+    auto largest_rect = *std::max_element(rectangles.begin(), rectangles.end(),
+        [](const std::vector<cv::Point>& a, const std::vector<cv::Point>& b) {
+            return cv::contourArea(a) < cv::contourArea(b);
+        });
+
+    // 获取最小外接矩形角点
+    cv::RotatedRect box = cv::minAreaRect(largest_rect);
+    cv::Point2f box_points[4];
+    box.points(box_points);
+    std::vector<cv::Point2f> img_pts = orderPointsClockwise({box_points, box_points + 4});
+
+    // 构造 3D 物体点
+    std::vector<cv::Point3f> obj_pts = {
+        {0, 0, 0},
+        {obj_width_cm, 0, 0},
+        {obj_width_cm, obj_height_cm, 0},
+        {0, obj_height_cm, 0}
+    };
+
+    // PnP 解算
+    cv::Mat rvec, tvec;
+    bool ok = cv::solvePnP(obj_pts, img_pts, cam_mat, dist_mat, rvec, tvec);
+    if (!ok || tvec.total() != 3) return -1.0f;
+
+    return static_cast<float>(cv::norm(tvec));
+}
+
+/**
+ * @brief 对 RGB888 图像中指定 ROI 区域进行透视变换
+ * 
+ * @param frame_shape     输入图像尺寸（CHW）
+ * @param data            原始 RGB888 图像数据（HWC 格式，连续内存）
+ * @param roi             ROI 区域坐标（int[4]，分别为 x, y, width, height）
+ * @param dst_pts         目标变换点（float[8]，按顺时针顺序：左上、左下、右下、右上）
+ * @param out_width       目标图像宽度
+ * @param out_height      目标图像高度
+ * @param result          透视变换后的 RGB888 图像输出指针（大小为 out_width * out_height * 3）
+ */
+void rgb888_perspective_transform(FrameCHWSize frame_shape, uint8_t* data,
+                                  int roi[4], float dst_pts[8],
+                                  int out_width, int out_height,
+                                  uint8_t* result) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 构造 OpenCV 图像
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 解析 ROI
+    int x = roi[0];
+    int y = roi[1];
+    int w = roi[2];
+    int h = roi[3];
+    cv::Rect roi_rect(x, y, w, h);
+    cv::Mat roi_img = rgb(roi_rect);
+
+    // 构造源点：ROI 内部的 4 个角点（顺时针）
+    std::vector<cv::Point2f> src_pts = {
+        {0.0f, 0.0f},
+        {0.0f, static_cast<float>(h - 1)},
+        {static_cast<float>(w - 1), static_cast<float>(h - 1)},
+        {static_cast<float>(w - 1), 0.0f}
+    };
+
+    // 构造目标点（顺时针）
+    std::vector<cv::Point2f> dst_points = {
+        {dst_pts[0], dst_pts[1]},
+        {dst_pts[2], dst_pts[3]},
+        {dst_pts[4], dst_pts[5]},
+        {dst_pts[6], dst_pts[7]}
+    };
+
+    // 获取透视变换矩阵
+    cv::Mat M = cv::getPerspectiveTransform(src_pts, dst_points);
+
+    // 执行透视变换
+    cv::Mat warped;
+    cv::warpPerspective(roi_img, warped, M, cv::Size(out_width, out_height));
+
+    // 拷贝结果
+    std::memcpy(result, warped.data, out_width * out_height * 3);
 }
 
 
