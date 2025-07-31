@@ -1802,6 +1802,95 @@ STATIC mp_obj_t cv_lite_rgb888_pnp_distance(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_pnp_distance_obj, 8, 8, cv_lite_rgb888_pnp_distance);
 
+STATIC mp_obj_t cv_lite_rgb888_pnp_distance_from_corners(size_t n_args, const mp_obj_t *args) {
+    // 参数解析
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]);              // 图像数据
+    uint8_t *img_data = data->array;
+
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+
+    mp_obj_list_t *camera_matrix_mp = MP_OBJ_TO_PTR(args[2]);
+    mp_obj_list_t *dist_coeffs_mp = MP_OBJ_TO_PTR(args[3]);
+    int dist_len = mp_obj_get_int(args[4]);
+    float obj_width_cm = mp_obj_get_float(args[5]);
+    float obj_height_cm = mp_obj_get_float(args[6]);
+
+    // camera_matrix_mp 和 dist_coeffs_mp 是传进来的 mp_obj_t
+    mp_obj_t *camera_matrix_items;
+    size_t camera_matrix_len;
+    mp_obj_get_array(camera_matrix_mp, &camera_matrix_len, &camera_matrix_items);
+
+    // 分配 float 缓冲
+    float camera_matrix[9];
+    for (size_t i = 0; i < camera_matrix_len && i < 9; ++i) {
+        camera_matrix[i] = mp_obj_get_float(camera_matrix_items[i]);
+    }
+
+    // 解析 dist_coeffs
+    mp_obj_t *dist_coeff_items;
+    size_t dist_coeff_len;
+    mp_obj_get_array(dist_coeffs_mp, &dist_coeff_len, &dist_coeff_items);
+
+    float dist_coeffs[dist_coeff_len];  // 最多支持 8 个系数
+    for (size_t i = 0; i < dist_coeff_len && i < 8; ++i) {
+        dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
+    }
+
+    // 调用底层透视变换函数
+    float distance = rgb888_pnp_distance_from_corners(frame_shape, img_data, camera_matrix, dist_coeffs, dist_len, obj_width_cm, obj_height_cm);
+
+    return mp_obj_new_float(distance);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_pnp_distance_from_corners_obj, 7, 7, cv_lite_rgb888_pnp_distance_from_corners);
+
+STATIC mp_obj_t cv_lite_rgb888_perspective_transform(size_t n_args, const mp_obj_t *args) {
+    // 参数解析
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]);              // 图像数据
+    uint8_t *img_data = data->array;
+
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+
+    mp_obj_list_t *roi_mp = MP_OBJ_TO_PTR(args[2]);  // [x, y, width, height]
+    int roi[4];
+    roi[0] = mp_obj_get_int(roi_mp->items[0]);
+    roi[1] = mp_obj_get_int(roi_mp->items[1]);
+    roi[2] = mp_obj_get_int(roi_mp->items[2]);
+    roi[3] = mp_obj_get_int(roi_mp->items[3]);
+
+    mp_obj_list_t *dst_pts_mp = MP_OBJ_TO_PTR(args[3]);  // [x1, y1, x2, y2, x3, y3, x4, y4]
+    float dst_pts[8];
+    for (size_t i = 0; i < 8; ++i) {
+        dst_pts[i] = mp_obj_get_float(dst_pts_mp->items[i]);
+    }
+
+    int out_width = mp_obj_get_int(args[4]);
+    int out_height = mp_obj_get_int(args[5]);
+
+    uint8_t *result = malloc(out_width * out_height * frame_shape.channel);
+
+    rgb888_perspective_transform(frame_shape, img_data, roi, dst_pts, out_width, out_height, result);
+    // 构造返回的 numpy 对象（共享内存，不复制）
+    size_t ndarray_shape[4];
+    ndarray_shape[0] = 1;
+    ndarray_shape[1] = frame_shape.height;
+    ndarray_shape[2] = frame_shape.width;
+    ndarray_shape[3] = frame_shape.channel;
+    ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
+    uint8_t *out_data = (uint8_t *)out->array;
+    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    free(result);
+    return MP_OBJ_FROM_PTR(out);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_perspective_transform_obj, 6, 6, cv_lite_rgb888_perspective_transform);
+
 STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cv_lite) },
     // 找色块
@@ -1865,6 +1954,9 @@ STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rgb888_undistort_new_cam_mat), MP_ROM_PTR(&cv_lite_rgb888_undistort_new_cam_mat_obj) },
     // 计算距离
     { MP_ROM_QSTR(MP_QSTR_rgb888_pnp_distance), MP_ROM_PTR(&cv_lite_rgb888_pnp_distance_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rgb888_pnp_distance_from_corners), MP_ROM_PTR(&cv_lite_rgb888_pnp_distance_from_corners_obj) },
+    // 透视变换
+    { MP_ROM_QSTR(MP_QSTR_rgb888_perspective_transform), MP_ROM_PTR(&cv_lite_rgb888_perspective_transform_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(cv_lite_globals, cv_lite_globals_table);
