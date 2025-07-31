@@ -10,12 +10,20 @@ from machine import FPIOA
 DISPLAY_WIDTH = ALIGN_UP(800, 16)
 DISPLAY_HEIGHT = 480
 
-#视频分辨率
-VIDEO_WIDTH = 800
-VIDEO_HEIGHT = 480
+#采集图片的分辨率
+VIDEO_WIDTH = 1920
+VIDEO_HEIGHT = 1080
 
-#按键GPIO Number，根据硬件修改
-PRESS_KEY_NUM = 21
+brd = os.uname()[-1]
+if brd == "k230_canmv_01studio":
+    PRESS_KEY_NUM = 21
+elif brd == "k230_canmv_lckfb":
+    PRESS_KEY_NUM = 53
+else:
+    #按键GPIO Number，根据硬件修改
+    PRESS_KEY_NUM = 21
+
+del brd
 
 #保存图片的起始编号，可以修改
 save_num = 0
@@ -32,10 +40,39 @@ IMG_SAVE_NAME_BEGIN="1_"
 
 LOGO_FILE="/sdcard/examples/16-AI-Cube/logo.jpg"
 
-FONT_X = int(DISPLAY_WIDTH/2-50)
-FONT_Y = int(DISPLAY_HEIGHT/2-10)
+def calculate_crop(sensor_width, sensor_height, target_width, target_height):
+    """
+    Calculate center crop rectangle from sensor resolution to match target resolution
+    with preserved aspect ratio.
 
-#sensor = None
+    Returns:
+        (crop_x, crop_y, crop_width, crop_height)
+    """
+    scale = min(sensor_width / target_width, sensor_height / target_height)
+    crop_width = int(target_width * scale)
+    crop_height = int(target_height * scale)
+    crop_x = (sensor_width - crop_width) // 2
+    crop_y = (sensor_height - crop_height) // 2
+    return (crop_x, crop_y, crop_width, crop_height)
+
+def cal_grab_rect():
+    global grab_x, grab_y, grab_w, grab_h
+
+    frame_w = DISPLAY_WIDTH
+    frame_h = DISPLAY_HEIGHT
+
+    if frame_w > frame_h:
+        grab_h = int(frame_h * 6 / 7)
+        grab_y = int((frame_h - grab_h) / 2)
+        grab_w = grab_h
+        grab_x = int((frame_w - grab_w) / 2)
+    else:
+        grab_w = int(frame_w * 6 / 7)
+        grab_x = int((frame_w - grab_w) / 2)
+        grab_h = grab_w
+        grab_y = int((frame_h - grab_h) / 2)
+
+    print("cal_grab_rect x: {}, y: {}, w: {}, h: {}".format(grab_x, grab_y, grab_w, grab_h))
 
 def media_init():
     global sensor
@@ -51,29 +88,21 @@ def media_init():
 
     sensor = Sensor(fps=30)
     sensor.reset()
-    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0)
+
+    semsor_width = sensor.width()
+    sensor_height = sensor.height()
+    # 设置采集图片的分辨率
+    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0, crop = calculate_crop(semsor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
     sensor.set_pixformat(Sensor.RGB888)
-    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT, chn=CAM_CHN_ID_2)
-    sensor.set_pixformat(Sensor.RGBP888, chn=CAM_CHN_ID_2)
+
+    # 设置显示的分辨率, 使用与采集相同的分辨率来做resize
+    sensor.set_framesize(w=DISPLAY_WIDTH, h=DISPLAY_HEIGHT, chn=CAM_CHN_ID_2,crop = calculate_crop(semsor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
+    sensor.set_pixformat(Sensor.RGB888, chn=CAM_CHN_ID_2)
+
     MediaManager.init()
     sensor.run()
+
     cal_grab_rect()
-
-def cal_grab_rect():
-    global grab_x, grab_y, grab_w, grab_h
-
-    if VIDEO_WIDTH > VIDEO_HEIGHT:
-        grab_h = int(VIDEO_HEIGHT*6/7)
-        grab_y = int((VIDEO_HEIGHT - grab_h)/2)
-        grab_w = grab_h
-        grab_x = int((VIDEO_WIDTH - grab_w)/2)
-    else:
-        grab_w = int(VIDEO_WIDTH*6/7)
-        grab_x = int((VIDEO_WIDTH - grab_w)/2)
-        grab_h = grab_w
-        grab_y = int((VIDEO_HEIGHT - grab_h)/2)
-
-    print("cal_grab_rect x: " + str(grab_x) + ",y: " + str(grab_y) + ",w: " + str(grab_w) + ",h: " + str(grab_h))
 
 def media_deinit():
     global sensor
@@ -87,7 +116,7 @@ def save_file(img_0):
     global save_num
     img_1 = img_0.to_jpeg()
     img_name = IMG_SAVE_NAME_BEGIN + str(save_num) + ".jpg"
-    img_1.save(IMG_SAVE_PATH + img_name)
+    img_1.save(IMG_SAVE_PATH + img_name, quality = 99)
     print("save img " + IMG_SAVE_PATH + img_name)
     save_num += 1
     gc.collect()
@@ -105,9 +134,14 @@ def show_logo():
     Display.show_image(logo_img.to_rgb888())
     time.sleep(2)
 
-
 def index_init():
     global save_num
+
+    try:
+        os.stat(IMG_SAVE_PATH)
+    except:
+        os.mkdir(IMG_SAVE_PATH)
+
     for file in os.listdir(IMG_SAVE_PATH):
         if file is None:
             break
@@ -118,22 +152,26 @@ def index_init():
                 save_num = index + 1
     print("index_init start " + str(save_num))
 
-def key_handle(img):
-    global KEY, grab_x, grab_y, grab_w, grab_h
+def key_handle(img_save, img_display):
+    global KEY
+
+    wait_key = False
     if KEY.value()==0:   #按键被按下
         time.sleep_ms(10) #消除抖动
         if KEY.value()==0: #确认按键被按下
-            print('KEY')
-            img_name = save_file(img)
-            img.draw_string_advanced(FONT_X, FONT_Y, 100, img_name, color = (0, 0, 255),)
-            img.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
-            Display.show_image(img)
-            time.sleep(2)
-            while not KEY.value(): #检测按键是否松开
-                pass
-    else:
-        img.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
-        Display.show_image(img) #显示图片
+            print('Save')
+            wait_key = True
+            img_name = save_file(img_save)
+            img_display.draw_string_advanced(0, 0, 48, f"Save: {img_name}", color = (0, 0, 255))
+
+    img_display.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
+
+    Display.show_image(img_display) #显示图片
+
+    if wait_key: #如果按键被按下
+        time.sleep(0.5)
+        while not KEY.value(): #检测按键是否松开
+            pass
 
 try:
     media_init()
@@ -141,8 +179,9 @@ try:
     index_init()
     show_logo()
     while True:
-        img = sensor.snapshot() #拍摄一张图
-        key_handle(img)
+        img_save = sensor.snapshot(chn=CAM_CHN_ID_0)
+        img_display = sensor.snapshot(chn=CAM_CHN_ID_2)
+        key_handle(img_save, img_display)
         time.sleep_ms(10)
 except BaseException as e:
     import sys
