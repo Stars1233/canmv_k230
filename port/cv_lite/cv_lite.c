@@ -287,6 +287,110 @@ STATIC mp_obj_t cv_lite_grayscale_find_rectangles(size_t n_args, const mp_obj_t 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_grayscale_find_rectangles_obj, 8, 8, cv_lite_grayscale_find_rectangles);
 
+STATIC mp_obj_t cv_lite_grayscale_find_rectangles_with_corners(size_t n_args, const mp_obj_t *args) 
+{
+    // 参数解析
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]);              // 图像数据，HWC 或 HW1
+    uint8_t *img_data = data->array;
+
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 1; // 灰度图
+
+    // 解析剩余参数
+    int canny_thresh1         = mp_obj_get_int(args[2]);
+    int canny_thresh2         = mp_obj_get_int(args[3]);
+    float approx_eps_ratio   = mp_obj_get_float(args[4]);
+    float area_min_ratio     = mp_obj_get_float(args[5]);
+    float max_angle_cos      = mp_obj_get_float(args[6]);
+    int gaussian_blur_size    = mp_obj_get_int(args[7]);
+
+    // 调用 C++ 检测函数
+    int ret_num = 0;
+    int *ret = grayscale_find_rectangles_with_corners(
+        frame_shape, img_data,
+        canny_thresh1, canny_thresh2,
+        approx_eps_ratio,
+        area_min_ratio,
+        max_angle_cos,
+        gaussian_blur_size,
+        &ret_num
+    );
+    mp_obj_list_t *results_mp_list = mp_obj_new_list(0, NULL);
+
+    for (int i = 0; i < ret_num; i++)
+    {
+        mp_obj_list_t *results_mp_list_rect = mp_obj_new_list(0, NULL);
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 0]));
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 1]));
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 2]));
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 3]));
+        for (int j = 0; j < 4; j++)
+        {
+            mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + j * 2 + 4]));
+            mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + j * 2 + 5]));
+        }
+        mp_obj_list_append(results_mp_list, results_mp_list_rect);
+    }
+    free(ret);
+    return MP_OBJ_FROM_PTR(results_mp_list);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_grayscale_find_rectangles_with_corners_obj, 8, 8, cv_lite_grayscale_find_rectangles_with_corners);
+
+STATIC mp_obj_t cv_lite_rgb888_find_rectangles_with_corners(size_t n_args, const mp_obj_t *args) 
+{
+    // 参数解析
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]);              // 图像数据，HWC 或 HW1
+    uint8_t *img_data = data->array;
+
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3; // RGB888
+
+    // 解析剩余参数
+    int canny_thresh1         = mp_obj_get_int(args[2]);
+    int canny_thresh2         = mp_obj_get_int(args[3]);
+    float approx_eps_ratio   = mp_obj_get_float(args[4]);
+    float area_min_ratio     = mp_obj_get_float(args[5]);
+    float max_angle_cos      = mp_obj_get_float(args[6]);
+    int gaussian_blur_size    = mp_obj_get_int(args[7]);
+
+    // 调用 C++ 检测函数
+    int ret_num = 0;
+    int *ret = rgb888_find_rectangles_with_corners(
+        frame_shape, img_data,
+        canny_thresh1, canny_thresh2,
+        approx_eps_ratio,
+        area_min_ratio,
+        max_angle_cos,
+        gaussian_blur_size,
+        &ret_num
+    );
+    mp_obj_list_t *results_mp_list = mp_obj_new_list(0, NULL);
+
+    for (int i = 0; i < ret_num; i++)
+    {
+        mp_obj_list_t *results_mp_list_rect = mp_obj_new_list(0, NULL);
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 0]));
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 1]));
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 2]));
+        mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + 3]));
+        for (int j = 0; j < 4; j++)
+        {
+            mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + j * 2 + 4]));
+            mp_obj_list_append(results_mp_list_rect, mp_obj_new_int(ret[i * 12 + j * 2 + 5]));
+        }
+        mp_obj_list_append(results_mp_list, results_mp_list_rect);
+    }
+    free(ret);
+    return MP_OBJ_FROM_PTR(results_mp_list);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_find_rectangles_with_corners_obj, 8, 8, cv_lite_rgb888_find_rectangles_with_corners);
+
 STATIC mp_obj_t cv_lite_rgb888_find_rectangles(size_t n_args, const mp_obj_t *args)
 {
     // 参数解析
@@ -1472,6 +1576,231 @@ STATIC mp_obj_t cv_lite_rgb888_find_corners_fast(size_t n_args, const mp_obj_t *
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_find_corners_fast_obj, 5, 5, cv_lite_rgb888_find_corners_fast);
 
+STATIC mp_obj_t cv_lite_save_image(size_t n_args, const mp_obj_t *args)
+{
+    // 解析输入参数
+    const char* save_path = mp_obj_str_get_str(args[0]);
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[1]);
+    ndarray_obj_t *data = MP_ROM_PTR(args[2]); // HW3
+    uint8_t *img_data = data->array;
+    // 构造图像尺寸
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+    // 调用 C++ 检测函数
+    save_image(save_path,frame_shape,img_data);
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_save_image_obj, 3, 3, cv_lite_save_image);
+
+STATIC mp_obj_t cv_lite_rgb888_undistort(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]); // hwc
+    uint8_t *img_data = data->array;
+
+    // 构造图像尺寸
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+
+    mp_obj_list_t *camera_matrix_mp = MP_OBJ_TO_PTR(args[2]);
+    mp_obj_list_t *dist_coeffs_mp = MP_OBJ_TO_PTR(args[3]);
+    int dist_len = mp_obj_get_int(args[4]);
+
+    // camera_matrix_mp 和 dist_coeffs_mp 是传进来的 mp_obj_t
+    mp_obj_t *camera_matrix_items;
+    size_t camera_matrix_len;
+    mp_obj_get_array(camera_matrix_mp, &camera_matrix_len, &camera_matrix_items);
+
+    // 分配 float 缓冲
+    float camera_matrix[9];
+    for (size_t i = 0; i < camera_matrix_len && i < 9; ++i) {
+        camera_matrix[i] = mp_obj_get_float(camera_matrix_items[i]);
+    }
+
+    // 解析 dist_coeffs
+    mp_obj_t *dist_coeff_items;
+    size_t dist_coeff_len;
+    mp_obj_get_array(dist_coeffs_mp, &dist_coeff_len, &dist_coeff_items);
+
+    float dist_coeffs[dist_coeff_len];  // 最多支持 8 个系数
+    for (size_t i = 0; i < dist_coeff_len && i < 8; ++i) {
+        dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
+    }
+    uint8_t* result=(uint8_t*)malloc(frame_shape.width*frame_shape.height*frame_shape.channel);
+    rgb888_undistort(frame_shape,img_data,camera_matrix,dist_coeffs,dist_len,result);
+    // 构造返回的 numpy 对象（共享内存，不复制）
+    size_t ndarray_shape[4];
+    ndarray_shape[0] = 1;
+    ndarray_shape[1] = frame_shape.height;
+    ndarray_shape[2] = frame_shape.width;
+    ndarray_shape[3] = frame_shape.channel;
+    ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
+    uint8_t *out_data = (uint8_t *)out->array;
+    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    free(result);
+    return MP_OBJ_FROM_PTR(out);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_undistort_obj, 5, 5, cv_lite_rgb888_undistort);
+
+STATIC mp_obj_t cv_lite_rgb888_undistort_fast(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]); // hwc
+    uint8_t *img_data = data->array;
+
+    // 构造图像尺寸
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+
+    mp_obj_list_t *camera_matrix_mp = MP_OBJ_TO_PTR(args[2]);
+    mp_obj_list_t *dist_coeffs_mp = MP_OBJ_TO_PTR(args[3]);
+    int dist_len = mp_obj_get_int(args[4]);
+
+    // camera_matrix_mp 和 dist_coeffs_mp 是传进来的 mp_obj_t
+    mp_obj_t *camera_matrix_items;
+    size_t camera_matrix_len;
+    mp_obj_get_array(camera_matrix_mp, &camera_matrix_len, &camera_matrix_items);
+
+    // 分配 float 缓冲
+    float camera_matrix[9];
+    for (size_t i = 0; i < camera_matrix_len && i < 9; ++i) {
+        camera_matrix[i] = mp_obj_get_float(camera_matrix_items[i]);
+    }
+
+    // 解析 dist_coeffs
+    mp_obj_t *dist_coeff_items;
+    size_t dist_coeff_len;
+    mp_obj_get_array(dist_coeffs_mp, &dist_coeff_len, &dist_coeff_items);
+
+    float dist_coeffs[dist_coeff_len];  // 最多支持 8 个系数
+    for (size_t i = 0; i < dist_coeff_len && i < 8; ++i) {
+        dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
+    }
+    uint8_t* result=(uint8_t*)malloc(frame_shape.width*frame_shape.height*frame_shape.channel);
+    rgb888_undistort_fast(frame_shape,img_data,camera_matrix,dist_coeffs,dist_len,result);
+    // 构造返回的 numpy 对象（共享内存，不复制）
+    size_t ndarray_shape[4];
+    ndarray_shape[0] = 1;
+    ndarray_shape[1] = frame_shape.height;
+    ndarray_shape[2] = frame_shape.width;
+    ndarray_shape[3] = frame_shape.channel;
+    ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
+    uint8_t *out_data = (uint8_t *)out->array;
+    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    free(result);
+    return MP_OBJ_FROM_PTR(out);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_undistort_fast_obj, 5, 5, cv_lite_rgb888_undistort_fast);
+
+STATIC mp_obj_t cv_lite_rgb888_undistort_new_cam_mat(size_t n_args, const mp_obj_t *args)
+{
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]); // hwc
+    uint8_t *img_data = data->array;
+
+    // 构造图像尺寸
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+
+    mp_obj_list_t *camera_matrix_mp = MP_OBJ_TO_PTR(args[2]);
+    mp_obj_list_t *dist_coeffs_mp = MP_OBJ_TO_PTR(args[3]);
+    int dist_len = mp_obj_get_int(args[4]);
+
+    // camera_matrix_mp 和 dist_coeffs_mp 是传进来的 mp_obj_t
+    mp_obj_t *camera_matrix_items;
+    size_t camera_matrix_len;
+    mp_obj_get_array(camera_matrix_mp, &camera_matrix_len, &camera_matrix_items);
+
+    // 分配 float 缓冲
+    float camera_matrix[9];
+    for (size_t i = 0; i < camera_matrix_len && i < 9; ++i) {
+        camera_matrix[i] = mp_obj_get_float(camera_matrix_items[i]);
+    }
+
+    // 解析 dist_coeffs
+    mp_obj_t *dist_coeff_items;
+    size_t dist_coeff_len;
+    mp_obj_get_array(dist_coeffs_mp, &dist_coeff_len, &dist_coeff_items);
+
+    float dist_coeffs[dist_coeff_len];  // 最多支持 8 个系数
+    for (size_t i = 0; i < dist_coeff_len && i < 8; ++i) {
+        dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
+    }
+    uint8_t* result=(uint8_t*)malloc(frame_shape.width*frame_shape.height*frame_shape.channel);
+    rgb888_undistort_new_cam_mat(frame_shape,img_data,camera_matrix,dist_coeffs,dist_len,result);
+    // 构造返回的 numpy 对象（共享内存，不复制）
+    size_t ndarray_shape[4];
+    ndarray_shape[0] = 1;
+    ndarray_shape[1] = frame_shape.height;
+    ndarray_shape[2] = frame_shape.width;
+    ndarray_shape[3] = frame_shape.channel;
+    ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
+    uint8_t *out_data = (uint8_t *)out->array;
+    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    free(result);
+    return MP_OBJ_FROM_PTR(out);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_undistort_new_cam_mat_obj, 5, 5, cv_lite_rgb888_undistort_new_cam_mat);
+
+STATIC mp_obj_t cv_lite_rgb888_pnp_distance(size_t n_args, const mp_obj_t *args) {
+    // 参数解析
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
+    ndarray_obj_t *data = MP_ROM_PTR(args[1]);              // 图像数据
+    uint8_t *img_data = data->array;
+
+    FrameCHWSize frame_shape;
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+    frame_shape.channel = 3;
+
+    mp_obj_list_t *roi_mp = MP_OBJ_TO_PTR(args[2]);  // [x, y, width, height]
+    int roi[4];
+    roi[0] = mp_obj_get_int(roi_mp->items[0]);
+    roi[1] = mp_obj_get_int(roi_mp->items[1]);
+    roi[2] = mp_obj_get_int(roi_mp->items[2]);
+    roi[3] = mp_obj_get_int(roi_mp->items[3]);
+
+    mp_obj_list_t *camera_matrix_mp = MP_OBJ_TO_PTR(args[3]);
+    mp_obj_list_t *dist_coeffs_mp = MP_OBJ_TO_PTR(args[4]);
+    int dist_len = mp_obj_get_int(args[5]);
+    float roi_width_real = mp_obj_get_float(args[6]);
+    float roi_height_real = mp_obj_get_float(args[7]);
+
+    // camera_matrix_mp 和 dist_coeffs_mp 是传进来的 mp_obj_t
+    mp_obj_t *camera_matrix_items;
+    size_t camera_matrix_len;
+    mp_obj_get_array(camera_matrix_mp, &camera_matrix_len, &camera_matrix_items);
+
+    // 分配 float 缓冲
+    float camera_matrix[9];
+    for (size_t i = 0; i < camera_matrix_len && i < 9; ++i) {
+        camera_matrix[i] = mp_obj_get_float(camera_matrix_items[i]);
+    }
+
+    // 解析 dist_coeffs
+    mp_obj_t *dist_coeff_items;
+    size_t dist_coeff_len;
+    mp_obj_get_array(dist_coeffs_mp, &dist_coeff_len, &dist_coeff_items);
+
+    float dist_coeffs[dist_coeff_len];  // 最多支持 8 个系数
+    for (size_t i = 0; i < dist_coeff_len && i < 8; ++i) {
+        dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
+    }
+
+    // 调用底层直线查找函数
+    float distance = rgb888_pnp_distance(frame_shape, img_data, roi, camera_matrix, dist_coeffs, dist_len, roi_width_real, roi_height_real);
+
+    return mp_obj_new_float(distance);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_pnp_distance_obj, 8, 8, cv_lite_rgb888_pnp_distance);
 
 STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cv_lite) },
@@ -1483,7 +1812,9 @@ STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rgb888_find_circles), MP_ROM_PTR(&cv_lite_rgb888_find_circles_obj) },
     // 找矩形
     { MP_ROM_QSTR(MP_QSTR_grayscale_find_rectangles), MP_ROM_PTR(&cv_lite_grayscale_find_rectangles_obj) },
+    { MP_ROM_QSTR(MP_QSTR_grayscale_find_rectangles_with_corners), MP_ROM_PTR(&cv_lite_grayscale_find_rectangles_with_corners_obj) },
     { MP_ROM_QSTR(MP_QSTR_rgb888_find_rectangles), MP_ROM_PTR(&cv_lite_rgb888_find_rectangles_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rgb888_find_rectangles_with_corners), MP_ROM_PTR(&cv_lite_rgb888_find_rectangles_with_corners_obj) },
     // 找直线或线段
     { MP_ROM_QSTR(MP_QSTR_grayscale_find_lines_raw), MP_ROM_PTR(&cv_lite_grayscale_find_lines_raw_obj) },
     { MP_ROM_QSTR(MP_QSTR_grayscale_find_lines), MP_ROM_PTR(&cv_lite_grayscale_find_lines_obj) },
@@ -1526,6 +1857,14 @@ STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_grayscale_find_corners), MP_ROM_PTR(&cv_lite_grayscale_find_corners_obj) },
     { MP_ROM_QSTR(MP_QSTR_rgb888_find_corners), MP_ROM_PTR(&cv_lite_rgb888_find_corners_obj) },
     { MP_ROM_QSTR(MP_QSTR_rgb888_find_corners_fast), MP_ROM_PTR(&cv_lite_rgb888_find_corners_fast_obj) },
+    // 保存图像
+    { MP_ROM_QSTR(MP_QSTR_save_image), MP_ROM_PTR(&cv_lite_save_image_obj) },
+    // 畸变修正
+    { MP_ROM_QSTR(MP_QSTR_rgb888_undistort), MP_ROM_PTR(&cv_lite_rgb888_undistort_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rgb888_undistort_fast), MP_ROM_PTR(&cv_lite_rgb888_undistort_fast_obj) },
+    { MP_ROM_QSTR(MP_QSTR_rgb888_undistort_new_cam_mat), MP_ROM_PTR(&cv_lite_rgb888_undistort_new_cam_mat_obj) },
+    // 计算距离
+    { MP_ROM_QSTR(MP_QSTR_rgb888_pnp_distance), MP_ROM_PTR(&cv_lite_rgb888_pnp_distance_obj) },
 };
 
 STATIC MP_DEFINE_CONST_DICT(cv_lite_globals, cv_lite_globals_table);

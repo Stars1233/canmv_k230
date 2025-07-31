@@ -47,6 +47,9 @@ extern "C" {
     // 找矩形
     int* grayscale_find_rectangles(FrameCHWSize frame_shape, uint8_t* data,int canny_thresh1, int canny_thresh2,float approx_epsilon_ratio,float area_min_ratio,float max_angle_cos,int gaussian_blur_size,int* ret_num);
     int* rgb888_find_rectangles(FrameCHWSize frame_shape, uint8_t* data, int canny_thresh1, int canny_thresh2,float approx_epsilon_ratio,float area_min_ratio,float max_angle_cos,int gaussian_blur_size, int* ret_num);
+    
+    int* grayscale_find_rectangles_with_corners(FrameCHWSize frame_shape, uint8_t* data,int canny_thresh1, int canny_thresh2, float approx_epsilon_ratio,float area_min_ratio, float max_angle_cos, int gaussian_blur_size,int* ret_num);
+    int* rgb888_find_rectangles_with_corners(FrameCHWSize frame_shape, uint8_t* data,int canny_thresh1, int canny_thresh2, float approx_epsilon_ratio,float area_min_ratio, float max_angle_cos, int gaussian_blur_size,int* ret_num);
     // 找直线或线段
     int* grayscale_find_lines_raw(FrameCHWSize frame_shape, uint8_t* data,int x_stride, int y_stride,int sobel_thresh,float rho_step, float theta_step,int hough_thresh,int* ret_num);
     int* grayscale_find_lines(FrameCHWSize frame_shape, uint8_t* data,int canny_thresh1, int canny_thresh2,int gaussian_blur_size,float rho, float theta,int hough_thresh, float min_line_length,float max_line_gap,int* ret_num);
@@ -85,10 +88,18 @@ extern "C" {
     void rgb888_blackhat(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, int iterations, int threshold_value, uint8_t* result);
     // 直方图统计
     void rgb888_calc_histogram(FrameCHWSize frame_shape, uint8_t* data, uint32_t* result);
-
+    // 特征点检测
     int* grayscale_find_corners(FrameCHWSize frame_shape, uint8_t* data,int maxCorners, float qualityLevel, float minDistance,int* ret_num);
     int* rgb888_find_corners(FrameCHWSize frame_shape, uint8_t* data,int maxCorners, float qualityLevel, float minDistance,int* ret_num);
     int* rgb888_find_corners_fast(FrameCHWSize frame_shape, uint8_t* data, int maxCorners,float qualityLevel, float minDistance, int* ret_num);
+    // 保存图片
+    void save_image(const char* save_path,FrameCHWSize frame_shape,uint8_t* data);
+    // 去畸变
+    void rgb888_undistort(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs, int dist_len,uint8_t* result);
+    void rgb888_undistort_fast(FrameCHWSize frame_shape, uint8_t* data, float* camera_matrix, float* dist_coeffs, int dist_len, uint8_t* result);
+    void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs,int dist_len, uint8_t* result);
+
+    float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,float* camera_matrix, float* dist_coeffs, int dist_len,float roi_width_real, float roi_height_real);
 
 #ifdef __cplusplus
 }
