@@ -105,6 +105,7 @@ while True:
     Display.show_image(img)
 
     print("contour_pnp:", clock.fps())
+    print("Distance:", distance)
     gc.collect()
 
 # -------------------------------

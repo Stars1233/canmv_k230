@@ -48,7 +48,7 @@ def calculate_crop(sensor_width, sensor_height, target_width, target_height):
     Returns:
         (crop_x, crop_y, crop_width, crop_height)
     """
-    scale = min(sensor_width / target_width, sensor_height / target_height)
+    scale = min(sensor_width // target_width, sensor_height // target_height)
     crop_width = int(target_width * scale)
     crop_height = int(target_height * scale)
     crop_x = (sensor_width - crop_width) // 2
@@ -89,14 +89,14 @@ def media_init():
     sensor = Sensor(fps=30)
     sensor.reset()
 
-    semsor_width = sensor.width()
-    sensor_height = sensor.height()
+    sensor_width = sensor.width(None)
+    sensor_height = sensor.height(None)
     # 设置采集图片的分辨率
-    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0, crop = calculate_crop(semsor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
+    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0, crop = calculate_crop(sensor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
     sensor.set_pixformat(Sensor.RGB888)
 
     # 设置显示的分辨率, 使用与采集相同的分辨率来做resize
-    sensor.set_framesize(w=DISPLAY_WIDTH, h=DISPLAY_HEIGHT, chn=CAM_CHN_ID_2,crop = calculate_crop(semsor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
+    sensor.set_framesize(w=DISPLAY_WIDTH, h=DISPLAY_HEIGHT, chn=CAM_CHN_ID_2,crop = calculate_crop(sensor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
     sensor.set_pixformat(Sensor.RGB888, chn=CAM_CHN_ID_2)
 
     MediaManager.init()
@@ -134,13 +134,28 @@ def show_logo():
     Display.show_image(logo_img.to_rgb888())
     time.sleep(2)
 
+def mkdir_p(path):
+    parts = path.strip('/').split('/')
+    current = ''
+    for part in parts:
+        current += '/' + part
+        try:
+            os.mkdir(current)
+        except OSError as e:
+            if e.args[0] == 17:  # EEXIST
+                continue
+            elif e.args[0] == 2:  # ENOENT
+                raise OSError("Parent directory missing: " + current)
+            else:
+                raise
+
 def index_init():
     global save_num
 
     try:
         os.stat(IMG_SAVE_PATH)
     except:
-        os.mkdir(IMG_SAVE_PATH)
+        mkdir_p(IMG_SAVE_PATH)
 
     for file in os.listdir(IMG_SAVE_PATH):
         if file is None:

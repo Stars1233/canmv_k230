@@ -44,13 +44,27 @@ FONT_X = int(DISPLAY_WIDTH/2-50)
 FONT_Y = int(DISPLAY_HEIGHT/2-10)
 
 
+def mkdir_p(path):
+    parts = path.strip('/').split('/')
+    current = ''
+    for part in parts:
+        current += '/' + part
+        try:
+            os.mkdir(current)
+        except OSError as e:
+            if e.args[0] == 17:  # EEXIST
+                continue
+            elif e.args[0] == 2:  # ENOENT
+                raise OSError("Parent directory missing: " + current)
+            else:
+                raise
+
 def media_init():
     global sensor,IMG_SAVE_PATH
     try:
         os.stat(IMG_SAVE_PATH)
     except:    
-        os.mkdir(IMG_SAVE_PATH)
-    
+        mkdir_p(IMG_SAVE_PATH)
     
     # 根据硬件选择显示的方法，默认为IDE显示
     # use LCD for display
