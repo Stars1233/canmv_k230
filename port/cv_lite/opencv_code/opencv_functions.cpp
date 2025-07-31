@@ -2,7 +2,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-// #include <opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include "cv_lite_wrap.h"
 #include <sys/time.h>  // gettimeofday
 #include <stdio.h>     // printf
@@ -332,6 +332,184 @@ int* grayscale_find_rectangles(FrameCHWSize frame_shape, uint8_t* data,int canny
 
     return ret;
 }
+
+int* grayscale_find_rectangles_with_corners(FrameCHWSize frame_shape, uint8_t* data,int canny_thresh1, int canny_thresh2, float approx_epsilon_ratio,float area_min_ratio, float max_angle_cos, int gaussian_blur_size,int* ret_num)
+{
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    cv::Mat gray(height, width, CV_8UC1, data);
+
+    // 高斯模糊降噪
+    if (gaussian_blur_size > 1 && gaussian_blur_size % 2 == 1) {
+        cv::GaussianBlur(gray, gray, cv::Size(gaussian_blur_size, gaussian_blur_size), 0);
+    }
+
+    // Canny 边缘检测
+    cv::Mat edges;
+    cv::Canny(gray, edges, canny_thresh1, canny_thresh2);
+
+    // 查找外层轮廓
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(edges, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    const double min_area = width * height * area_min_ratio;
+    std::vector<cv::Rect> bounding_boxes;
+    std::vector<std::vector<cv::Point>> rect_corners;
+
+    for (auto& contour : contours) {
+        if (cv::contourArea(contour) < min_area) continue;
+
+        double perimeter = cv::arcLength(contour, true);
+        std::vector<cv::Point> approx;
+        cv::approxPolyDP(contour, approx, perimeter * approx_epsilon_ratio, true);
+
+        if (approx.size() != 4 || !cv::isContourConvex(approx)) continue;
+
+        // 判断是否为近似矩形
+        bool is_rect = true;
+        auto angleCos = [](cv::Point pt1, cv::Point pt2, cv::Point pt0) {
+            double dx1 = pt1.x - pt0.x, dy1 = pt1.y - pt0.y;
+            double dx2 = pt2.x - pt0.x, dy2 = pt2.y - pt0.y;
+            return (dx1 * dx2 + dy1 * dy2) /
+                   (std::sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2)) + 1e-10);
+        };
+
+        for (int i = 0; i < 4; ++i) {
+            double cos_val = angleCos(
+                approx[(i + 1) % 4],
+                approx[(i + 3) % 4],
+                approx[i]
+            );
+            if (std::abs(cos_val) > max_angle_cos) {
+                is_rect = false;
+                break;
+            }
+        }
+
+        if (is_rect) {
+            bounding_boxes.push_back(cv::boundingRect(approx));
+            rect_corners.push_back(approx);
+        }
+    }
+
+    *ret_num = bounding_boxes.size();
+    if (*ret_num == 0) return nullptr;
+
+    int* ret = (int*)malloc(*ret_num * 12 * sizeof(int));
+    if (!ret) {
+        *ret_num = 0;
+        return nullptr;
+    }
+
+    for (int i = 0; i < *ret_num; ++i) {
+        // 保存位置信息
+        ret[i * 12 + 0] = bounding_boxes[i].x;
+        ret[i * 12 + 1] = bounding_boxes[i].y;
+        ret[i * 12 + 2] = bounding_boxes[i].width;
+        ret[i * 12 + 3] = bounding_boxes[i].height;
+
+        // 保存角点信息
+        for (int j = 0; j < 4; ++j) {
+            ret[i * 12 + 4 + j * 2 + 0] = rect_corners[i][j].x;
+            ret[i * 12 + 4 + j * 2 + 1] = rect_corners[i][j].y;
+        }
+    }
+
+    return ret;
+}
+
+int* rgb888_find_rectangles_with_corners(FrameCHWSize frame_shape, uint8_t* data,int canny_thresh1, int canny_thresh2, float approx_epsilon_ratio,float area_min_ratio, float max_angle_cos, int gaussian_blur_size,int* ret_num)
+{
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 构造 RGB 图像（RGB888 每像素3字节）
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 转为灰度图
+    cv::Mat gray;
+    cv::cvtColor(rgb, gray, cv::COLOR_RGB2GRAY);
+
+    // 高斯模糊降噪
+    if (gaussian_blur_size > 1 && gaussian_blur_size % 2 == 1) {
+        cv::GaussianBlur(gray, gray, cv::Size(gaussian_blur_size, gaussian_blur_size), 0);
+    }
+
+    // Canny 边缘检测
+    cv::Mat edges;
+    cv::Canny(gray, edges, canny_thresh1, canny_thresh2);
+
+    // 查找外层轮廓
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(edges, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    const double min_area = width * height * area_min_ratio;
+    std::vector<cv::Rect> bounding_boxes;
+    std::vector<std::vector<cv::Point>> rect_corners;
+
+    for (auto& contour : contours) {
+        if (cv::contourArea(contour) < min_area) continue;
+
+        double perimeter = cv::arcLength(contour, true);
+        std::vector<cv::Point> approx;
+        cv::approxPolyDP(contour, approx, perimeter * approx_epsilon_ratio, true);
+
+        if (approx.size() != 4 || !cv::isContourConvex(approx)) continue;
+
+        // 判断是否为近似矩形
+        bool is_rect = true;
+        auto angleCos = [](cv::Point pt1, cv::Point pt2, cv::Point pt0) {
+            double dx1 = pt1.x - pt0.x, dy1 = pt1.y - pt0.y;
+            double dx2 = pt2.x - pt0.x, dy2 = pt2.y - pt0.y;
+            return (dx1 * dx2 + dy1 * dy2) /
+                   (std::sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2)) + 1e-10);
+        };
+
+        for (int i = 0; i < 4; ++i) {
+            double cos_val = angleCos(
+                approx[(i + 1) % 4],
+                approx[(i + 3) % 4],
+                approx[i]
+            );
+            if (std::abs(cos_val) > max_angle_cos) {
+                is_rect = false;
+                break;
+            }
+        }
+
+        if (is_rect) {
+            bounding_boxes.push_back(cv::boundingRect(approx));
+            rect_corners.push_back(approx);
+        }
+    }
+
+    *ret_num = bounding_boxes.size();
+    if (*ret_num == 0) return nullptr;
+
+    int* ret = (int*)malloc(*ret_num * 12 * sizeof(int));
+    if (!ret) {
+        *ret_num = 0;
+        return nullptr;
+    }
+
+    for (int i = 0; i < *ret_num; ++i) {
+        // 保存位置信息
+        ret[i * 12 + 0] = bounding_boxes[i].x;
+        ret[i * 12 + 1] = bounding_boxes[i].y;
+        ret[i * 12 + 2] = bounding_boxes[i].width;
+        ret[i * 12 + 3] = bounding_boxes[i].height;
+
+        // 保存角点信息
+        for (int j = 0; j < 4; ++j) {
+            ret[i * 12 + 4 + j * 2 + 0] = rect_corners[i][j].x;
+            ret[i * 12 + 4 + j * 2 + 1] = rect_corners[i][j].y;
+        }
+    }
+
+    return ret;
+}
+
 
 /**
  * @brief RGB888 图像中查找矩形（返回外接矩形 x, y, width, height）
@@ -2216,8 +2394,239 @@ int* rgb888_find_corners_fast(FrameCHWSize frame_shape, uint8_t* data, int maxCo
     return ret;
 }
 
+void save_image(const char* save_path,FrameCHWSize frame_shape,uint8_t* data){
+    cv::Mat img(frame_shape.height, frame_shape.width, CV_8UC3, data);
+    cv::cvtColor(img, img, cv::COLOR_RGB2BGR);
+    cv::imwrite(save_path, img);
+}
+
+/**
+ * @brief RGB888 图像畸变校正（去畸变）
+ * 
+ * @param frame_shape 图像尺寸（宽高）
+ * @param data RGB888 原始图像数据
+ * @param camera_matrix 相机内参（长度9的 float 数组，按行主序 3x3）
+ * @param dist_coeffs 畸变系数（长度为5或8的 float 数组）
+ * @param dist_len 畸变系数个数（5 或 8）
+ * @param result 输出图像数据（去畸变 RGB888）
+ */
+void rgb888_undistort(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs, int dist_len,uint8_t* result) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+    // 构造 RGB 图像（RGB888 格式）
+    cv::Mat rgb(height, width, CV_8UC3, data);
+    // 构造相机内参矩阵 (3x3)
+    cv::Mat cam_mat(3, 3, CV_32F);
+    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+    // 构造畸变系数矩阵（1xN）
+    cv::Mat dist_mat(1, dist_len, CV_32F);
+    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+    // 去畸变图像
+    cv::Mat undistorted;
+    cv::undistort(rgb, undistorted, cam_mat, dist_mat);
+    // 拷贝输出结果
+    std::memcpy(result, undistorted.data, width * height * 3);
+}
+
+void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs,int dist_len, uint8_t* result) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 原始图像（RGB888）
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 相机矩阵
+    cv::Mat cam_mat(3, 3, CV_32F);
+    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+
+    // 畸变系数
+    cv::Mat dist_mat(1, dist_len, CV_32F);
+    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+
+    // 计算优化后的新相机矩阵（最大保留图像区域）
+    cv::Mat new_cam_mat = cv::getOptimalNewCameraMatrix(
+        cam_mat, dist_mat, cv::Size(width, height), 1.0, cv::Size(width, height), 0);
+
+    // 去畸变图像
+    cv::Mat undistorted;
+    cv::undistort(rgb, undistorted, cam_mat, dist_mat, new_cam_mat);
+
+    // 拷贝输出数据
+    std::memcpy(result, undistorted.data, width * height * 3);
+}
 
 
+static cv::Mat map1, map2;
+static cv::Size last_size;
+static bool map_initialized = false;
+
+/**
+ * @brief RGB888 图像畸变校正（高性能）
+ * 
+ * @param frame_shape 图像尺寸（宽高）
+ * @param data RGB888 原始图像数据
+ * @param camera_matrix 相机内参（长度9的 float 数组，按行主序 3x3）
+ * @param dist_coeffs 畸变系数（长度为5或8的 float 数组）
+ * @param dist_len 畸变系数个数（5 或 8）
+ * @param result 输出图像数据（去畸变 RGB888）
+ */
+void rgb888_undistort_fast(FrameCHWSize frame_shape, uint8_t* data, float* camera_matrix, float* dist_coeffs, int dist_len, uint8_t* result) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+    cv::Size image_size(width, height);
+
+    // 输入图像（不复制数据）
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 相机矩阵
+    cv::Mat cam_mat(3, 3, CV_32F, camera_matrix);
+    // 畸变参数
+    cv::Mat dist_mat(1, dist_len, CV_32F, dist_coeffs);
+
+    // 如果尺寸改变或第一次调用，重新计算映射表
+    if (!map_initialized || image_size != last_size) {
+        cv::initUndistortRectifyMap(
+            cam_mat, dist_mat, cv::Mat(), cam_mat,  // R = 空，newCameraMatrix = 原始相机矩阵
+            image_size, CV_16SC2, map1, map2);
+        last_size = image_size;
+        map_initialized = true;
+    }
+
+    // remap 是多线程优化的，远快于 undistort
+    cv::Mat undistorted;
+    cv::remap(rgb, undistorted, map1, map2, cv::INTER_LINEAR);
+
+    // 拷贝结果
+    std::memcpy(result, undistorted.data, width * height * 3);
+}
+
+
+void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,int* roi, float* camera_matrix, float* dist_coeffs,int dist_len, uint8_t* result) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 原始图像（RGB888）
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 相机矩阵
+    cv::Mat cam_mat(3, 3, CV_32F);
+    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+
+    // 畸变系数
+    cv::Mat dist_mat(1, dist_len, CV_32F);
+    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+
+    // 计算优化后的新相机矩阵（最大保留图像区域）
+    cv::Mat new_cam_mat = cv::getOptimalNewCameraMatrix(
+        cam_mat, dist_mat, cv::Size(width, height), 1.0, cv::Size(width, height), 0);
+
+    // 去畸变图像
+    cv::Mat undistorted;
+    cv::undistort(rgb, undistorted, cam_mat, dist_mat, new_cam_mat);
+
+    // 拷贝输出数据
+    std::memcpy(result, undistorted.data, width * height * 3);
+}
+
+// float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
+//                           float* camera_matrix, float* dist_coeffs, int dist_len,
+//                           float roi_width_real, float roi_height_real) {
+//     int width = frame_shape.width;
+//     int height = frame_shape.height;
+
+//     // 构建 RGB888 图像
+//     cv::Mat rgb(height, width, CV_8UC3, data);
+
+//     // 相机内参矩阵
+//     cv::Mat cam_mat(3, 3, CV_32F);
+//     std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+
+//     // 畸变系数
+//     cv::Mat dist_mat(1, dist_len, CV_32F);
+//     std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+
+//     // ROI 图像坐标
+//     int x = roi[0];
+//     int y = roi[1];
+//     int w = roi[2];
+//     int h = roi[3];
+
+//     // 使用实际物理尺寸构建 objectPoints（单位自定义，如 cm 或 m）
+//     std::vector<cv::Point3f> objectPoints = {
+//         {0, 0, 0},
+//         {roi_width_real, 0, 0},
+//         {roi_width_real, roi_height_real, 0},
+//         {0, roi_height_real, 0}
+//     };
+
+//     // ROI 的图像像素坐标（四角）
+//     std::vector<cv::Point2f> imagePoints = {
+//         {static_cast<float>(x), static_cast<float>(y)},
+//         {static_cast<float>(x + w), static_cast<float>(y)},
+//         {static_cast<float>(x + w), static_cast<float>(y + h)},
+//         {static_cast<float>(x), static_cast<float>(y + h)}
+//     };
+
+//     // 解算位姿
+//     cv::Mat rvec, tvec;
+//     bool ok = cv::solvePnP(objectPoints, imagePoints, cam_mat, dist_mat, rvec, tvec);
+
+//     if (ok && tvec.total() == 3) {
+//         return static_cast<float>(cv::norm(tvec));  // 返回目标到相机的距离（与输入尺寸单位一致）
+//     } else {
+//         return -1.0f; // 解算失败
+//     }
+// }
+
+float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
+                          float* camera_matrix, float* dist_coeffs, int dist_len,
+                          float roi_width_real, float roi_height_real) {
+    int width = frame_shape.width;
+    int height = frame_shape.height;
+
+    // 构建 RGB 图像
+    cv::Mat rgb(height, width, CV_8UC3, data);
+
+    // 去畸变（可选，提升边缘区域 ROI 的准确性）
+    cv::Mat cam_mat(3, 3, CV_32F, camera_matrix);
+    cv::Mat dist_mat(1, dist_len, CV_32F, dist_coeffs);
+    cv::Mat undistorted;
+    cv::undistort(rgb, undistorted, cam_mat, dist_mat);
+
+    // ROI 图像坐标
+    int x = roi[0];
+    int y = roi[1];
+    int w = roi[2];
+    int h = roi[3];
+
+    // 定义世界坐标系下的四个点（左上角开始，顺时针）
+    std::vector<cv::Point3f> objectPoints = {
+        {0.0f, 0.0f, 0.0f},
+        {roi_width_real, 0.0f, 0.0f},
+        {roi_width_real, roi_height_real, 0.0f},
+        {0.0f, roi_height_real, 0.0f}
+    };
+
+    // 图像中 ROI 对应的四个角点（顺时针）
+    std::vector<cv::Point2f> imagePoints = {
+        {static_cast<float>(x),         static_cast<float>(y)},
+        {static_cast<float>(x + w - 1), static_cast<float>(y)},
+        {static_cast<float>(x + w - 1), static_cast<float>(y + h - 1)},
+        {static_cast<float>(x),         static_cast<float>(y + h - 1)}
+    };
+
+    // 位姿解算
+    cv::Mat rvec, tvec;
+    bool ok = cv::solvePnP(objectPoints, imagePoints, cam_mat, cv::Mat(), rvec, tvec, false, cv::SOLVEPNP_IPPE_SQUARE);
+
+    if (ok && tvec.total() == 3) {
+        double distance = cv::norm(tvec);
+        if (distance > 0 && distance < 10000.0) { // 合理性判断：小于 10 米
+            return static_cast<float>(distance);
+        }
+    }
+    return -1.0f; // 解算失败
+}
 
 
 
