@@ -17,11 +17,14 @@ VIDEO_HEIGHT = 1080
 brd = os.uname()[-1]
 if brd == "k230_canmv_01studio":
     PRESS_KEY_NUM = 21
+    PRESS_KEY_VAL = 0
 elif brd == "k230_canmv_lckfb":
     PRESS_KEY_NUM = 53
+    PRESS_KEY_VAL = 1
 else:
     #按键GPIO Number，根据硬件修改
     PRESS_KEY_NUM = 21
+    PRESS_KEY_VAL = 0
 
 del brd
 
@@ -125,8 +128,13 @@ def save_file(img_0):
 def gpio_init():
     global KEY
     fpioa = FPIOA()
-    fpioa.set_function(PRESS_KEY_NUM,FPIOA.GPIO21)
-    KEY=Pin(PRESS_KEY_NUM, Pin.IN, Pin.PULL_UP) #构建KEY对象
+    fpioa.set_function(PRESS_KEY_NUM, FPIOA.GPIO0 + PRESS_KEY_NUM)
+
+    if PRESS_KEY_VAL == 0:
+        KEY=Pin(PRESS_KEY_NUM, Pin.IN, Pin.PULL_UP) #构建KEY对象
+    else:
+        KEY=Pin(PRESS_KEY_NUM, Pin.IN, Pin.PULL_DOWN)
+    del fpioa
 
 def show_logo():
     logo_img = image.Image(LOGO_FILE)
@@ -171,9 +179,9 @@ def key_handle(img_save, img_display):
     global KEY
 
     wait_key = False
-    if KEY.value()==0:   #按键被按下
+    if KEY.value()==PRESS_KEY_VAL:   #按键被按下
         time.sleep_ms(10) #消除抖动
-        if KEY.value()==0: #确认按键被按下
+        if KEY.value()==PRESS_KEY_VAL: #确认按键被按下
             print('Save')
             wait_key = True
             img_name = save_file(img_save)
@@ -185,7 +193,7 @@ def key_handle(img_save, img_display):
 
     if wait_key: #如果按键被按下
         time.sleep(0.5)
-        while not KEY.value(): #检测按键是否松开
+        while KEY.value() == PRESS_KEY_VAL: #检测按键是否松开
             pass
 
 try:

@@ -20,12 +20,16 @@ sensor=None
 
 # 初始化并配置sensor
 PRESS_KEY_NUM = 53
+PRESS_KEY_VAL = 0
 brd=os.uname()[-1]
 if brd=="k230_canmv_lckfb":
     #按键GPIO Number，根据硬件修改
     PRESS_KEY_NUM = 53
+    PRESS_KEY_VAL = 1
 elif brd=="k230_canmv_01studio":
     PRESS_KEY_NUM = 21
+    PRESS_KEY_VAL = 0
+del brd
 
 #保存图片的起始编号，可以修改
 save_num = 0
@@ -117,14 +121,14 @@ def save_file(img_0):
     return img_name
 
 def gpio_init():
-    global KEY,brd
+    global KEY
     fpioa = FPIOA()
-    if brd=="k230_canmv_lckfb":
-        fpioa.set_function(53,FPIOA.GPIO53)
-        KEY=Pin(53, Pin.IN, Pin.PULL_DOWN) #构建KEY对象
-    elif brd=="k230_canmv_01studio":
-        fpioa.set_function(21,FPIOA.GPIO21)
-        KEY=Pin(21, Pin.IN, Pin.PULL_UP) #构建KEY对象
+    fpioa.set_function(PRESS_KEY_NUM, FPIOA.GPIO0 + PRESS_KEY_NUM)
+    if PRESS_KEY_VAL == 0:
+        KEY=Pin(PRESS_KEY_NUM, Pin.IN, Pin.PULL_UP) #构建KEY对象
+    else:
+        KEY=Pin(PRESS_KEY_NUM, Pin.IN, Pin.PULL_DOWN)
+    del fpioa
 
 def index_init():
     global save_num
@@ -140,15 +144,15 @@ def index_init():
 
 def key_handle(img):
     global KEY, grab_x, grab_y, grab_w, grab_h
-    if KEY.value()==0:   #按键被按下
+    if KEY.value()==PRESS_KEY_VAL:   #按键被按下
         time.sleep_ms(10) #消除抖动
-        if KEY.value()==0: #确认按键被按下
+        if KEY.value()==PRESS_KEY_VAL: #确认按键被按下
             img_name = save_file(img)
             img.draw_string_advanced(FONT_X, FONT_Y, 100, img_name, color = (0, 0, 255),)
             img.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
             Display.show_image(img)
             time.sleep(1.5)
-            while not KEY.value(): #检测按键是否松开
+            while KEY.value() == PRESS_KEY_VAL: #检测按键是否松开
                 pass
     else:
         img.draw_rectangle(grab_x, grab_y, grab_w, grab_h, color = (255, 0, 0), thickness = 2, fill = False)
