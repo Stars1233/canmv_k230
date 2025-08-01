@@ -44,7 +44,6 @@ sensor_height = sensor.height(None)
 # 设置采集图片的分辨率
 sensor.set_framesize(w=image_shape[1], h=image_shape[0],chn=CAM_CHN_ID_0, crop = calculate_crop(sensor_width, sensor_height, image_shape[1], image_shape[0]))
 sensor.set_pixformat(Sensor.RGB888)
-sensor.set_pixformat(Sensor.RGB888)
 
 # -------------------------------
 # 虚拟显示器输出
@@ -89,15 +88,23 @@ while True:
     img_np = img.to_numpy_ref()
 
     # 距离估计（通过轮廓+PnP）
-    distance = cv_lite.rgb888_pnp_distance_from_corners(
+    res = cv_lite.rgb888_pnp_distance_from_corners(
         image_shape, img_np,
         camera_matrix, dist_coeffs, dist_len,
         obj_width_real, obj_height_real
     )
+    distance=res[0]
+    rect=res[1]
+    corners=res[2]
 
     # 如果距离估计成功
     if distance > 0:
         img.draw_string_advanced(10, 10, 32, "Dist: %.2fcm" % distance, color=(0, 255, 0))
+        img.draw_rectangle(rect[0], rect[1], rect[2], rect[3], color=(255, 0, 0), thickness=2)
+        img.draw_cross(corners[0][0],corners[0][1],color=(255,255,255),size=5,thickness=2)
+        img.draw_cross(corners[1][0],corners[1][1],color=(255,255,255),size=5,thickness=2)
+        img.draw_cross(corners[2][0],corners[2][1],color=(255,255,255),size=5,thickness=2)
+        img.draw_cross(corners[3][0],corners[3][1],color=(255,255,255),size=5,thickness=2)
     else:
         img.draw_string_advanced(10, 10, 32, "No Rect Found", color=(255, 0, 0))
 
@@ -105,7 +112,7 @@ while True:
     Display.show_image(img)
 
     print("contour_pnp:", clock.fps())
-    print("Distance:", distance)
+#    print("Distance:", distance)
     gc.collect()
 
 # -------------------------------
