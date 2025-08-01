@@ -222,7 +222,7 @@ def ai_and_save_mp4():
             frame_data = k_mp4_frame_data_s()
             save_idr = bytearray(mp4_size[0] * mp4_size[1] * 3 // 4)
             # mp4 muxer init
-            mp4_handle = mp4_muxer_init(file_name, False)
+            mp4_handle = mp4_muxer_init(file_name, True)
             mp4_video_track_handle = mp4_muxer_create_video_track(mp4_handle, mp4_size[0], mp4_size[1], video_payload_type)
 
              # 创建编码器
@@ -247,53 +247,68 @@ def ai_and_save_mp4():
                     frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height + 3072
                 else:
                     frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height
-                encoder.SendFrame(venc_chn,frame_info)
-                encoder.GetStream(venc_chn, streamData) # 获取一帧码流
+                ret = encoder.SendFrame(venc_chn,frame_info)
+                if ret != 0:
+                    print("encoder send frame failed")
+                    continue
 
-                stream_type = streamData.stream_type[0]
+                ret = encoder.GetStream(venc_chn, streamData,timeout = -1) # 获取一帧或多帧码流
+                if ret != 0:
+                    print("encoder get stream failed")
+                    continue
 
                 # Retrieve first IDR frame and write to MP4 file. Note: The first frame must be an IDR frame.
                 if not get_first_I_frame:
-                    if stream_type == encoder.STREAM_TYPE_I:
-                        get_first_I_frame = True
-                        video_start_timestamp = streamData.pts[0]
-                        save_idr[idr_index:idr_index+streamData.data_size[0]] = uctypes.bytearray_at(streamData.data[0], streamData.data_size[0])
-                        idr_index += streamData.data_size[0]
+                    for pack_idx in range(0, streamData.pack_cnt):
+                        stream_type = streamData.stream_type[pack_idx]
+                        streamData.pts[pack_idx] = time.ticks_us() # 使用系统时间戳
+                        if stream_type == encoder.STREAM_TYPE_I:
+                            get_first_I_frame = True
+                            video_start_timestamp = streamData.pts[pack_idx]
+                            save_idr[idr_index:idr_index+streamData.data_size[pack_idx]] = uctypes.bytearray_at(streamData.data[pack_idx], streamData.data_size[pack_idx])
+                            idr_index += streamData.data_size[pack_idx]
 
-                        frame_data.codec_id = video_payload_type
-                        frame_data.data = uctypes.addressof(save_idr)
-                        frame_data.data_length = idr_index
-                        frame_data.time_stamp = streamData.pts[0] - video_start_timestamp
+                            frame_data.codec_id = video_payload_type
+                            frame_data.data = uctypes.addressof(save_idr)
+                            frame_data.data_length = idr_index
+                            frame_data.time_stamp = streamData.pts[pack_idx] - video_start_timestamp
 
-                        ret = kd_mp4_write_frame(mp4_handle, mp4_video_track_handle, frame_data)
-                        if ret:
-                            raise OSError("kd_mp4_write_frame failed.")
-                        encoder.ReleaseStream(venc_chn, streamData)
-                        continue
+                            ret = kd_mp4_write_frame(mp4_handle, mp4_video_track_handle, frame_data)
+                            if ret:
+                                raise OSError("kd_mp4_write_frame failed.")
 
-                    elif stream_type == encoder.STREAM_TYPE_HEADER:
-                        save_idr[idr_index:idr_index+streamData.data_size[0]] = uctypes.bytearray_at(streamData.data[0], streamData.data_size[0])
-                        idr_index += streamData.data_size[0]
-                        encoder.ReleaseStream(venc_chn, streamData)
-                        continue
-                    else:
-                        encoder.ReleaseStream(venc_chn, streamData) # 释放一帧码流
-                        continue
+                            break
+
+                        elif stream_type == encoder.STREAM_TYPE_HEADER:
+                            save_idr[idr_index:idr_index+streamData.data_size[pack_idx]] = uctypes.bytearray_at(streamData.data[pack_idx], streamData.data_size[pack_idx])
+                            idr_index += streamData.data_size[pack_idx]
+                            continue
+                        else:
+                            continue
+
+                    encoder.ReleaseStream(venc_chn, streamData)
+                    continue
+
+
                 # Write video stream to MP4 file （not first idr frame）
-                frame_data.codec_id = video_payload_type
-                frame_data.data = streamData.data[0]
-                frame_data.data_length = streamData.data_size[0]
-                frame_data.time_stamp = streamData.pts[0] - video_start_timestamp
+                for pack_idx in range(0, streamData.pack_cnt):
+                    streamData.pts[pack_idx] = time.ticks_us() # 使用系统时间戳
+                    frame_data.codec_id = video_payload_type
+                    frame_data.data = streamData.data[pack_idx]
+                    frame_data.data_length = streamData.data_size[pack_idx]
+                    frame_data.time_stamp = streamData.pts[pack_idx] - video_start_timestamp
 
-#                print("video size: ", streamData.data_size[0], "video type: ", streamData.stream_type[0],"video timestamp:",frame_data.time_stamp)
-                ret = kd_mp4_write_frame(mp4_handle, mp4_video_track_handle, frame_data)
-                if ret:
-                    raise OSError("kd_mp4_write_frame failed.")
+                    #print("video size: ", streamData.data_size[pack_idx], "video type: ", streamData.stream_type[pack_idx],"video timestamp:",frame_data.time_stamp)
+                    ret = kd_mp4_write_frame(mp4_handle, mp4_video_track_handle, frame_data)
+                    if ret:
+                        raise OSError("kd_mp4_write_frame failed.")
 
                 encoder.ReleaseStream(venc_chn, streamData) # 释放一帧码流
+
                 frame_count += 1
                 if frame_count >= 100:
                     break
+
             encoder.Stop(venc_chn)
             encoder.Destroy(venc_chn)
             kd_mp4_destroy_tracks(mp4_handle)

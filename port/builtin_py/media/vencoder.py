@@ -109,7 +109,10 @@ class Encoder:
         if ret != 0:
             raise OSError("mpi venc query status failed.")
 
-        self.output.pack_cnt = 1
+        if status.cur_packs > 0:
+            self.output.pack_cnt = status.cur_packs
+        else:
+            self.output.pack_cnt = 1
 
         streamData.pack_cnt = self.output.pack_cnt
 
