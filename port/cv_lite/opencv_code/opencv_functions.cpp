@@ -2617,7 +2617,8 @@ std::vector<cv::Point2f> orderPointsClockwise(const std::vector<cv::Point2f>& pt
 
 float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,
                                        float* camera_matrix, float* dist_coeffs, int dist_len,
-                                       float obj_width_cm, float obj_height_cm) {
+                                       float obj_width_cm, float obj_height_cm,
+                                       int* rects, int* corners) {
     int width = frame_shape.width;
     int height = frame_shape.height;
 
@@ -2667,6 +2668,23 @@ float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,
     box.points(box_points);
     std::vector<cv::Point2f> img_pts = orderPointsClockwise({box_points, box_points + 4});
 
+    // === 拷贝矩形 rects: x, y, w, h ===
+    cv::Rect rect = box.boundingRect();
+    if (rects) {
+        rects[0] = rect.x;
+        rects[1] = rect.y;
+        rects[2] = rect.width;
+        rects[3] = rect.height;
+    }
+
+    // === 拷贝角点 corners: [x0, y0, x1, y1, ..., x3, y3] ===
+    if (corners) {
+        for (int i = 0; i < 4; ++i) {
+            corners[i * 2]     = static_cast<int>(img_pts[i].x);
+            corners[i * 2 + 1] = static_cast<int>(img_pts[i].y);
+        }
+    }
+
     // 构造 3D 物体点
     std::vector<cv::Point3f> obj_pts = {
         {0, 0, 0},
@@ -2682,6 +2700,7 @@ float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,
 
     return static_cast<float>(cv::norm(tvec));
 }
+
 
 /**
  * @brief 对 RGB888 图像中指定 ROI 区域进行透视变换

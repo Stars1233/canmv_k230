@@ -100,7 +100,8 @@ extern "C" {
     void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs,int dist_len, uint8_t* result);
 
     float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,float* camera_matrix, float* dist_coeffs, int dist_len,float roi_width_real, float roi_height_real);
-    float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs, int dist_len,float obj_width_cm, float obj_height_cm);
+    // float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs, int dist_len,float obj_width_cm, float obj_height_cm);
+    float rgb888_pnp_distance_from_corners(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs, int dist_len,float obj_width_cm, float obj_height_cm,int* rects, int* corners);
 
     void rgb888_perspective_transform(FrameCHWSize frame_shape, uint8_t* data,int roi[4], float dst_pts[8],int out_width, int out_height,uint8_t* result);
 

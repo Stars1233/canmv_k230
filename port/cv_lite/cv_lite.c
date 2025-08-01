@@ -1802,6 +1802,51 @@ STATIC mp_obj_t cv_lite_rgb888_pnp_distance(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_pnp_distance_obj, 8, 8, cv_lite_rgb888_pnp_distance);
 
+// STATIC mp_obj_t cv_lite_rgb888_pnp_distance_from_corners(size_t n_args, const mp_obj_t *args) {
+//     // 参数解析
+//     mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
+//     ndarray_obj_t *data = MP_ROM_PTR(args[1]);              // 图像数据
+//     uint8_t *img_data = data->array;
+
+//     FrameCHWSize frame_shape;
+//     frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+//     frame_shape.width  = mp_obj_get_int(frame_size_mp->items[1]);
+//     frame_shape.channel = 3;
+
+//     mp_obj_list_t *camera_matrix_mp = MP_OBJ_TO_PTR(args[2]);
+//     mp_obj_list_t *dist_coeffs_mp = MP_OBJ_TO_PTR(args[3]);
+//     int dist_len = mp_obj_get_int(args[4]);
+//     float obj_width_cm = mp_obj_get_float(args[5]);
+//     float obj_height_cm = mp_obj_get_float(args[6]);
+
+//     // camera_matrix_mp 和 dist_coeffs_mp 是传进来的 mp_obj_t
+//     mp_obj_t *camera_matrix_items;
+//     size_t camera_matrix_len;
+//     mp_obj_get_array(camera_matrix_mp, &camera_matrix_len, &camera_matrix_items);
+
+//     // 分配 float 缓冲
+//     float camera_matrix[9];
+//     for (size_t i = 0; i < camera_matrix_len && i < 9; ++i) {
+//         camera_matrix[i] = mp_obj_get_float(camera_matrix_items[i]);
+//     }
+
+//     // 解析 dist_coeffs
+//     mp_obj_t *dist_coeff_items;
+//     size_t dist_coeff_len;
+//     mp_obj_get_array(dist_coeffs_mp, &dist_coeff_len, &dist_coeff_items);
+
+//     float dist_coeffs[dist_coeff_len];  // 最多支持 8 个系数
+//     for (size_t i = 0; i < dist_coeff_len && i < 8; ++i) {
+//         dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
+//     }
+
+//     // 调用底层透视变换函数
+//     float distance = rgb888_pnp_distance_from_corners(frame_shape, img_data, camera_matrix, dist_coeffs, dist_len, obj_width_cm, obj_height_cm);
+
+//     return mp_obj_new_float(distance);
+// }
+// STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_pnp_distance_from_corners_obj, 7, 7, cv_lite_rgb888_pnp_distance_from_corners);
+
 STATIC mp_obj_t cv_lite_rgb888_pnp_distance_from_corners(size_t n_args, const mp_obj_t *args) {
     // 参数解析
     mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);  // [height, width]
@@ -1840,10 +1885,29 @@ STATIC mp_obj_t cv_lite_rgb888_pnp_distance_from_corners(size_t n_args, const mp
         dist_coeffs[i] = mp_obj_get_float(dist_coeff_items[i]);
     }
 
-    // 调用底层透视变换函数
-    float distance = rgb888_pnp_distance_from_corners(frame_shape, img_data, camera_matrix, dist_coeffs, dist_len, obj_width_cm, obj_height_cm);
+    int rects[4];
+    int corners[8];
 
-    return mp_obj_new_float(distance);
+    float distance = rgb888_pnp_distance_from_corners(frame_shape, img_data, camera_matrix, dist_coeffs, dist_len, obj_width_cm, obj_height_cm, rects, corners);
+
+    mp_obj_list_t *results_mp_list = mp_obj_new_list(0, NULL);
+    mp_obj_list_append(results_mp_list, mp_obj_new_float(distance));
+    mp_obj_list_t *results_mp_rect_list = mp_obj_new_list(0, NULL);
+    mp_obj_list_append(results_mp_rect_list, mp_obj_new_int(rects[0]));
+    mp_obj_list_append(results_mp_rect_list, mp_obj_new_int(rects[1]));
+    mp_obj_list_append(results_mp_rect_list, mp_obj_new_int(rects[2]));
+    mp_obj_list_append(results_mp_rect_list, mp_obj_new_int(rects[3]));
+    mp_obj_list_append(results_mp_list, results_mp_rect_list);
+    mp_obj_list_t *results_mp_tuple_corners_list = mp_obj_new_list(0, NULL);
+    for (int i = 0; i < 4; i++)
+    {
+        mp_obj_list_t *corner = mp_obj_new_list(0, NULL);
+        mp_obj_list_append(corner, mp_obj_new_int(corners[i * 2 + 0]));
+        mp_obj_list_append(corner, mp_obj_new_int(corners[i * 2 + 1]));
+        mp_obj_list_append(results_mp_tuple_corners_list, corner);
+    }
+    mp_obj_list_append(results_mp_list, results_mp_tuple_corners_list);
+    return MP_OBJ_FROM_PTR(results_mp_list);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_pnp_distance_from_corners_obj, 7, 7, cv_lite_rgb888_pnp_distance_from_corners);
 
