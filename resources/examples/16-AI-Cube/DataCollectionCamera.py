@@ -43,21 +43,6 @@ IMG_SAVE_NAME_BEGIN="1_"
 
 LOGO_FILE="/sdcard/examples/16-AI-Cube/logo.jpg"
 
-def calculate_crop(sensor_width, sensor_height, target_width, target_height):
-    """
-    Calculate center crop rectangle from sensor resolution to match target resolution
-    with preserved aspect ratio.
-
-    Returns:
-        (crop_x, crop_y, crop_width, crop_height)
-    """
-    scale = min(sensor_width // target_width, sensor_height // target_height)
-    crop_width = int(target_width * scale)
-    crop_height = int(target_height * scale)
-    crop_x = (sensor_width - crop_width) // 2
-    crop_y = (sensor_height - crop_height) // 2
-    return (crop_x, crop_y, crop_width, crop_height)
-
 def cal_grab_rect():
     global grab_x, grab_y, grab_w, grab_h
 
@@ -95,11 +80,11 @@ def media_init():
     sensor_width = sensor.width(None)
     sensor_height = sensor.height(None)
     # 设置采集图片的分辨率
-    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0, crop = calculate_crop(sensor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
+    sensor.set_framesize(w=VIDEO_WIDTH, h=VIDEO_HEIGHT,chn=CAM_CHN_ID_0)
     sensor.set_pixformat(Sensor.RGB888)
 
     # 设置显示的分辨率, 使用与采集相同的分辨率来做resize
-    sensor.set_framesize(w=DISPLAY_WIDTH, h=DISPLAY_HEIGHT, chn=CAM_CHN_ID_2,crop = calculate_crop(sensor_width, sensor_height, VIDEO_WIDTH, VIDEO_HEIGHT))
+    sensor.set_framesize(w=DISPLAY_WIDTH, h=DISPLAY_HEIGHT, chn=CAM_CHN_ID_2)
     sensor.set_pixformat(Sensor.RGB888, chn=CAM_CHN_ID_2)
 
     MediaManager.init()

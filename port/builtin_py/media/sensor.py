@@ -70,6 +70,17 @@ class Sensor:
     _devs = [None for i in range(0, CAM_DEV_ID_MAX)]
     _csis = [False for i in range(0, CAM_DEV_ID_MAX)]
 
+    @staticmethod
+    def _calculate_crop(sensor_width, sensor_height, target_width, target_height):
+        scale = min(sensor_width // target_width, sensor_height // target_height)
+        crop_width = int(target_width * scale)
+        crop_height = int(target_height * scale)
+        crop_x = (sensor_width - crop_width) // 2
+        crop_y = (sensor_height - crop_height) // 2
+
+        print(crop_x, crop_y, crop_width, crop_height)
+        return (crop_x, crop_y, crop_width, crop_height)
+
     @classmethod
     def deinit(cls):
         for i in range(0, CAM_DEV_ID_MAX):
@@ -601,7 +612,7 @@ class Sensor:
         else:
             return 0, 0
 
-    def set_framesize(self, framesize = FRAME_SIZE_INVAILD, chn = CAM_CHN_ID_0, alignment=0, **kwargs):
+    def set_framesize(self, framesize = FRAME_SIZE_INVAILD, chn = CAM_CHN_ID_0, alignment=0, crop = None, **kwargs):
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -630,22 +641,17 @@ class Sensor:
         if height > self._dev_attr.acq_win.height or height < CAM_OUT_HEIGHT_MIN:
             raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild height({height}), should be {CAM_OUT_HEIGHT_MIN} - {self._dev_attr.acq_win.height}")
 
-        crop_en = False
-        crop_x, crop_y, crop_w, crop_h = 0, 0, 0, 0
-        if 'crop' in kwargs:
-            crop = kwargs.get('crop', (0,0,0,0)) # (x, y, w, h)
-            if len(crop) == 4:
-                crop_en = True
-                crop_x, crop_y, crop_w, crop_h = crop
-
-                if crop_x < 0 or crop_y < 0 or crop_w < 0 or crop_h < 0:
-                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) and should be >= 0")
-                # if crop_x + crop_w < width or crop_y + crop_h < height:
-                #     raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) with x+w >= {width} and y+h >= {height}")
-                if crop_x + crop_w > self._dev_attr.acq_win.width or crop_y + crop_h > self._dev_attr.acq_win.height:
-                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h) with x+w <= {self._dev_attr.acq_win.width} and y+h <= {self._dev_attr.acq_win.height}")
+        if crop is not None:
+            crop_x, crop_y, crop_w, crop_h = 0, 0, 0, 0
+            if isinstance(crop, tuple) or isinstance(crop, list):
+                if len(crop) == 4:
+                    crop_x, crop_y, crop_w, crop_h = crop
+                else:
+                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h)")
             else:
                 raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h)")
+        else:
+            crop_x, crop_y, crop_w, crop_h = Sensor._calculate_crop(self._dev_attr.acq_win.width, self._dev_attr.acq_win.height, width, height)
 
         self._chn_attr[chn].chn_enable = True
         self._chn_attr[chn].crop_enable = False
@@ -659,18 +665,17 @@ class Sensor:
         self._chn_attr[chn].alignment = alignment
 
         # crop window
-        if crop_en and crop_w > 0 and crop_h > 0:
-            self._chn_attr[chn].crop_enable = True
-            self._chn_attr[chn].crop_win.h_start = crop_x
-            self._chn_attr[chn].crop_win.v_start = crop_y
-            self._chn_attr[chn].crop_win.width = crop_w
-            self._chn_attr[chn].crop_win.height = crop_h
+        self._chn_attr[chn].crop_enable = True
+        self._chn_attr[chn].crop_win.h_start = crop_x
+        self._chn_attr[chn].crop_win.v_start = crop_y
+        self._chn_attr[chn].crop_win.width = crop_w
+        self._chn_attr[chn].crop_win.height = crop_h
 
-            self._chn_attr[chn].scale_enable = True
-            self._chn_attr[chn].scale_win.h_start = 0
-            self._chn_attr[chn].scale_win.v_start = 0
-            self._chn_attr[chn].scale_win.width = width
-            self._chn_attr[chn].scale_win.height = height
+        self._chn_attr[chn].scale_enable = True
+        self._chn_attr[chn].scale_win.h_start = 0
+        self._chn_attr[chn].scale_win.v_start = 0
+        self._chn_attr[chn].scale_win.width = width
+        self._chn_attr[chn].scale_win.height = height
 
         if self._chn_attr[chn].pix_format:
             buf_size = 0

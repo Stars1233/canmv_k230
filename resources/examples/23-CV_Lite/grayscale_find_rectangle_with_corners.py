@@ -17,21 +17,6 @@ import ulab.numpy as np        # MicroPython NumPy类库
 # -------------------------------
 image_shape = [480, 640]  # 高 x 宽 / Height x Width
 
-def calculate_crop(sensor_width, sensor_height, target_width, target_height):
-    """
-    Calculate center crop rectangle from sensor resolution to match target resolution
-    with preserved aspect ratio.
-
-    Returns:
-        (crop_x, crop_y, crop_width, crop_height)
-    """
-    scale = min(sensor_width // target_width, sensor_height // target_height)
-    crop_width = int(target_width * scale)
-    crop_height = int(target_height * scale)
-    crop_x = (sensor_width - crop_width) // 2
-    crop_y = (sensor_height - crop_height) // 2
-    return (crop_x, crop_y, crop_width, crop_height)
-
 # -------------------------------
 # 初始化摄像头（灰度图模式） / Initialize camera (grayscale mode)
 # -------------------------------
@@ -40,7 +25,7 @@ sensor.reset()
 
 sensor_width = sensor.width(None)
 sensor_height = sensor.height(None)
-sensor.set_framesize(width=image_shape[1], height=image_shape[0], crop = calculate_crop(sensor_width,sensor_height,image_shape[1],image_shape[0]))
+sensor.set_framesize(width=image_shape[1], height=image_shape[0])
 sensor.set_pixformat(Sensor.GRAYSCALE)  # 灰度图格式 / Grayscale format
 
 # -------------------------------
