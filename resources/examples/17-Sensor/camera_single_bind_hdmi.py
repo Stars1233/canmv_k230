@@ -39,7 +39,8 @@ try:
 except KeyboardInterrupt as e:
     print("user stop: ", e)
 except BaseException as e:
-    print(f"Exception {e}")
+    import sys
+    sys.print_exception(e)
 finally:
     # sensor stop run
     if isinstance(sensor, Sensor):

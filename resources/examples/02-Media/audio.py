@@ -57,7 +57,8 @@ def record_audio(filename, duration):
         wf.write_frames(b''.join(frames)) #存储wav音频数据
         wf.close() #关闭wav文件
     except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
     finally:
         stream.stop_stream() #停止采集音频数据
         stream.close()#关闭音频输入流
@@ -90,7 +91,8 @@ def play_audio(filename):
             if exit_check():
                 break
     except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
     finally:
         stream.stop_stream() #停止音频输出流
         stream.close()#关闭音频输出流
@@ -141,7 +143,8 @@ def loop_audio(duration):
             if exit_check():
                 break
     except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
     finally:
         input_stream.stop_stream()#停止音频输入流
         output_stream.stop_stream()#停止音频输出流
@@ -194,7 +197,8 @@ def audio_recorder(filename, duration):
         wf.write_frames(b''.join(frames)) #存储wav音频数据
         wf.close() #关闭wav文件
     except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
     finally:
         input_stream.stop_stream() #停止采集音频数据
         input_stream.close()#关闭音频输入流
@@ -223,7 +227,8 @@ def audio_recorder(filename, duration):
                 break
         print("stop play...")
     except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
     finally:
         output_stream.stop_stream() #停止音频输出流
         output_stream.close()#关闭音频输出流

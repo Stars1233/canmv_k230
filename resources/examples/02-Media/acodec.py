@@ -14,7 +14,8 @@ def exit_check():
     try:
         os.exitpoint()
     except KeyboardInterrupt as e:
-        print("user stop: ", e)
+        import sys
+        sys.print_exception(e)
         return True
     return False
 
@@ -54,7 +55,8 @@ def encode_audio(filename, duration):
         p.terminate() #释放音频对象
         enc.destroy() #销毁g711音频编码器
     except BaseException as e:
-            print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
     finally:
         MediaManager.deinit() #释放vb buffer
 
@@ -97,7 +99,8 @@ def decode_audio(filename):
         wf.close() #关闭g711文件
 
     except BaseException as e:
-            print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
     finally:
         MediaManager.deinit() #释放vb buffer
 
@@ -147,7 +150,8 @@ def loop_codec(duration):
         dec.destroy() #销毁g711解码器
         enc.destroy() #销毁g711编码器
     except BaseException as e:
-            print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
     finally:
         MediaManager.deinit() #释放vb buffer
 

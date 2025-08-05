@@ -61,7 +61,8 @@ try:
 except KeyboardInterrupt as e:
     print("user stop: ", e)
 except BaseException as e:
-    print(f"Exception {e}")
+    import sys
+    sys.print_exception(e)
 finally:
     # multiple sensor all need excute stop()
     if sensor0 is not None:

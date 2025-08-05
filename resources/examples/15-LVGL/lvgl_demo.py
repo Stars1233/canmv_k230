@@ -106,7 +106,8 @@ def main():
         while True:
             time.sleep_ms(lv.task_handler())
     except BaseException as e:
-        print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
     lvgl_deinit()
     display_deinit()
     gc.collect()

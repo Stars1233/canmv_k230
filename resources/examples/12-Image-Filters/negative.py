@@ -68,7 +68,8 @@ def capture_picture():
             print("user stop: ", e)
             break
         except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
             break
 
 def main():
@@ -81,7 +82,8 @@ def main():
         print("camera capture")
         capture_picture()
     except Exception as e:
-        print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
     finally:
         if camera_is_init:
             print("camera deinit")

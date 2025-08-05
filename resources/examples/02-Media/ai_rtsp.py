@@ -99,7 +99,8 @@ if __name__ == "__main__":
     except KeyboardInterrupt as e:
         print("user stop: ", e)
     except BaseException as e:
-        print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
 
     face_det.deinit()                       # 反初始化
     WBCRtsp.stop()                         # 停止WBC推流

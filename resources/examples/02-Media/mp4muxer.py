@@ -169,7 +169,8 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
             if frame_count >= 200:
                 break
     except KeyboardInterrupt as e:
-        print("user stop: ", e)
+        import sys
+        sys.print_exception(e)
     except BaseException as e:
         import sys
         sys.print_exception(e)
@@ -218,7 +219,8 @@ def mp4_muxer_test():
             if frame_count >= 200:
                 break
     except BaseException as e:
-        print(e)
+        import sys
+        sys.print_exception(e)
     # 停止mp4 muxer
     mp4_muxer.Stop()
     # 销毁mp4 muxer

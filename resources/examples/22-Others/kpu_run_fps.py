@@ -74,5 +74,6 @@ while True:
         print("user stop: ", e)
         break
     except BaseException as e:
-        print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
         break

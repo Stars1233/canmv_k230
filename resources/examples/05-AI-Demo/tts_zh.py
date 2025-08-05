@@ -201,6 +201,7 @@ if __name__ == "__main__":
             tts_zh.run(text)
             gc.collect()                        # 垃圾回收
     except Exception as e:
+        import sys
         sys.print_exception(e)                  # 打印异常信息
     finally:
         tts_zh.deinit()

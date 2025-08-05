@@ -109,7 +109,8 @@ class RtspServer:
                 self.encoder.ReleaseStream(self.venc_chn, streamData)
 
         except BaseException as e:
-            print(f"Exception {e}")
+            import sys
+            sys.print_exception(e)
         finally:
             self.runthread_over = True
             # 停止rtsp server

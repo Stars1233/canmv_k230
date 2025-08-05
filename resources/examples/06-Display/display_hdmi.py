@@ -40,7 +40,8 @@ def display_test():
     except KeyboardInterrupt as e:
         print("user stop: ", e)
     except BaseException as e:
-        print(f"Exception {e}")
+        import sys
+        sys.print_exception(e)
 
     # deinit display
     Display.deinit()

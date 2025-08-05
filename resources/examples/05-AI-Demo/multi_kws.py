@@ -126,6 +126,7 @@ if __name__ == "__main__":
                 last_idx=res
                 gc.collect()                    # 垃圾回收
     except Exception as e:
+        import sys
         sys.print_exception(e)                  # 打印异常信息
     finally:
         input_stream.stop_stream()
