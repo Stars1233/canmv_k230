@@ -1,6 +1,8 @@
 import time
 from usb import Serial
 
+# just an example of how to use the Serial class
+# you may need to adjust the port
 ser = Serial("/dev/ttyUSB1", 200)
 
 while True:

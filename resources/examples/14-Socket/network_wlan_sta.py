@@ -1,28 +1,27 @@
 import network
-import os
+import time
 
-def sta_test():
-    sta=network.WLAN(0)
-    #sta连接ap
-    sta.connect("Canaan","Canaan314")
-    #查看sta状态
-    print(sta.status())
-    
-    while sta.ifconfig()[0] == '0.0.0.0':
-        os.exitpoint()
-    
-    #查看ip配置
-    print(sta.ifconfig())
-    #查看是否连接
-    print(sta.isconnected())
-    #断开连接
-    sta.disconnect()
-    #查看sta状态
-    print(sta.status())
-    #连接ap
-    sta.connect("Canaan","Canaan314")
-    #查看状态
-    print(sta.status())
+SSID = "TEST"
+PASSWORD = "12345678"
 
-sta_test()
+sta = network.WLAN(network.STA_IF)
 
+sta.connect(SSID, PASSWORD)
+
+timeout = 10  # seconds
+start_time = time.time()
+
+while not sta.isconnected():
+    if time.time() - start_time > timeout:
+        print("Connection timed out")
+        break
+    os.sleep(1)  # wait for a second before checking again
+
+print(sta.ifconfig())
+
+print(sta.status())
+
+# Disconnect from the network, not necessary, just a test.
+sta.disconnect()
+print("Disconnected from the network")
+print(sta.status())

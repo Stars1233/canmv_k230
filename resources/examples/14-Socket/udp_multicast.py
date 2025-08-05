@@ -19,7 +19,7 @@ def network_use_wlan(is_wlan=True):
     """Initialize network interface and return IP address."""
     if is_wlan:
         sta = network.WLAN(0)
-        sta.connect("Canaan", "Canaan314")
+        sta.connect("TEST","12345678")
         print("[WLAN] Connecting...")
         while sta.ifconfig()[0] == '0.0.0.0':
             time.sleep(0.5)

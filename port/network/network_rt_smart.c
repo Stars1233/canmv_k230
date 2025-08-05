@@ -669,11 +669,11 @@ STATIC int network_rt_wlan_socket_settimeout(struct _mod_network_socket_obj_t *_
     debug_printf("socket_settimeout(%d, %d)\n", _socket->fileno, timeout_ms);
 
     if (0x00 == timeout_ms) {
-        timeout_ms = 100;
+        timeout_ms = 50;
 
         ret |= network_rt_wlan_socke_setblocking(_socket, false, _errno);
     } else if((mp_uint_t)(-1) == timeout_ms) {
-        set_timeout = 0;
+        timeout_ms = 50;
 
         // not set socket as blocking, we block in python.
         // ret |= network_rt_wlan_socke_setblocking(_socket, true, _errno);

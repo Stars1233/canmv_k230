@@ -78,7 +78,6 @@ class Sensor:
         crop_x = (sensor_width - crop_width) // 2
         crop_y = (sensor_height - crop_height) // 2
 
-        print(crop_x, crop_y, crop_width, crop_height)
         return (crop_x, crop_y, crop_width, crop_height)
 
     @classmethod

@@ -3,7 +3,7 @@ import network
 import requests
 
 # Connect to Wi-Fi
-def connect_wifi(ssid="Canaan", password="Canaan314"):
+def connect_wifi(ssid="TEST", password="12345678"):
     wlan = network.WLAN(0)
     wlan.connect(ssid, password)
 
