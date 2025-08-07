@@ -192,7 +192,10 @@ void mpy_stdout_tx(const char* data, size_t size) {
 static void read_until(int fd, void* buffer, size_t size) {
     size_t idx = 0;
     do {
-        size_t recv = read(fd, (char*)buffer + idx, size - idx);
+        int recv = read(fd, (char*)buffer + idx, size - idx);
+        if (recv < 0) {
+            continue;
+        }
         idx += recv;
     } while (idx < size);
 }
@@ -1192,13 +1195,13 @@ static void* ide_dbg_task(void* args) {
         if (!FD_ISSET(usb_cdc_fd, &rfds)) {
             continue;
         }
-        ssize_t size = read(usb_cdc_fd, usb_cdc_read_buf, sizeof(usb_cdc_read_buf));
+        int size = read(usb_cdc_fd, usb_cdc_read_buf, sizeof(usb_cdc_read_buf));
         if (size == 0) {
             pr_verb("[usb] read timeout");
             continue;
         } else if (size < 0) {
             // TODO: error, but ???
-            perror("[usb] read ttyUSB");
+            pr_err("[usb] read ttyUSB");
         } else if (ide_dbg_attach()) {
             ide_dbg_update(&state, usb_cdc_read_buf, size);
         } else {
@@ -1293,7 +1296,7 @@ void ide_dbg_init(void) {
         return;
     }
     // clear input buffer
-    while (0 < read(usb_cdc_fd, usb_cdc_read_buf, sizeof(usb_cdc_read_buf)));
+    //while (0 < read(usb_cdc_fd, usb_cdc_read_buf, sizeof(usb_cdc_read_buf)));
     sem_init(&script_sem, 0, 0);
     sem_init(&stdin_sem, 0, 0);
     pthread_mutex_init(&fb_mutex, NULL);
