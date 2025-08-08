@@ -50,6 +50,10 @@
 
 #define MP_STATE_PORT MP_STATE_VM
 
+#define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_C)
+#define MICROPY_OBJ_BASE_ALIGNMENT          __attribute__((aligned(8)))
+#define MICROPY_NLR_SETJMP                  (1)
+
 typedef long mp_int_t; // must be pointer size
 typedef unsigned long mp_uint_t; // must be pointer size
 typedef long long mp_off_t;
@@ -68,8 +72,8 @@ typedef long long mp_off_t;
 #define MICROPY_USE_READLINE        (1)
 // Always enable GC.
 #define MICROPY_ENABLE_GC           (1)
-#define MICROPY_GC_SPLIT_HEAP       (1)
-#define MICROPY_GC_SPLIT_HEAP_AUTO  (1)
+#define MICROPY_GC_SPLIT_HEAP       (0)
+#define MICROPY_GC_SPLIT_HEAP_AUTO  (0)
 #define MICROPY_GCREGS_SETJMP       (1)
 // Enable the VFS, and enable the posix "filesystem".
 #define MICROPY_ENABLE_FINALISER    (1)
