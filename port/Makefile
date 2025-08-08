@@ -84,7 +84,7 @@ ifdef DEBUG
 COPT ?= -Og
 else
 COPT ?= -Os
-COPT += -DNDEBUG
+# COPT += -DNDEBUG
 endif
 
 # Remove unused sections.
@@ -227,16 +227,20 @@ $(LVGL_MPY): $(ALL_LVGL_SRC) $(LVGL_BINDING_DIR)/gen_mpy.py
 LVGL_SRC_C_ALL = $(subst $(TOP)/,,$(shell find $(LVGL_DIR)/src -type f -name "*.c") $(LVGL_MPY))
 LVGL_SRC_C_EXCLUDE = \
 	$(addprefix $(LVGL_DIR)/src/,\
-		hal/lv_hal_tick.c \
+		core/lv_obj.c \
+		core/lv_refr.c \
 		libs/png/lodepng.c \
 		libs/png/lv_png.c \
 		libs/freetype/lv_freetype.c \
 	)
 LVGL_SRC_C := $(filter-out $(LVGL_SRC_C_EXCLUDE),$(LVGL_SRC_C_ALL))
-LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/hal/lv_hal_tick.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_refr.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/freetype/lv_freetype.c
+
+CFLAGS += -I$(LVGL_DIR)/src/core
 
 CANMV_SRC_C += $(LVGL_SRC_C)
 CLEAN_EXTRA += $(LVGL_PP) $(LVGL_MPY)
