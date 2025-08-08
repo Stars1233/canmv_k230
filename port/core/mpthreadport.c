@@ -145,6 +145,20 @@ void mp_thread_init(void) {
     sigaction(MP_THREAD_GC_SIGNAL, &sa, NULL);
 }
 
+#if 1
+void mp_thread_deinit(void) {
+    mp_thread_unix_begin_atomic_section();
+    while (thread->next != NULL) {
+        mp_thread_t *th = thread;
+        thread = thread->next;
+        pthread_cancel(th->id);
+        free(th);
+    }
+    mp_thread_unix_end_atomic_section();
+    assert(thread->id == pthread_self());
+    free(thread);
+}
+#else // old version, kept for reference
 void mp_thread_deinit(void) {
     while (1) {
         usleep(10000);
@@ -157,6 +171,7 @@ void mp_thread_deinit(void) {
     assert(thread->id == pthread_self());
     free(thread);
 }
+#endif
 
 // This function scans all pointers that are external to the current thread.
 // It does this by signalling all other threads and getting them to scan their
@@ -262,6 +277,9 @@ mp_uint_t mp_thread_create(void *(*entry)(void *), void *arg, size_t *stack_size
 
     // adjust stack_size to provide room to recover from hitting the limit
     *stack_size -= THREAD_STACK_OVERFLOW_MARGIN;
+
+    // use the RT-Smart LWP stack size if configured
+    *stack_size = CONFIG_RTSMART_LWP_APP_STACK_SIZE - 512;
 
     // add thread to linked list of all threads
     mp_thread_t *th = malloc(sizeof(mp_thread_t));
