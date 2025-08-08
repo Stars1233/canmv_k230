@@ -192,7 +192,7 @@ lv_font_t * lv_freetype_font_create(const char * pathname, uint16_t size, uint16
                                             &face_size);
     if(error) {
         FT_ERROR_MSG("FTC_Manager_LookupSize", error);
-        lv_free(dsc);
+        lv_free(buffer);
         return NULL;
     }
 
