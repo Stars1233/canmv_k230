@@ -105,13 +105,13 @@ void usb_rx_clear(void) {
     }
 }
 
-#define CDC_GET_DTR                 _IOR('c', 1, int)
+#define UART_IOCTL_GET_DTR    _IOR('U', 3, void*)
 
 int usb_cdc_get_dtr(void)
 {
     int dtr = 0;
 
-    if (0 != ioctl(usb_cdc_fd, CDC_GET_DTR, &dtr)) {
+    if (0 != ioctl(usb_cdc_fd, UART_IOCTL_GET_DTR, &dtr)) {
         printf("failed to get dtr\n");
         return -1;
     }
