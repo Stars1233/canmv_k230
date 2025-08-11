@@ -50,7 +50,6 @@
 
 #define MP_STATE_PORT MP_STATE_VM
 
-#define MICROPY_OBJ_REPR                    (MICROPY_OBJ_REPR_C)
 #define MICROPY_OBJ_BASE_ALIGNMENT          __attribute__((aligned(8)))
 #define MICROPY_NLR_SETJMP                  (1)
 
