@@ -82,15 +82,15 @@ STATIC mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_a
 
     // if ((args[ARG_id].u_int < WDT_DEVICE_0) || (args[ARG_id].u_int >= WDT_DEVICE_MAX)) {
     if (args[ARG_id].u_int != WDT_DEVICE_1) {
-        mp_raise_ValueError("invalid wdt id");
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid wdt id"));
     }
 
     if (args[ARG_timeout].u_int <= 0) {
-        mp_raise_ValueError("WDT timeout too short");
+        mp_raise_ValueError(MP_ERROR_TEXT("WDT timeout too short"));
     }
 
     if (used[args[ARG_id].u_int]) {
-        mp_raise_ValueError("WDT id is used");
+        mp_raise_ValueError(MP_ERROR_TEXT("WDT id is used"));
     }
 
     machine_wdt_obj_t* self = m_new_obj_with_finaliser(machine_wdt_obj_t);

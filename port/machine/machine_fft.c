@@ -73,7 +73,7 @@ STATIC mp_obj_t machine_fft_obj_init_helper(machine_fft_obj_t *self, size_t n_ar
     
     if(self->points != 64 && self->points != 128 && self->points != 256 && self->points != 512 && self->points != 1024 && self->points != 2048 && self->points != 4096)
     {
-        mp_raise_ValueError("[CANMV]FFT:invalid points");
+        mp_raise_ValueError(MP_ERROR_TEXT("[CANMV]FFT:invalid points"));
     }
 
     uint32_t byte_len = 0;
@@ -88,11 +88,11 @@ STATIC mp_obj_t machine_fft_obj_init_helper(machine_fft_obj_t *self, size_t n_ar
     }
     else
     {
-        mp_raise_ValueError("[CANMV]FFT:invalid byte");
+        mp_raise_ValueError(MP_ERROR_TEXT("[CANMV]FFT:invalid byte"));
     }
     if(byte_len % 4 != 0)
     {
-        mp_raise_ValueError("[CANMV]FFT:Buffer length must be a multiple of 4");
+        mp_raise_ValueError(MP_ERROR_TEXT("[CANMV]FFT:Buffer length must be a multiple of 4"));
     }
     // // how to get the length of i2s buffer?
     // if(byte_len < self->points * 4)
@@ -186,7 +186,7 @@ STATIC mp_obj_t machine_fft_amplitude(mp_obj_t self_o,const mp_obj_t list_obj)
     machine_fft_obj_t *self = MP_OBJ_TO_PTR(self_o);
     if(&mp_type_list != mp_obj_get_type(list_obj))
     {
-        mp_raise_ValueError("[CANMV]FFT:obj is not a list");
+        mp_raise_ValueError(MP_ERROR_TEXT("[CANMV]FFT:obj is not a list"));
     }
     mp_obj_list_t* ret_list = (mp_obj_list_t*)m_new(mp_obj_list_t,sizeof(mp_obj_list_t));//m_new
     mp_obj_list_init(ret_list, 0);

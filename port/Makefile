@@ -11,6 +11,8 @@ $(foreach line,$(GIT_INFO),$(eval export $(line)))
 BOARD_DIR = boards/$(call qstrip,$(CONFIG_BOARD))
 BUILD = $(SDK_CANMV_BUILD_DIR)
 
+MICROPY_ROM_TEXT_COMPRESSION ?= 1
+
 include ../micropython/py/mkenv.mk
 
 # Use the default frozen manifest, variants may override this.

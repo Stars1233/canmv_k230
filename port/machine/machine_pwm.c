@@ -82,7 +82,7 @@ void mp_machine_pwm_init_helper(machine_pwm_obj_t* self, size_t n_args, const mp
         duty_specs++;
 
     if (duty_specs > 1) {
-        mp_raise_ValueError("only one of duty, duty_u16, or duty_ns can be specified");
+        mp_raise_ValueError(MP_ERROR_TEXT("only one of duty, duty_u16, or duty_ns can be specified"));
     }
 
     // Set duty cycle if provided
@@ -163,7 +163,7 @@ mp_obj_t mp_machine_pwm_freq_get(machine_pwm_obj_t* self)
 {
     uint32_t freq;
     if (drv_pwm_get_freq(self->channel, &freq) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get frequency");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to get frequency"));
     }
     return MP_OBJ_NEW_SMALL_INT(freq);
 }
@@ -172,11 +172,11 @@ mp_obj_t mp_machine_pwm_freq_get(machine_pwm_obj_t* self)
 void mp_machine_pwm_freq_set(machine_pwm_obj_t* self, mp_int_t freq)
 {
     if (freq <= 0) {
-        mp_raise_ValueError("frequency must be > 0");
+        mp_raise_ValueError(MP_ERROR_TEXT("frequency must be > 0"));
     }
 
     if (drv_pwm_set_freq(self->channel, freq) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to set frequency");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to set frequency"));
     }
 
     if (!self->active) {
@@ -190,7 +190,7 @@ mp_obj_t mp_machine_pwm_duty_get(machine_pwm_obj_t* self)
 {
     uint32_t duty;
     if (drv_pwm_get_duty(self->channel, &duty) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "Failed to get duty cycle");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to get duty cycle"));
     }
     return MP_OBJ_NEW_SMALL_INT(duty); // duty is already in 0-100 range
 }
@@ -200,18 +200,18 @@ void mp_machine_pwm_duty_set(machine_pwm_obj_t* self, mp_int_t duty)
 {
     // Validate input range
     if (duty < 0 || duty > 100) {
-        mp_raise_ValueError("duty must be 0-100");
+        mp_raise_ValueError(MP_ERROR_TEXT("duty must be 0-100"));
     }
 
     // Set duty cycle through driver
     if (drv_pwm_set_duty(self->channel, (uint32_t)duty) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "Failed to set duty cycle");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to set duty cycle"));
     }
 
     // Auto-enable PWM if not already active
     if (!self->active) {
         if (drv_pwm_enable(self->channel) != 0) {
-            mp_raise_msg(&mp_type_RuntimeError, "Failed to enable PWM");
+            mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("Failed to enable PWM"));
         }
         self->active = true;
     }
@@ -221,11 +221,11 @@ void mp_machine_pwm_duty_set(machine_pwm_obj_t* self, mp_int_t duty)
 void mp_machine_pwm_duty_set_u16(machine_pwm_obj_t* self, mp_int_t duty_u16)
 {
     if (duty_u16 < 0 || duty_u16 > 65535) {
-        mp_raise_ValueError("duty_u16 must be 0-65535");
+        mp_raise_ValueError(MP_ERROR_TEXT("duty_u16 must be 0-65535"));
     }
 
     if (drv_pwm_set_duty_u16(self->channel, duty_u16) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to set duty"));
     }
 
     if (!self->active) {
@@ -241,10 +241,10 @@ mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self)
     uint16_t duty_u16;
 
     if (drv_pwm_get_freq(self->channel, &freq) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get PWM frequency");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to get PWM frequency"));
     }
     if (drv_pwm_get_duty_u16(self->channel, &duty_u16) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get PWM duty");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to get PWM duty"));
     }
 
     if (freq == 0) {
@@ -258,18 +258,18 @@ mp_obj_t mp_machine_pwm_duty_get_u16(machine_pwm_obj_t* self)
 void mp_machine_pwm_duty_set_ns(machine_pwm_obj_t* self, mp_int_t duty_ns)
 {
     if (duty_ns < 0) {
-        mp_raise_ValueError("duty_ns must be >= 0");
+        mp_raise_ValueError(MP_ERROR_TEXT("duty_ns must be >= 0"));
     }
     uint32_t freq;
     if (drv_pwm_get_freq(self->channel, &freq) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get frequency");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to get frequency"));
     }
     if (freq == 0) {
-        mp_raise_ValueError("cannot set duty_ns when frequency is 0");
+        mp_raise_ValueError(MP_ERROR_TEXT("cannot set duty_ns when frequency is 0"));
     }
 
     if (drv_pwm_set_duty_ns(self->channel, duty_ns) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to set duty");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to set duty"));
     }
 
     if (!self->active) {
@@ -283,7 +283,7 @@ mp_obj_t mp_machine_pwm_duty_get_ns(machine_pwm_obj_t* self)
 {
     uint32_t freq, duty;
     if (drv_pwm_get_freq(self->channel, &freq) != 0 || drv_pwm_get_duty_ns(self->channel, &duty) != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "failed to get duty_ns");
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("failed to get duty_ns"));
     }
     if (freq == 0) {
         return MP_OBJ_NEW_SMALL_INT(0);

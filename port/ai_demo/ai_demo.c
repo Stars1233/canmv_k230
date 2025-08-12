@@ -65,12 +65,12 @@ STATIC mp_obj_t aidemo_invert_affine_transform(mp_obj_t matrix_ndarray)
         }
         else
         {
-            nlr_raise(mp_obj_new_exception_msg(&mp_type_AssertionError, "Error: Only float data types are supported in invert_affine_transform"));
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_AssertionError, MP_ERROR_TEXT("Error: Only float data types are supported in invert_affine_transform")));
         }
     }
     else
     {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_AssertionError, "Error: Assertion failed (rows == 2 && cols == 3) in invert_affine_transform"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_AssertionError, MP_ERROR_TEXT("Error: Assertion failed (rows == 2 && cols == 3) in invert_affine_transform")));
     }
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(aidemo_invert_affine_transform_obj, aidemo_invert_affine_transform);
@@ -654,13 +654,13 @@ STATIC mp_obj_t kws_preprocess(mp_obj_t fp,mp_obj_t wav_obj) {
     size_t feats_length = 1 * 30 * 40;
     // 检查输入参数是否合法
     if (wav_list == NULL || wav_length <= 0) {
-        mp_raise_msg(&mp_type_ValueError, "Invalid input");
+        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("Invalid input"));
         return mp_const_none;
     }
     // 分配内存来存储 wav 数组
     float* wav = (float *)malloc(wav_length * sizeof(float));
     if (wav == NULL) {
-        mp_raise_msg(&mp_type_MemoryError, "Memory allocation failed");
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Memory allocation failed"));
         return mp_const_none;
     }
     // 将 MicroPython 的列表转换为 C 数组
@@ -814,13 +814,13 @@ STATIC mp_obj_t save_wav(size_t n_args, const mp_obj_t *args){
     const char* wav_path=mp_obj_str_get_str(args[2]);
     size_t sample_rate_ = mp_obj_get_int(args[4]);
     if (wav_list == NULL || wav_length <= 0) {
-        mp_raise_msg(&mp_type_ValueError, "Invalid input");
+        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("Invalid input"));
         return mp_const_none;
     }
     // 分配内存来存储 wav 数组
     float* wav = (float *)malloc(wav_length * sizeof(float));
     if (wav == NULL) {
-        mp_raise_msg(&mp_type_MemoryError, "Memory allocation failed");
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Memory allocation failed"));
         return mp_const_none;
     }
     // 将 MicroPython 的列表转换为 C 数组
