@@ -63,3 +63,12 @@ void gc_collect(void)
 }
 
 #endif // MICROPY_ENABLE_GC
+
+#if MICROPY_GC_SPLIT_HEAP_AUTO
+
+// The largest new region that is available to become Python heap is the largest free block
+size_t gc_get_max_new_split(void) {
+    return 4 * 1024 * 1024; // 4 MiB
+}
+
+#endif

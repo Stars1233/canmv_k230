@@ -71,8 +71,8 @@ typedef long long mp_off_t;
 #define MICROPY_USE_READLINE        (1)
 // Always enable GC.
 #define MICROPY_ENABLE_GC           (1)
-#define MICROPY_GC_SPLIT_HEAP       (0)
-#define MICROPY_GC_SPLIT_HEAP_AUTO  (0)
+#define MICROPY_GC_SPLIT_HEAP       (1)
+#define MICROPY_GC_SPLIT_HEAP_AUTO  (1)
 #define MICROPY_GCREGS_SETJMP       (1)
 // Enable the VFS, and enable the posix "filesystem".
 #define MICROPY_ENABLE_FINALISER    (1)
