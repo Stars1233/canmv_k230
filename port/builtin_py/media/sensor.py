@@ -640,17 +640,26 @@ class Sensor:
         if height > self._dev_attr.acq_win.height or height < CAM_OUT_HEIGHT_MIN:
             raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild height({height}), should be {CAM_OUT_HEIGHT_MIN} - {self._dev_attr.acq_win.height}")
 
-        if crop is not None:
-            crop_x, crop_y, crop_w, crop_h = 0, 0, 0, 0
-            if isinstance(crop, tuple) or isinstance(crop, list):
-                if len(crop) == 4:
-                    crop_x, crop_y, crop_w, crop_h = crop
-                else:
-                    raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h)")
+        crop_enable = False
+        crop_x, crop_y, crop_w, crop_h = 0, 0, 0, 0
+
+        if crop is True:
+            crop_enable = True
+            crop_x, crop_y, crop_w, crop_h = Sensor._calculate_crop(self._dev_attr.acq_win.width, self._dev_attr.acq_win.height, width, height)
+        elif isinstance(crop, tuple) or isinstance(crop, list):
+            if len(crop) == 4:
+                crop_enable = True
+                crop_x, crop_y, crop_w, crop_h = crop
             else:
                 raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop({crop}), should be (x, y, w, h)")
-        else:
-            crop_x, crop_y, crop_w, crop_h = Sensor._calculate_crop(self._dev_attr.acq_win.width, self._dev_attr.acq_win.height, width, height)
+
+        if crop_enable:
+            if crop_w < width or crop_h < height:
+                raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop_w({crop_w}), should be >= {width}")
+            if crop_x < 0 or crop_x + crop_w > self._dev_attr.acq_win.width:
+                raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop_x({crop_x}), should be 0 - {self._dev_attr.acq_win.width - crop_w}")
+            if crop_y < 0 or crop_y + crop_h > self._dev_attr.acq_win.height:
+                raise AssertionError(f"sensor({self._dev_id}) chn({chn}) set_framesize invaild crop_y({crop_y}), should be 0 - {self._dev_attr.acq_win.height - crop_h}")
 
         self._chn_attr[chn].chn_enable = True
         self._chn_attr[chn].crop_enable = False
@@ -663,18 +672,19 @@ class Sensor:
         self._chn_attr[chn].out_win.height = height
         self._chn_attr[chn].alignment = alignment
 
-        # crop window
-        self._chn_attr[chn].crop_enable = True
-        self._chn_attr[chn].crop_win.h_start = crop_x
-        self._chn_attr[chn].crop_win.v_start = crop_y
-        self._chn_attr[chn].crop_win.width = crop_w
-        self._chn_attr[chn].crop_win.height = crop_h
+        if crop_enable:
+            # crop window
+            self._chn_attr[chn].crop_enable = True
+            self._chn_attr[chn].crop_win.h_start = crop_x
+            self._chn_attr[chn].crop_win.v_start = crop_y
+            self._chn_attr[chn].crop_win.width = crop_w
+            self._chn_attr[chn].crop_win.height = crop_h
 
-        self._chn_attr[chn].scale_enable = True
-        self._chn_attr[chn].scale_win.h_start = 0
-        self._chn_attr[chn].scale_win.v_start = 0
-        self._chn_attr[chn].scale_win.width = width
-        self._chn_attr[chn].scale_win.height = height
+            self._chn_attr[chn].scale_enable = True
+            self._chn_attr[chn].scale_win.h_start = 0
+            self._chn_attr[chn].scale_win.v_start = 0
+            self._chn_attr[chn].scale_win.width = width
+            self._chn_attr[chn].scale_win.height = height
 
         if self._chn_attr[chn].pix_format:
             buf_size = 0

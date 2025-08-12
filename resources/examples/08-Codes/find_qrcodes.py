@@ -22,7 +22,7 @@ try:
     # sensor vflip
     # sensor.set_vflip(False)
     # set chn0 output size
-    sensor.set_framesize(width = DETECT_WIDTH, height = DETECT_HEIGHT)
+    sensor.set_framesize(width = DETECT_WIDTH, height = DETECT_HEIGHT, crop = True)
     # set chn0 output format
     sensor.set_pixformat(Sensor.GRAYSCALE)
 
