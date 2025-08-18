@@ -1133,7 +1133,7 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
     enum { ARG_ssid, ARG_key, ARG_info };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_ssid,     MP_ARG_OBJ, {.u_obj = mp_const_none} },
-        { MP_QSTR_key,      MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_key,      MP_ARG_OBJ, {.u_obj = mp_const_none} },
         { MP_QSTR_info,     MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
     };
 
@@ -1166,10 +1166,10 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
     if (mp_const_none != args[ARG_key].u_obj) {
         key = mp_obj_str_get_str(args[ARG_key].u_obj);
         key_len = strlen(key);
-    }
 
-    if((0x08 > key_len) || (RT_WLAN_PASSWORD_MAX_LENGTH < key_len)) {
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Key length(%d) should be 8 - %d"), key_len, RT_WLAN_PASSWORD_MAX_LENGTH);
+        if((0x08 > key_len) || (RT_WLAN_PASSWORD_MAX_LENGTH < key_len)) {
+            mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Key length(%d) should be 8 - %d"), key_len, RT_WLAN_PASSWORD_MAX_LENGTH);
+        }
     }
 
     if(MOD_NETWORK_STA_IF == self->itf) {
