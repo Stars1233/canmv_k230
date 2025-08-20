@@ -205,7 +205,7 @@ class Display:
 
         if _type >= Display.VIRT:
             if _type == Display.VIRT:
-                cls._write_back_to_ide = True
+                cls._write_back_to_ide = to_ide
                 cls._connector_type = DSI_VIRTUAL_DEVICE
             elif _type == Display.DEBUGGER:
                 cls._connector_type = DSI_DEBUGGER_DEVICE
