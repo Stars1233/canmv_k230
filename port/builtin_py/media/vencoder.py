@@ -147,11 +147,11 @@ class Encoder:
         if ret != 0:
             raise OSError("mpi venc release stream failed.")
 
-    def SendFrame(self, chn, frame):
+    def SendFrame(self, chn, frame,timeout=1000):
         if (chn > VENC_CHN_ID_MAX - 1):
             raise ValueError("venc SendFrame, chn id: ", chn, " out of range 0 ~ 3")
 
-        ret = kd_mpi_venc_send_frame(chn, frame, 1000)
+        ret = kd_mpi_venc_send_frame(chn, frame, timeout)
         return ret
 
     def Stop(self, chn):

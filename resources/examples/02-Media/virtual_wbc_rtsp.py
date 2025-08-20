@@ -2,9 +2,10 @@ import time, os, urandom, sys
 
 from media.display import *
 from media.media import *
+from libs.WBCRtsp import WBCRtsp
 
-DISPLAY_WIDTH = ALIGN_UP(640, 16)
-DISPLAY_HEIGHT = 480
+DISPLAY_WIDTH = ALIGN_UP(1920, 16)
+DISPLAY_HEIGHT = 1080
 
 def display_test():
     print("display test")
@@ -13,9 +14,13 @@ def display_test():
     img = image.Image(DISPLAY_WIDTH, DISPLAY_HEIGHT, image.ARGB8888)
 
     # use lcd as display output
-    Display.init(Display.VIRT, width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT, fps = 60,to_ide=True)
+    Display.init(Display.VIRT, width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT, fps = 60,to_ide=False)
+    # init wbc
+    WBCRtsp.configure("hdmi")
     # init media manager
     MediaManager.init()
+    # 启用wbc编码推流
+    WBCRtsp.start()
 
     try:
         while True:
@@ -47,6 +52,7 @@ def display_test():
     Display.deinit()
     os.exitpoint(os.EXITPOINT_ENABLE_SLEEP)
     time.sleep_ms(100)
+    WBCRtsp.stop()  # stop wbc
     # release media buffer
     MediaManager.deinit()
 

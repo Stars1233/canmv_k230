@@ -1,4 +1,5 @@
 import time
+import os
 import multimedia as mm
 from mpp import *
 from media.vencoder import *
@@ -60,7 +61,7 @@ class VOWBCFrameGrabber:
     @classmethod
     def capture_frame(cls, frame):
         """捕获一帧屏幕数据"""
-        return kd_mpi_wbc_dump_frame(frame, 1000)
+        return kd_mpi_wbc_dump_frame(frame, -1)
 
     @classmethod
     def free_frame(cls, frame):
@@ -86,7 +87,7 @@ class RtspServer:
         self.width=ALIGN_UP(width, 16)
         self.height=height
         self.encoder = Encoder()
-        self.encoder.SetOutBufs(self.venc_chn, 8, self.width, self.height)
+        self.encoder.SetOutBufs(self.venc_chn, 16, self.width, self.height)
 
     def start(self):
         if (self.start_stream == True):
@@ -129,17 +130,19 @@ class RtspServer:
 
         # print("frame_info width:%d,height:%d,pyaddr:0x%x_0x%x" % (frame_info.v_frame.width, frame_info.v_frame.height, frame_info.v_frame.phys_addr[0], frame_info.v_frame.phys_addr[1]))
         #encode frame
-        ret = self.encoder.SendFrame(self.venc_chn,frame_info)
+        ret = self.encoder.SendFrame(self.venc_chn,frame_info,timeout=-1)
         if ret != 0:
             return -1
 
-        while True:
-            streamData = StreamData()
-            ret= self.encoder.GetStream(self.venc_chn, streamData,timeout = 0) # 获取一帧码流
-            if ret != 0:
-                return -1
-            self.rtspserver.rtspserver_sendvideodata_byphyaddr(self.session_name,streamData.phy_addr[0], streamData.data_size[0],1000)
-            self.encoder.ReleaseStream(self.venc_chn, streamData) # 释放一帧码流
+        streamData = StreamData()
+        ret= self.encoder.GetStream(self.venc_chn, streamData,timeout = -1) # 获取码流
+        if ret != 0:
+            return -1
+
+        for pack_idx in range(0, streamData.pack_cnt):
+            self.rtspserver.rtspserver_sendvideodata_byphyaddr(self.session_name,streamData.phy_addr[pack_idx], streamData.data_size[pack_idx],1000)
+
+        self.encoder.ReleaseStream(self.venc_chn, streamData) # 释放一帧码流
         return 0
 
 class WBCRtsp:
@@ -155,19 +158,25 @@ class WBCRtsp:
         """内部线程函数：循环获取WBC帧并发送到RTSP服务器"""
         frame_info = k_video_frame_info()  # 初始化帧信息对象
         cls._running = True  # 启动线程时打开开关
-        while cls._running:  # 用类属性控制循环
-            try:
-                # 获取WBC帧数据（捕获帧）
-                ret = VOWBCFrameGrabber.capture_frame(frame_info)
-                if ret == 0:
-                    # 发送帧到RTSP服务器
-                    cls.rtspserver.send_video_frame(frame_info)
-                    # 释放帧资源
-                    VOWBCFrameGrabber.free_frame(frame_info)
-            except Exception as e:
-                print(f"Error in WBC RTSP thread: {e}")
-                break  # 发生异常时退出循环
 
+        while cls._running:  # 用类属性控制循环
+            os.exitpoint()
+            # 获取WBC帧数据（捕获帧）
+            ret = VOWBCFrameGrabber.capture_frame(frame_info)
+            if ret == 0:
+                if frame_info.v_frame.width != VOWBCFrameGrabber.wbc_width or frame_info.v_frame.height != VOWBCFrameGrabber.wbc_height :
+                    print("@@@@@@@@@@@@ invalid wbc frame")
+                    continue
+                # 发送帧到RTSP服务器
+                cls.rtspserver.send_video_frame(frame_info)
+                # 释放帧资源
+                VOWBCFrameGrabber.free_frame(frame_info)
+            else:
+                print("VOWBCFrameGrabber.capture_frame failed")
+
+            time.sleep(0.01)
+
+        print("_wbc_rtsp thread over")
         cls._runthread_over = True
 
     @classmethod

@@ -61,7 +61,7 @@ class FaceDetectionApp(AIBase):
 
 if __name__ == "__main__":
     # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
-    display_mode="hdmi"
+    display_mode="lcd"
     # k230保持不变，k230d可调整为[640,360]
     rgb888p_size = [1280, 720]
     # 设置模型路径和其他参数
