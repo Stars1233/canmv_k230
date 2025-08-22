@@ -1043,3 +1043,18 @@ class Sensor:
         }
 
         return kwargs
+
+    def auto_focus(self, enable = None):
+        if self._is_started:
+            raise RuntimeError("call should before Sensor.run()")
+        return kd_mpi_auto_focus(self._dev_id, enable)
+
+    def focus_pos(self, pos = None):
+        if self.fd < 0:
+            raise RuntimeError("can't get sensor fd")
+        return kd_mpi_focus_pos(self.fd, pos)
+
+    def focus_caps(self):
+        if self.fd < 0:
+            raise RuntimeError("can't get sensor fd")
+        return kd_mpi_sensor_get_focus_caps(self.fd)

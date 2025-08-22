@@ -28,8 +28,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+
 #include "py/runtime.h"
 #include "py/obj.h"
+
 #include "k_vicap_comm.h"
 #include "mpi_vicap_api.h"
 #include "mpi_sensor_api.h"
@@ -66,6 +68,67 @@ STATIC mp_obj_t get_board_default_sensor_csi_num(void) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(get_board_default_sensor_csi_num_obj, get_board_default_sensor_csi_num);
 
+STATIC mp_obj_t _kd_mpi_auto_focus(size_t n_args, const mp_obj_t *args) {
+    int dev_num = mp_obj_get_int(args[0]);
+
+    if ((0x01 == n_args) || (args[1] == mp_const_none)) {
+        k_bool status = K_FALSE;
+        kd_mpi_viap_get_af_enable(dev_num, &status);
+        return mp_obj_new_bool(K_TRUE == status);
+    } else {
+        int status = mp_obj_get_int(args[1]);
+        if(0x00 == kd_mpi_viap_set_af_enable(dev_num, status)) {
+            return mp_const_true;
+        } else {
+            return mp_const_false;
+        }
+    }
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(kd_mpi_auto_focus_obj, 1, 2, _kd_mpi_auto_focus);
+
+STATIC mp_obj_t _kd_mpi_focus_pos(size_t n_args, const mp_obj_t *args) {
+    k_sensor_focus_pos pos;
+    int sensor_fd = mp_obj_get_int(args[0]);
+
+    if(0 > sensor_fd) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Invaild sensor fd"));
+    }
+
+    if ((0x01 == n_args) || (args[1] == mp_const_none)) {
+        if(0x00 != kd_mpi_sensor_get_focus_pos(sensor_fd, &pos)) {
+            return mp_const_none;
+        }
+        return mp_obj_new_int(pos.pos);
+    } else {
+        pos.pos = mp_obj_get_int(args[1]);
+        if(0x00 != kd_mpi_sensor_set_focus_pos(sensor_fd, &pos)) {
+            return mp_const_none;
+        }
+        return mp_const_true;
+    }
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(kd_mpi_focus_pos_obj, 1, 2, _kd_mpi_focus_pos);
+
+STATIC mp_obj_t _kd_mpi_sensor_get_focus_caps(mp_obj_t self_in) {
+    k_sensor_autofocus_caps caps;
+
+    int sensor_fd = mp_obj_get_int(self_in);
+    if(0 > sensor_fd) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Invaild sensor fd"));
+    }
+
+    if (0x00 != kd_mpi_sensor_get_focus_caps(sensor_fd, &caps)) {
+        return mp_const_none;
+    }
+
+    return mp_obj_new_tuple(3, ((mp_obj_t []) {
+        mp_obj_new_int(caps.isSupport),
+        mp_obj_new_int(caps.minPos),
+        mp_obj_new_int(caps.maxPos),
+    }));
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(kd_mpi_sensor_get_focus_caps_obj, _kd_mpi_sensor_get_focus_caps);
+
 #define FUNC_IMPL
 #define FUNC_FILE "vicap_func_def.h"
 #include "func_def.h"
@@ -75,6 +138,9 @@ STATIC const mp_rom_map_elem_t vicap_api_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_default_sensor), MP_ROM_PTR(&get_board_default_sensor_csi_num_obj) },
     DEF_FUNC_ADD(kd_mpi_vicap_dump_frame)
     DEF_FUNC_ADD(kd_mpi_vicap_set_mclk)
+    DEF_FUNC_ADD(kd_mpi_auto_focus)
+    DEF_FUNC_ADD(kd_mpi_focus_pos)
+    DEF_FUNC_ADD(kd_mpi_sensor_get_focus_caps)
 #define FUNC_ADD
 #define FUNC_FILE "vicap_func_def.h"
 #include "func_def.h"
