@@ -10,19 +10,9 @@ class VOWBCFrameGrabber:
         pass
 
     @classmethod
-    def configure(cls, display_mode):
-        """根据显示模式配置WBC参数"""
-        resolution_map = {
-            "hdmi": (1920, 1080),
-            "lcd": (480, 800),
-            "lt9611": (1920, 1080),
-            "st7701": (480, 800),
-            "hx8399": (1920, 1080),
-        }
-
-        cls.wbc_width, cls.wbc_height = resolution_map.get(
-            display_mode, (1920, 1080)
-        )
+    def configure(cls, wbc_width,wbc_height):
+        cls.wbc_width = wbc_width
+        cls.wbc_height = wbc_height
 
         config = k_vb_config()
         config.max_pool_cnt = 1
@@ -171,8 +161,6 @@ class WBCRtsp:
                 cls.rtspserver.send_video_frame(frame_info)
                 # 释放帧资源
                 VOWBCFrameGrabber.free_frame(frame_info)
-            else:
-                print("VOWBCFrameGrabber.capture_frame failed")
 
             time.sleep(0.01)
 
@@ -180,9 +168,9 @@ class WBCRtsp:
         cls._runthread_over = True
 
     @classmethod
-    def configure(cls, display_mode):
+    def configure(cls, wbc_width,wbc_height):
         """配置WBC和RTSP服务器参数"""
-        VOWBCFrameGrabber.configure(display_mode)
+        VOWBCFrameGrabber.configure(wbc_width,wbc_height)
         # 获取分辨率
         width, height = VOWBCFrameGrabber.get_resolution()
         # 初始化RTSP服务器

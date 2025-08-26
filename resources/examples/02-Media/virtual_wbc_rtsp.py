@@ -16,7 +16,7 @@ def display_test():
     # use lcd as display output
     Display.init(Display.VIRT, width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT, fps = 60,to_ide=False)
     # init wbc
-    WBCRtsp.configure("hdmi")
+    WBCRtsp.configure(wbc_width=DISPLAY_WIDTH,wbc_height=DISPLAY_HEIGHT)
     # init media manager
     MediaManager.init()
     # 启用wbc编码推流

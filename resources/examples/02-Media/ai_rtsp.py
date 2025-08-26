@@ -77,8 +77,8 @@ if __name__ == "__main__":
 
     # 初始化PipeLine，用于图像处理流程
     pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode)
-    # init wbc
-    WBCRtsp.configure(display_mode)
+    # init wbc,wbc_width和wbc_height为原始屏幕的宽高
+    WBCRtsp.configure(wbc_width=480,wbc_height=800)
     pl.create(to_ide=False)  # 创建PipeLine实例
     # 启用wbc编码推流
     WBCRtsp.start()
@@ -90,12 +90,11 @@ if __name__ == "__main__":
 
     try:
         while True:
-            with ScopedTiming("total",1):
-                img = pl.get_frame()            # 获取当前帧数据
-                res = face_det.run(img)         # 推理当前帧
-                face_det.draw_result(pl, res)   # 绘制结果
-                pl.show_image()                 # 显示结果
-                gc.collect()                    # 垃圾回收
+            img = pl.get_frame()            # 获取当前帧数据
+            res = face_det.run(img)         # 推理当前帧
+            face_det.draw_result(pl, res)   # 绘制结果
+            pl.show_image()                 # 显示结果
+            gc.collect()                    # 垃圾回收
     except KeyboardInterrupt as e:
         print("user stop: ", e)
     except BaseException as e:
