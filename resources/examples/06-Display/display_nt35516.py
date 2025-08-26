@@ -8,12 +8,7 @@ from media.media import *
 sensor = None
 
 DISPLAY_WIDTH = 960
-DISPLAY_HEIGHT = 540
-
-def align_to_8(x):
-    """将尺寸对齐到8的倍数"""
-    return (x // 8) * 8  # 向下取整对齐
-
+DISPLAY_HEIGHT = 536
 
 try:
     print("camera_test")
@@ -27,8 +22,8 @@ try:
     # sensor vflip
     # sensor.set_vflip(False)
 
-    # set chn0 output size, 540x960
-    sensor.set_framesize(width = DISPLAY_WIDTH, height = align_to_8(DISPLAY_HEIGHT))
+    # set chn0 output size, 536x960
+    sensor.set_framesize(width = DISPLAY_WIDTH, height = DISPLAY_HEIGHT)
     # set chn0 output format
     sensor.set_pixformat(Sensor.YUV420SP)
     # bind sensor chn0 to display layer video 1
