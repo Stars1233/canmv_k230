@@ -15,3 +15,5 @@ require("neopixel")
 # canmv media modules
 package("mpp", base_path="../builtin_py", opt=3)
 package("media", base_path="../builtin_py", opt=3)
+
+include("./modules/ds18x20_overlay")

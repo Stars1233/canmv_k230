@@ -303,6 +303,7 @@ extern const struct _mp_print_t mp_stderr_print;
 // enable dht sensor
 #define MICROPY_PY_MACHINE_DHT          (1)
 #define MICROPY_PY_MACHINE_PULSE        (1)
+#define MICROPY_PY_ONEWIRE              (1)
 
 // uctypes
 #define MICROPY_PY_UCTYPES_STRING_AT_MAX_SIZE (1024 * 1024)
