@@ -30,45 +30,21 @@ class TrackCropApp(AIBase):
         self.center_xy_wh=center_xy_wh
         # padding和crop参数
         self.pad_crop_params=[]
-        # 注意：ai2d设置多个预处理时执行的顺序为：crop->shift->resize/affine->pad，如果不符合该顺序，需要配置多个ai2d对象;
-        # 如下模型预处理要先做resize+padding再做resize+crop，因此要配置两个Ai2d对象
-        self.ai2d_pad=Ai2d(debug_mode)
-        self.ai2d_pad.set_ai2d_dtype(nn.ai2d_format.NCHW_FMT,nn.ai2d_format.NCHW_FMT,np.uint8, np.uint8)
-        self.ai2d_crop=Ai2d(debug_mode)
-        self.ai2d_crop.set_ai2d_dtype(nn.ai2d_format.NCHW_FMT,nn.ai2d_format.NCHW_FMT,np.uint8, np.uint8)
-        self.need_pad=False
+        # 注意：ai2d设置多个预处理时执行的顺序为：crop->shift->resize/affine->pad，这里用了crop和resize
+        self.ai2d=Ai2d(debug_mode)
+        self.ai2d.set_ai2d_dtype(nn.ai2d_format.NCHW_FMT,nn.ai2d_format.NCHW_FMT,np.uint8, np.uint8)
 
-    # 配置预处理操作，这里使用了crop、pad和resize，Ai2d支持crop/shift/pad/resize/affine，具体代码请打开/sdcard/app/libs/AI2D.py查看
+    # 配置预处理操作，这里使用了crop、resize，Ai2d支持crop/shift/pad/resize/affine，具体代码请打开/sdcard/app/libs/AI2D.py查看
     def config_preprocess(self,input_image_size=None):
         with ScopedTiming("set preprocess config",self.debug_mode > 0):
             # 初始化ai2d预处理配置，默认为sensor给到AI的尺寸，可以通过设置input_image_size自行修改输入尺寸
             ai2d_input_size = input_image_size if input_image_size else self.rgb888p_size
             # 计算padding参数并应用pad操作，以确保输入图像尺寸与模型输入尺寸匹配
             self.pad_crop_params= self.get_padding_crop_param()
-            # 如果需要padding,配置padding部分，否则只走crop
-            if (self.pad_crop_params[0] != 0 or self.pad_crop_params[1] != 0 or self.pad_crop_params[2] != 0 or self.pad_crop_params[3] != 0):
-                self.need_pad=True
-                self.ai2d_pad.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
-                self.ai2d_pad.pad([0, 0, 0, 0, self.pad_crop_params[0], self.pad_crop_params[1], self.pad_crop_params[2], self.pad_crop_params[3]], 0, [114, 114, 114])
-                output_size=[self.rgb888p_size[0]+self.pad_crop_params[2]+self.pad_crop_params[3],self.rgb888p_size[1]+self.pad_crop_params[0]+self.pad_crop_params[1]]
-                self.ai2d_pad.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,output_size[1],output_size[0]])
-
-                self.ai2d_crop.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
-                self.ai2d_crop.crop(int(self.pad_crop_params[4]),int(self.pad_crop_params[6]),int(self.pad_crop_params[5]-self.pad_crop_params[4]+1),int(self.pad_crop_params[7]-self.pad_crop_params[6]+1))
-                self.ai2d_crop.build([1,3,output_size[1],output_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
-            else:
-                self.need_pad=False
-                self.ai2d_crop.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
-                self.ai2d_crop.crop(int(self.center_xy_wh[0]-self.pad_crop_params[8]/2.0),int(self.center_xy_wh[1]-self.pad_crop_params[8]/2.0),int(self.pad_crop_params[8]),int(self.pad_crop_params[8]))
-                self.ai2d_crop.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
-
-    # 重写预处理函数preprocess，因为该部分不是单纯的走一个ai2d做预处理，所以该函数需要重写
-    def preprocess(self,input_np):
-        if self.need_pad:
-            pad_output=self.ai2d_pad.run(input_np).to_numpy()
-            return [self.ai2d_crop.run(pad_output)]
-        else:
-            return [self.ai2d_crop.run(input_np)]
+            # 因为crop的目标位置位于中心，所以不会出现padding的情况，只需要配置crop、resize即可
+            self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
+            self.ai2d.crop(int(self.center_xy_wh[0]-self.pad_crop_params[8]/2.0),int(self.center_xy_wh[1]-self.pad_crop_params[8]/2.0),int(self.pad_crop_params[8]),int(self.pad_crop_params[8]))
+            self.ai2d.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
 
     # 自定义后处理，results是模型输出array的列表
     def postprocess(self,results):
@@ -92,13 +68,6 @@ class TrackCropApp(AIBase):
         context_ymin = context_ymin + top_pad
         context_ymax = context_ymax + top_pad
         return [top_pad,bottom_pad,left_pad,right_pad,context_xmin,context_xmax,context_ymin,context_ymax,s_z]
-
-    #重写deinit
-    def deinit(self):
-        with ScopedTiming("deinit",self.debug_mode > 0):
-            del self.ai2d_pad
-            del self.ai2d_crop
-            super().deinit()
 
 # 自定义跟踪实时任务类
 class TrackSrcApp(AIBase):
@@ -133,19 +102,33 @@ class TrackSrcApp(AIBase):
         with ScopedTiming("set preprocess config",self.debug_mode > 0):
             # 初始化ai2d预处理配置，默认为sensor给到AI的尺寸，可以通过设置input_image_size自行修改输入尺寸
             ai2d_input_size=input_image_size if input_image_size else self.rgb888p_size
-            # 计算padding参数并应用pad操作，以确保输入图像尺寸与模型输入尺寸匹配
+            # 计算padding参数、crop参数，以确保输入图像尺寸与模型输入尺寸匹配
             self.pad_crop_params= self.get_padding_crop_param(center_xy_wh)
             # 如果需要padding,配置padding部分，否则只走crop
             if (self.pad_crop_params[0] != 0 or self.pad_crop_params[1] != 0 or self.pad_crop_params[2] != 0 or self.pad_crop_params[3] != 0):
                 self.need_pad=True
+                # 计算crop参数
+                crop_x1=max(int(self.pad_crop_params[4]),0)
+                crop_x2=min(int(self.pad_crop_params[5]),self.rgb888p_size[0])
+                crop_y1=max(int(self.pad_crop_params[6]),0)
+                crop_y2=min(int(self.pad_crop_params[7]),self.rgb888p_size[1])
+                crop_w=crop_x2-crop_x1
+                crop_h=crop_y2-crop_y1
+                # 计算pad参数，处理顺序为crop->resize->padding，所以padding参数需要等比例变换成resize之后的参数
+                pad_top=self.pad_crop_params[0]
+                pad_bottom=self.pad_crop_params[1]
+                pad_left=self.pad_crop_params[2]
+                pad_right=self.pad_crop_params[3]
+                max_l=max(crop_w,crop_h)
+                min_l=min(crop_w,crop_h)
+                pad_t=int((self.model_input_size[1]/max_l)*pad_top)
+                pad_b=int((self.model_input_size[1]/max_l)*pad_bottom)
+                pad_l=int((self.model_input_size[0]/max_l)*pad_left)
+                pad_r=int((self.model_input_size[0]/max_l)*pad_right)
+                self.ai2d_pad.crop(crop_x1,crop_y1,crop_w,crop_h)
                 self.ai2d_pad.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
-                self.ai2d_pad.pad([0, 0, 0, 0, self.pad_crop_params[0], self.pad_crop_params[1], self.pad_crop_params[2], self.pad_crop_params[3]], 0, [114, 114, 114])
-                output_size=[self.rgb888p_size[0]+self.pad_crop_params[2]+self.pad_crop_params[3],self.rgb888p_size[1]+self.pad_crop_params[0]+self.pad_crop_params[1]]
-
-                self.ai2d_pad.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,output_size[1],output_size[0]])
-                self.ai2d_crop.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
-                self.ai2d_crop.crop(int(self.pad_crop_params[4]),int(self.pad_crop_params[6]),int(self.pad_crop_params[5]-self.pad_crop_params[4]+1),int(self.pad_crop_params[7]-self.pad_crop_params[6]+1))
-                self.ai2d_crop.build([1,3,output_size[1],output_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
+                self.ai2d_pad.pad([0, 0, 0, 0, pad_t,pad_b,pad_l,pad_r], 0, [114, 114, 114])
+                self.ai2d_pad.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
             else:
                 self.need_pad=False
                 self.ai2d_crop.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
@@ -156,8 +139,7 @@ class TrackSrcApp(AIBase):
     def preprocess(self,input_np):
         with ScopedTiming("preprocess",self.debug_mode>0):
             if self.need_pad:
-                pad_output=self.ai2d_pad.run(input_np).to_numpy()
-                return [self.ai2d_crop.run(pad_output)]
+                return [self.ai2d_pad.run(input_np)]
             else:
                 return [self.ai2d_crop.run(input_np)]
 
@@ -212,6 +194,7 @@ class TrackerApp(AIBase):
         self.ai2d=Ai2d(debug_mode)
         self.ai2d.set_ai2d_dtype(nn.ai2d_format.NCHW_FMT,nn.ai2d_format.NCHW_FMT,np.uint8, np.uint8)
 
+
     def config_preprocess(self,input_image_size=None):
         with ScopedTiming("set preprocess config",self.debug_mode > 0):
             pass
@@ -223,7 +206,6 @@ class TrackerApp(AIBase):
         input_tensors.append(nn.from_numpy(input_np_2))
         results=self.inference(input_tensors)
         return self.postprocess(results,center_xy_wh)
-
 
     # 自定义后处理，results是模型输出array的列表,这里使用了aidemo的nanotracker_postprocess列表
     def postprocess(self,results,center_xy_wh):
@@ -243,30 +225,29 @@ class NanoTracker:
         self.crop_input_size=crop_input_size
         # 跟踪实时模型输入分辨率
         self.src_input_size=src_input_size
-        self.threshold=threshold
-
-        self.CONTEXT_AMOUNT=0.5       # 跟踪框宽、高调整系数
-        self.ratio_src_crop = 0.0     # src模型和crop模型输入比值
-        self.track_x1 = float(600)    # 起始跟踪目标框左上角点x
-        self.track_y1 = float(300)    # 起始跟踪目标框左上角点y
-        self.track_w = float(100)     # 起始跟踪目标框w
-        self.track_h = float(100)     # 起始跟踪目标框h
-        self.draw_mean=[]             # 初始目标框位置列表
-        self.center_xy_wh = []
-        self.track_boxes = []
-        self.center_xy_wh_tmp = []
-        self.track_boxes_tmp=[]
-        self.crop_output=None
-        self.src_output=None
-        # 跟踪框初始化时间
-        self.seconds = 8
-        self.endtime = time.time() + self.seconds
-        self.enter_init = True
 
         # sensor给到AI的图像分辨率，宽16字节对齐
         self.rgb888p_size=[ALIGN_UP(rgb888p_size[0],16),rgb888p_size[1]]
         # 视频输出VO分辨率，宽16字节对齐
         self.display_size=[ALIGN_UP(display_size[0],16),display_size[1]]
+        self.threshold=threshold
+
+        self.CONTEXT_AMOUNT=0.5       # 跟踪框宽、高调整系数
+        self.ratio_src_crop = 0.0     # src模型和crop模型输入比值
+        self.track_w = float(100)     # 起始跟踪目标框w
+        self.track_h = float(100)     # 起始跟踪目标框h
+        self.track_x1 = float(self.rgb888p_size[0]/2-self.track_w/2)    # 起始跟踪目标框左上角点x
+        self.track_y1 = float(self.rgb888p_size[1]/2-self.track_h/2)    # 起始跟踪目标框左上角点y
+        self.draw_mean=[]             # 初始目标框位置列表
+        self.center_xy_wh = []
+        self.track_boxes = []
+        self.crop_output=None
+        self.src_output=None
+        # 跟踪框初始化时间
+        self.seconds = 10
+        self.endtime = time.time() + self.seconds
+        self.enter_init = True
+
         self.init_param()
 
         self.track_crop=TrackCropApp(self.track_crop_kmodel,model_input_size=self.crop_input_size,ratio_src_crop=self.ratio_src_crop,center_xy_wh=self.center_xy_wh,rgb888p_size=self.rgb888p_size,display_size=self.display_size,debug_mode=0)
@@ -299,39 +280,15 @@ class NanoTracker:
         else:
             self.track_boxes = box[0]
             self.center_xy_wh = box[1]
-            track_bool = True
-            if (len(self.track_boxes) != 0):
-                track_bool = self.track_boxes[0] > 10 and self.track_boxes[1] > 10 and self.track_boxes[0] + self.track_boxes[2] < self.rgb888p_size[0] - 10 and self.track_boxes[1] + self.track_boxes[3] < self.rgb888p_size[1] - 10
-            else:
-                track_bool = False
-
-            if (len(self.center_xy_wh) != 0):
-                track_bool = track_bool and self.center_xy_wh[2] * self.center_xy_wh[3] < 40000
-            else:
-                track_bool = False
-            if (track_bool):
-                self.center_xy_wh_tmp = self.center_xy_wh
-                self.track_boxes_tmp = self.track_boxes
-                x1 = int(float(self.track_boxes[0]) * self.display_size[0] / self.rgb888p_size[0])
-                y1 = int(float(self.track_boxes[1]) * self.display_size[1] / self.rgb888p_size[1])
-                w = int(float(self.track_boxes[2]) * self.display_size[0] / self.rgb888p_size[0])
-                h = int(float(self.track_boxes[3]) * self.display_size[1] / self.rgb888p_size[1])
-                pl.osd_img.draw_rectangle(x1, y1, w, h, color=(255, 255, 0, 0),thickness = 4)
-            else:
-                self.center_xy_wh = self.center_xy_wh_tmp
-                self.track_boxes = self.track_boxes_tmp
-                x1 = int(float(self.track_boxes[0]) * self.display_size[0] / self.rgb888p_size[0])
-                y1 = int(float(self.track_boxes[1]) * self.display_size[1] / self.rgb888p_size[1])
-                w = int(float(self.track_boxes[2]) * self.display_size[0] / self.rgb888p_size[0])
-                h = int(float(self.track_boxes[3]) * self.display_size[1] / self.rgb888p_size[1])
-                pl.osd_img.draw_rectangle(x1, y1, w, h, color=(255, 255, 0, 0),thickness = 4)
-                pl.osd_img.draw_string_advanced( x1 , y1-50,32, "请远离摄像头，保持跟踪物体大小基本一致!" , color=(255, 255 ,0 , 0))
-                pl.osd_img.draw_string_advanced( x1 , y1-100,32, "请靠近中心!" , color=(255, 255 ,0 , 0))
+            x1 = int(float(self.track_boxes[0]) * self.display_size[0] / self.rgb888p_size[0])
+            y1 = int(float(self.track_boxes[1]) * self.display_size[1] / self.rgb888p_size[1])
+            w = int(float(self.track_boxes[2]) * self.display_size[0] / self.rgb888p_size[0])
+            h = int(float(self.track_boxes[3]) * self.display_size[1] / self.rgb888p_size[1])
+            pl.osd_img.draw_rectangle(x1, y1, w, h, color=(255, 255, 0, 0),thickness = 4)
 
     # crop参数初始化
     def init_param(self):
         self.ratio_src_crop = float(self.src_input_size[0])/float(self.crop_input_size[0])
-        print(self.ratio_src_crop)
         if (self.track_x1 < 50 or self.track_y1 < 50 or self.track_x1+self.track_w >= self.rgb888p_size[0]-50 or self.track_y1+self.track_h >= self.rgb888p_size[1]-50):
                     print("**剪切范围超出图像范围**")
         else:
@@ -344,15 +301,14 @@ class NanoTracker:
             self.draw_mean=[draw_mean_x,draw_mean_y,draw_mean_w,draw_mean_h]
             self.center_xy_wh = [track_mean_x,track_mean_y,self.track_w,self.track_h]
             self.center_xy_wh_tmp=[track_mean_x,track_mean_y,self.track_w,self.track_h]
-
             self.track_boxes = [self.track_x1,self.track_y1,self.track_w,self.track_h,1]
             self.track_boxes_tmp=np.array([self.track_x1,self.track_y1,self.track_w,self.track_h,1])
 
 
 if __name__=="__main__":
     # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
-    display_mode="hdmi"
-    rgb888p_size=[1280,720]
+    display_mode="lcd"
+    rgb888p_size=[640,360]
     # 跟踪模板模型路径
     track_crop_kmodel_path="/sdcard/examples/kmodel/cropped_test127.kmodel"
     # 跟踪实时模型路径

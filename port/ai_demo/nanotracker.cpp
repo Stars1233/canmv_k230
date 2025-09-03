@@ -79,11 +79,21 @@ void set_points()
 
 void softmax(float* score)
 {
-	float sum0 = 0.0, sum1 = 0.0;
+	// float sum0 = 0.0, sum1 = 0.0;
+	// for (int i = 0; i < OUTPUT_GRID_SIZE; i++)
+	// 	sum1 += exp(score[OUTPUT_GRID_SIZE + i]);
+	// for (int i = 0; i < OUTPUT_GRID_SIZE; i++)
+	// 	score[i + OUTPUT_GRID_SIZE] = exp(score[OUTPUT_GRID_SIZE + i]) / sum1;
 	for (int i = 0; i < OUTPUT_GRID_SIZE; i++)
-		sum1 += exp(score[OUTPUT_GRID_SIZE + i]);
-	for (int i = 0; i < OUTPUT_GRID_SIZE; i++)
-		score[i + OUTPUT_GRID_SIZE] = exp(score[OUTPUT_GRID_SIZE + i]) / sum1;
+	{
+		float s0 = score[i];                        // 类别0
+		float s1 = score[OUTPUT_GRID_SIZE + i];     // 类别1
+		float exp0 = exp(s0);
+		float exp1 = exp(s1);
+		float denom = exp0 + exp1;
+		score[OUTPUT_GRID_SIZE + i] = exp1 / denom;  // 类别1的 softmax 结果，赋值回去
+	}
+
 }
 
 float* convert_score(float* score)

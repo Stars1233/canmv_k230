@@ -176,9 +176,9 @@ def face_det_thread():
     while True:
         if face_det_stop:
             break
-        img_2 = sensor.snapshot(chn = CAM_CHN_ID_2)
-        img_np =img_2.to_numpy_ref()
         with lock:
+            img_2 = sensor.snapshot(chn = CAM_CHN_ID_2)
+            img_np =img_2.to_numpy_ref()
             res = face_det.run(img_np)         # 推理当前帧
         face_det.draw_result(face_osd_img, res)   # 绘制结果
         Display.show_image(face_osd_img, 0, 0, Display.LAYER_OSD2)
@@ -197,9 +197,9 @@ def yolov8_det_thread():
     while True:
         if yolo_det_stop:
             break
-        img_2 = sensor.snapshot(chn = CAM_CHN_ID_2)
-        img_np =img_2.to_numpy_ref()
         with lock:
+            img_2 = sensor.snapshot(chn = CAM_CHN_ID_2)
+            img_np =img_2.to_numpy_ref()
             det_res = ob_det.run(img_np)
         ob_det.draw_result(yolo_osd_img, det_res)
         Display.show_image(yolo_osd_img, 0, 0, Display.LAYER_OSD1)
