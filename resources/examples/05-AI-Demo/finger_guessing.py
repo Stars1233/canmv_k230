@@ -231,7 +231,7 @@ class FingerGuess:
     def draw_result(self,pl,dets,gesture_res):
         pl.osd_img.clear()
         # 手掌的手势分类得到用户的出拳，根据不同模式给出开发板的出拳，并将对应的贴图放到屏幕上显示
-        if(len(dets) >= 2 or len(dets)<=0):
+        if(len(dets)!=1 and (self.guess_mode == 0 or self.guess_mode == 1)):
             pl.osd_img.draw_string_advanced( self.display_size[0]//2-50,self.display_size[1]//2-50,60, "请保证只有一只手入镜！", color=(255,255,0,0))
         elif (self.guess_mode == 0):
             draw_img_np = np.zeros((self.display_size[1],self.display_size[0],4),dtype=np.uint8)

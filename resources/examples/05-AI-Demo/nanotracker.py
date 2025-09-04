@@ -241,6 +241,8 @@ class NanoTracker:
         self.draw_mean=[]             # 初始目标框位置列表
         self.center_xy_wh = []
         self.track_boxes = []
+        self.center_xy_wh_tmp = []
+        self.track_boxes_tmp = []
         self.crop_output=None
         self.src_output=None
         # 跟踪框初始化时间
@@ -280,11 +282,32 @@ class NanoTracker:
         else:
             self.track_boxes = box[0]
             self.center_xy_wh = box[1]
-            x1 = int(float(self.track_boxes[0]) * self.display_size[0] / self.rgb888p_size[0])
-            y1 = int(float(self.track_boxes[1]) * self.display_size[1] / self.rgb888p_size[1])
-            w = int(float(self.track_boxes[2]) * self.display_size[0] / self.rgb888p_size[0])
-            h = int(float(self.track_boxes[3]) * self.display_size[1] / self.rgb888p_size[1])
-            pl.osd_img.draw_rectangle(x1, y1, w, h, color=(255, 255, 0, 0),thickness = 4)
+            track_bool = True
+            if (len(self.track_boxes) != 0):
+                track_bool = self.track_boxes[0] > 10 and self.track_boxes[1] > 10 and self.track_boxes[0] + self.track_boxes[2] < self.rgb888p_size[0] - 10 and self.track_boxes[1] + self.track_boxes[3] < self.rgb888p_size[1] - 10
+            else:
+                track_bool = False
+
+            if (len(self.center_xy_wh) != 0):
+                track_bool = track_bool and self.center_xy_wh[2] * self.center_xy_wh[3] < 40000
+            else:
+                track_bool = False
+            if (track_bool):
+                self.center_xy_wh_tmp = self.center_xy_wh
+                self.track_boxes_tmp = self.track_boxes
+                x1 = int(float(self.track_boxes[0]) * self.display_size[0] / self.rgb888p_size[0])
+                y1 = int(float(self.track_boxes[1]) * self.display_size[1] / self.rgb888p_size[1])
+                w = int(float(self.track_boxes[2]) * self.display_size[0] / self.rgb888p_size[0])
+                h = int(float(self.track_boxes[3]) * self.display_size[1] / self.rgb888p_size[1])
+                pl.osd_img.draw_rectangle(x1, y1, w, h, color=(255, 255, 0, 0),thickness = 4)
+            else:
+                self.center_xy_wh = self.center_xy_wh_tmp
+                self.track_boxes = self.track_boxes_tmp
+                x1 = int(float(self.track_boxes[0]) * self.display_size[0] / self.rgb888p_size[0])
+                y1 = int(float(self.track_boxes[1]) * self.display_size[1] / self.rgb888p_size[1])
+                w = int(float(self.track_boxes[2]) * self.display_size[0] / self.rgb888p_size[0])
+                h = int(float(self.track_boxes[3]) * self.display_size[1] / self.rgb888p_size[1])
+                pl.osd_img.draw_rectangle(x1, y1, w, h, color=(255, 255, 0, 0),thickness = 4)
 
     # crop参数初始化
     def init_param(self):
