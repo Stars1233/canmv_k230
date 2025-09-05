@@ -15,6 +15,7 @@ class Display:
     LT9611          = const(305)
     ILI9881         = const(306)
     NT35516         = const(307)
+    NT35532         = const(308)
 
     # define VO channel
     LAYER_VIDEO1 = K_VO_DISPLAY_CHN_ID1
@@ -331,6 +332,22 @@ class Display:
                     cls._connector_type = NT35516_MIPI_2LAN_536X960_30FPS
                 else:
                     raise ValueError(f"NT35516 unsupport {_width}x{_height}")
+
+                _width = None
+                _height = None
+                _flag = None
+            elif _type == Display.NT35532:
+                _width = width if width is not None else 1920
+                _height = height if height is not None else 1080
+                _flag = flag if flag is not None else Display.FLAG_ROTATION_90
+
+                if _width == 1920 and _height == 1080:
+                    cls._panel_flag = _flag
+                    cls._connector_type = NT35532_MIPI_2LAN_1080X1920_30FPS
+                elif _width == 1080 and _height == 1920:
+                    cls._connector_type = NT35532_MIPI_2LAN_1080X1920_30FPS
+                else:
+                    raise ValueError(f"NT35532 unsupport {_width}x{_height}")
 
                 _width = None
                 _height = None
