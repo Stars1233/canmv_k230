@@ -1,5 +1,133 @@
 # CanMV K230 Changelog
 
+## 🚀 CanMV K230 v1.4 Release Notes
+
+We are proud to announce the **v1.4** release of the **CanMV K230** platform!
+
+---
+
+### 🧠 CanMV Core
+
+* **New Features**
+
+  * Added **onewire ds18x20** support.
+  * Added **cv\_lite module** with new vision functions (corners, undistort, rects, etc.).
+  * Added multiple new demos: **AI+RTSP, WBC RTSP, ws2812**.
+  * Added support for new panels **nt35516** and **nt35532**.
+  * Added **DHT sensor support**.
+
+* **Improvements**
+
+  * Optimized **MJPEG encoding** and encoder stream handling.
+  * Enhanced `machine.*` modules (UART, PWM, I2C, Timer, Pin, reset/bootloader).
+  * Improved LVGL, VFS, GC, IDE resource management, and examples.
+
+* **Bug Fixes**
+
+  * Multiple fixes in `aidemo`, `lvgl`, `Timer`, `ADC`, `PWM`, `UART`, and `I2C`.
+  * Fixed IDE file save/delete issues.
+
+[🔗 View detailed changes](https://github.com/canmv-k230/canmv/compare/v1.3...v1.4)
+
+---
+
+### 🎥 Media Processing Platform (MPP)
+
+* **New Features**
+
+  * Added new panel: **nt35532**.
+  * Added **autofocus** support (dw9714p).
+  * Added GitLab CI auto-release support.
+
+* **Improvements**
+
+  * Updated panel timings, connector drivers.
+
+* **Bug Fixes**
+
+  * Fixed **MIPI DSI timing** calculation.
+  * Fixed **sensor bf3238** mode list.
+
+[🔗 View detailed changes](https://github.com/canmv-k230/mpp/compare/rtos-v0.5...canvm-v1.4)
+
+---
+
+### ⚙️ RT-Smart OS
+
+* **New Features**
+
+  * Added new driver: **onewire ds18x20**.
+  * Added new board config: **k230d\_evb**.
+  * Enabled **romfs** support.
+  * Added syscall: **statfs**.
+  * Added **OSD enable/disable** and **VO debug tool**.
+
+* **Improvements**
+
+  * Updated UART, I2C, SPI, PWM, WS2812, FPIOA, and netmgmt drivers.
+  * Adapted CDC and EC200M to the serial framework.
+  * Changed ethernet hostname to **canmv\_xxxx**.
+
+* **Bug Fixes**
+
+  * Fixed drv\_touch, lwp\_pmutex, USB CDC 100ms stall, PWM, fpioa, and malloc handling.
+  * Fixed `lsusb -t` crashed.
+
+[🔗 View detailed changes](https://github.com/canmv-k230/rtsmart/compare/rtos-v0.5...canvm-v1.4)
+
+---
+
+### 📚 RT-Smart Libraries
+
+* **New Features**
+
+  * Added **syscall for mq**.
+  * Added **drv\_ws2812**, **statfs**, **reset/reset\_to\_bootloader**, and **netmgmt HAL**.
+  * Added **mqttclient 3rd-party library**.
+
+* **Improvements**
+
+  * Enhanced drivers (UART, PWM, ADC, I2C, GPIO, FPIOA).
+  * Added WLAN STA support for **open SSIDs**.
+
+* **Bug Fixes**
+
+  * Fixed UART, PWM, and FPIOA bugs.
+  * Fixed mqttclient build failure.
+  * Added `pthread_mutex_lock` fix.
+
+[🔗 View detailed changes](https://github.com/canmv-k230/k230_rtsmart_lib/compare/rtos-v0.5...canvm-v1.4)
+
+---
+
+### 🛠️ U-Boot Bootloader
+
+* **New Features**
+
+  * Improved boot speed.
+  * Updated prebuilt builds.
+
+* **Improvements**
+
+  * Updated board configs for **k230d\_evb** and **junroc**.
+  * Updated labplus\_1956 GPIO/I2C defaults.
+
+* **Bug Fixes**
+
+  * Fixed GitHub Action push issue.
+
+[🔗 View detailed changes](https://github.com/canmv-k230/u-boot/compare/rtos-v0.5...canvm-v1.4)
+
+---
+
+### 📈 Full Changelog
+
+* [canmv](https://github.com/canmv-k230/canmv/compare/v1.3...v1.4)
+* [mpp](https://github.com/canmv-k230/mpp/compare/rtos-v0.5...canvm-v1.4)
+* [rtsmart](https://github.com/canmv-k230/rtsmart/compare/rtos-v0.5...canvm-v1.4)
+* [u-boot](https://github.com/canmv-k230/u-boot/compare/rtos-v0.5...canvm-v1.4)
+* [k230\_rtsmart\_lib](https://github.com/canmv-k230/k230_rtsmart_lib/compare/rtos-v0.5...canvm-v1.4)
+
 ## 🚀 CanMV K230 v1.3 Release Notes
 
 We are proud to announce the **v1.3** release of the **CanMV K230** platform! This release brings together all the improvements from `v1.3-rc` and `v1.3-rc2`, featuring enhanced hardware support, critical bug fixes, and new tools to streamline development on the K230 SoC.
