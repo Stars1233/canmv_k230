@@ -21,7 +21,7 @@ class PipeLine:
             self.display_size=None
         else:
             self.display_size=[display_size[0],display_size[1]]
-        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399", "nt35516"
+        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399", "nt35516", "nt35532", "gc9503"
         self.display_mode=display_mode
         # sensor对象
         self.sensor=None
@@ -53,47 +53,38 @@ class PipeLine:
             if vflip is not None and (vflip==True or vflip==False):
                 self.sensor.set_vflip(vflip)
 
-            # 初始化显示
-            if self.display_mode=="hdmi":
-                # 设置为LT9611显示，默认1920x1080
-                if self.display_size==None:
-                    Display.init(Display.LT9611,osd_num=self.osd_layer_num, to_ide = to_ide)
-                else:
-                    Display.init(Display.LT9611, width=self.display_size[0], height=self.display_size[1],osd_num=self.osd_layer_num, to_ide = to_ide)
-            elif self.display_mode=="lcd":
-                # 默认设置为ST7701显示，480x800
-                if self.display_size==None:
-                    Display.init(Display.ST7701, osd_num=self.osd_layer_num, to_ide=to_ide)
-                else:
-                    Display.init(Display.ST7701, width=self.display_size[0], height=self.display_size[1], osd_num=self.osd_layer_num, to_ide=to_ide)
-            elif self.display_mode=="lt9611":
-                # 设置为LT9611显示，默认1920x1080
-                if self.display_size==None:
-                    Display.init(Display.LT9611,osd_num=self.osd_layer_num, to_ide = to_ide)
-                else:
-                    Display.init(Display.LT9611, width=self.display_size[0], height=self.display_size[1],osd_num=self.osd_layer_num, to_ide = to_ide)
-            elif self.display_mode=="st7701":
-                # 设置为ST7701显示，480x800
-                if self.display_size==None:
-                    Display.init(Display.ST7701, osd_num=self.osd_layer_num, to_ide=to_ide)
-                else:
-                    Display.init(Display.ST7701, width=self.display_size[0], height=self.display_size[1], osd_num=self.osd_layer_num, to_ide=to_ide)
-            elif self.display_mode=="hx8399":
-                # 设置为HX8399显示，默认1920x1080
-                if self.display_size==None:
-                    Display.init(Display.HX8399, osd_num=self.osd_layer_num, to_ide=to_ide)
-                else:
-                    Display.init(Display.HX8399, width=self.display_size[0], height=self.display_size[1], osd_num=self.osd_layer_num, to_ide=to_ide)
-            elif self.display_mode=="nt35516":
-                # 设置为NT35516显示，默认960x540
-                if self.display_size==None:
-                    Display.init(Display.NT35516, osd_num=self.osd_layer_num, to_ide=to_ide)
-                else:
-                    Display.init(Display.NT35516, width=self.display_size[0], height=self.display_size[1], osd_num=self.osd_layer_num, to_ide=to_ide)
+            DISPLAY_MAP = {
+                "hdmi":     Display.LT9611,
+                "lt9611":   Display.LT9611,
+                "lcd":      Display.ST7701,
+                "st7701":   Display.ST7701,
+                "hx8399":   Display.HX8399,
+                "nt35516":  Display.NT35516,
+                "nt35532":  Display.NT35532,
+                "gc9503":   Display.GC9503,
+            }
+
+            # Look up type, fallback to ST7701 if not found
+            display_type = DISPLAY_MAP.get(self.display_mode, Display.ST7701)
+
+            # Call init
+            if self.display_size:
+                Display.init(
+                    display_type,
+                    width=self.display_size[0],
+                    height=self.display_size[1],
+                    osd_num=self.osd_layer_num,
+                    to_ide=to_ide
+                )
             else:
-                # 设置为LT9611显示，默认1920x1080
-                Display.init(Display.LT9611,osd_num=self.osd_layer_num, to_ide = to_ide)
-            self.display_size=[Display.width(),Display.height()]
+                Display.init(
+                    display_type,
+                    osd_num=self.osd_layer_num,
+                    to_ide=to_ide
+                )
+
+            # Update actual size after init
+            self.display_size = [Display.width(), Display.height()]
 
             # 通道0直接给到显示VO，格式为YUV420
             self.sensor.set_framesize(w = self.display_size[0], h = self.display_size[1])
