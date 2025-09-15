@@ -196,7 +196,7 @@ class Sensor:
         else:
             info = k_vicap_sensor_info()
             cfg = k_vicap_probe_config()
-            cfg.csi = self._csi_bus + 1 # convert to csi num
+            cfg.csi = self._csi_bus
             cfg.fps = kwargs.get('fps', 60)
             cfg.width = kwargs.get('width', 1920)
             cfg.height = kwargs.get('height', 1080)
