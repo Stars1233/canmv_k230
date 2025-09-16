@@ -768,7 +768,7 @@ STATIC mp_obj_t network_rt_lan_isconnected(mp_obj_t self_in) {
     (void)self;
 
     int isconnected = 0;
-    if(0x00 != netmgmt_lan_get_isconnected(&isconnected)) {
+    if(0x00 != netmgmt_lan_get_isconnected(self->itf, &isconnected)) {
         mp_printf(&mp_plat_print, "run get isconnected failed.\n");
         return mp_const_false;
     }
@@ -783,7 +783,7 @@ STATIC mp_obj_t network_rt_lan_status(size_t n_args, const mp_obj_t *args) {
     if (n_args == 1) {
         int status = 0;
 
-        if(0x00 != netmgmt_lan_get_link_status(&status)) {
+        if(0x00 != netmgmt_lan_get_link_status(self->itf, &status)) {
             status = 0; // failed
 
             mp_printf(&mp_plat_print, "run get status failed.\n");
@@ -808,7 +808,7 @@ STATIC mp_obj_t network_rt_lan_config(size_t n_args, const mp_obj_t *args, mp_ma
             case MP_QSTR_mac: {
                 uint8_t buf[6];
 
-                if(0x00 != netmgmt_lan_get_mac(&buf[0])) {
+                if(0x00 != netmgmt_lan_get_mac(self->itf, &buf[0])) {
                     memset(&buf[0], 0, sizeof(buf)); // failed
 
                     mp_printf(&mp_plat_print, "run get mac failed.\n");
@@ -836,7 +836,7 @@ STATIC mp_obj_t network_rt_lan_config(size_t n_args, const mp_obj_t *args, mp_ma
                             mp_raise_ValueError(NULL);
                         }
                         
-                        if(0x00 != netmgmt_lan_set_mac(buf.buf)) {
+                        if(0x00 != netmgmt_lan_set_mac(self->itf, buf.buf)) {
                             mp_printf(&mp_plat_print, "run set mac failed.\n");
                         }
 
@@ -855,10 +855,26 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(network_rt_lan_config_obj, 1, network_rt_lan_c
 
 const struct _mp_obj_type_t network_type_eth_lan;
 
-STATIC py_rt_net_obj_t network_rt_eth_lan = {{(mp_obj_type_t *)&network_type_eth_lan}, 2};
+STATIC py_rt_net_obj_t network_rt_eth_lan = {{(mp_obj_type_t *)&network_type_eth_lan}, RT_NET_DEV_USB_RTL8152};
+STATIC py_rt_net_obj_t network_rt_eth_lte = {{(mp_obj_type_t *)&network_type_eth_lan}, RT_NET_DEV_USB_ECM};
 
 STATIC mp_obj_t py_rt_eth_lan_type_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
-    mp_obj_t rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lan);
+    enum { ARG_itf };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_itf, MP_ARG_INT, {.u_int = RT_NET_DEV_USB_RTL8152} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_obj_t rt_net_obj;
+
+    if(RT_NET_DEV_USB_RTL8152 == args[ARG_itf].u_int) {
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lan);
+    } else if(RT_NET_DEV_USB_ECM == args[ARG_itf].u_int) {
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lte);
+    } else {
+        mp_raise_TypeError(MP_ERROR_TEXT("Unsupport type"));
+    }
 
     // Register with network module
     mod_network_register_nic(rt_net_obj);

@@ -118,7 +118,10 @@ typedef long long mp_off_t;
     #define MICROPY_BOARD_NETWORK_SET_DEFAULT \
         { MP_ROM_QSTR(MP_QSTR_get_dev_list), MP_ROM_PTR(&network_rt_get_dev_list_obj) }, \
         { MP_ROM_QSTR(MP_QSTR_set_default_dev), MP_ROM_PTR(&network_rt_set_dft_dev_obj) }, \
-        { MP_ROM_QSTR(MP_QSTR_get_default_dev), MP_ROM_PTR(&network_rt_get_dft_dev_obj) },
+        { MP_ROM_QSTR(MP_QSTR_get_default_dev), MP_ROM_PTR(&network_rt_get_dft_dev_obj) }, \
+        { MP_ROM_QSTR(MP_QSTR_LAN_RTL8152), MP_ROM_INT(2) }, \
+        { MP_ROM_QSTR(MP_QSTR_LAN_ECM), MP_ROM_INT(3) }, \
+
 #else
     #define MICROPY_BOARD_NETWORK_SET_DEFAULT
 #endif
