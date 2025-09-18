@@ -31,9 +31,10 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 
-#include "drv_rotary_encoder.h"
-
 #include "modmachine.h"
+
+#if defined(CONFIG_ENABLE_ROTARY_ENCODER) && CONFIG_ENABLE_ROTARY_ENCODER
+#include "drv_rotary_encoder.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Encoder Data Wrap //////////////////////////////////////////////////////////
@@ -223,3 +224,4 @@ MP_DEFINE_CONST_OBJ_TYPE(
     locals_dict, &machine_encoder_locals_dict
 );
 /* clang-format on */
+#endif

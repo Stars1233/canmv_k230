@@ -172,7 +172,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_bitstream), MP_ROM_PTR(&machine_bitstream_obj) },
 #endif
 
-#if CONFIG_ENABLE_ROTARY_ENCODER
+#if defined(CONFIG_ENABLE_ROTARY_ENCODER) && CONFIG_ENABLE_ROTARY_ENCODER
     { MP_ROM_QSTR(MP_QSTR_ENCODER), MP_ROM_PTR(&machine_encoder_type) },
 #endif
 
