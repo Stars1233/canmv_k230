@@ -224,6 +224,10 @@ float box_iou(Bbox a, Bbox b)
 
 BoxPoint8* licence_det_post_process(float* p_outputs_0,float* p_outputs_1,float* p_outputs_2,float* p_outputs_3,float* p_outputs_4,float* p_outputs_5,float* p_outputs_6,float* p_outputs_7,float* p_outputs_8,FrameSize frame_size,FrameSize kmodel_frame_size,float obj_thresh,float nms_thresh,int* box_cnt)
 {
+	float ratio_w=kmodel_frame_size.width/(frame_size.width*1.0);
+    float ratio_h=kmodel_frame_size.height/(frame_size.height*1.0);
+    float scale=MIN(ratio_w,ratio_h);
+
     std::vector<BoxPoint> results;
     float* loc0 = p_outputs_0;
     float* loc1 = p_outputs_1;
@@ -288,18 +292,20 @@ BoxPoint8* licence_det_post_process(float* p_outputs_0,float* p_outputs_1,float*
 		}
 	}
 
+
+
     *box_cnt = valid_landmarks.size();
     BoxPoint8 *boxPoint = (BoxPoint8 *)malloc(*box_cnt * sizeof(BoxPoint8));
 	for (int i = 0; i < *box_cnt; i++)
 	{
-		boxPoint[i].points8[0] = valid_landmarks[i].points[2 * 0 + 0] * frame_size.width;
-        boxPoint[i].points8[1] = valid_landmarks[i].points[2 * 0 + 1] * frame_size.height;
-        boxPoint[i].points8[2] = valid_landmarks[i].points[2 * 1 + 0] * frame_size.width;
-        boxPoint[i].points8[3] = valid_landmarks[i].points[2 * 1 + 1] * frame_size.height;
-        boxPoint[i].points8[4] = valid_landmarks[i].points[2 * 2 + 0] * frame_size.width;
-        boxPoint[i].points8[5] = valid_landmarks[i].points[2 * 2 + 1] * frame_size.height;
-        boxPoint[i].points8[6] = valid_landmarks[i].points[2 * 3 + 0] * frame_size.width;
-        boxPoint[i].points8[7] = valid_landmarks[i].points[2 * 3 + 1] * frame_size.height;
+		boxPoint[i].points8[0] = (valid_landmarks[i].points[2 * 0 + 0] * kmodel_frame_size.width) / scale;
+        boxPoint[i].points8[1] = (valid_landmarks[i].points[2 * 0 + 1] * kmodel_frame_size.height) / scale;
+        boxPoint[i].points8[2] = (valid_landmarks[i].points[2 * 1 + 0] * kmodel_frame_size.width) / scale;
+        boxPoint[i].points8[3] = (valid_landmarks[i].points[2 * 1 + 1] * kmodel_frame_size.height) / scale;
+        boxPoint[i].points8[4] = (valid_landmarks[i].points[2 * 2 + 0] * kmodel_frame_size.width) / scale;
+        boxPoint[i].points8[5] = (valid_landmarks[i].points[2 * 2 + 1] * kmodel_frame_size.height) / scale;
+        boxPoint[i].points8[6] = (valid_landmarks[i].points[2 * 3 + 0] * kmodel_frame_size.width) / scale;
+        boxPoint[i].points8[7] = (valid_landmarks[i].points[2 * 3 + 1] * kmodel_frame_size.height) / scale;
 	}
 
     free(s_probs);

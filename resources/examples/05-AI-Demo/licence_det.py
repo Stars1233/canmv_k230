@@ -35,6 +35,8 @@ class LicenceDetectionApp(AIBase):
         with ScopedTiming("set preprocess config", self.debug_mode > 0):
             # 初始化ai2d预处理配置，默认为sensor给到AI的尺寸，可以通过设置input_image_size自行修改输入尺寸
             ai2d_input_size = input_image_size if input_image_size else self.rgb888p_size
+            top, bottom, left, right,_ =letterbox_pad_param(self.rgb888p_size,self.model_input_size)
+            self.ai2d.pad([0, 0, 0, 0, top, bottom, left, right], 0, [128, 128, 128])  # 填充边缘
             self.ai2d.resize(nn.interp_method.tf_bilinear, nn.interp_mode.half_pixel)
             self.ai2d.build([1,3,ai2d_input_size[1],ai2d_input_size[0]],[1,3,self.model_input_size[1],self.model_input_size[0]])
 

@@ -4,7 +4,6 @@ from media.sensor import *
 from media.display import *
 from media.media import *
 from libs.Utils import ScopedTiming
-import nncase_runtime as nn
 import ulab.numpy as np
 import image
 import gc
@@ -30,28 +29,38 @@ class PipeLine:
         self.cur_frame=None
         self.debug_mode=debug_mode
         self.osd_layer_num = osd_layer_num
+        self.crop_param=[0,0,0,0]
 
     # PipeLine初始化函数
-    def create(self,sensor=None,hmirror=None,vflip=None,fps=60,to_ide=True):
+    def create(self,sensor_id=None,sensor=None,hmirror=None,vflip=None,fps=60,to_ide=True,crop_vertical=False):
         with ScopedTiming("init PipeLine",self.debug_mode > 0):
-            nn.shrink_memory_pool()
             if self.display_mode=="nt35516":
                 fps=30
-            # 初始化并配置sensor
-            brd=os.uname()[-1]
-            if brd=="k230d_canmv_bpi_zero":
-                self.sensor = Sensor(fps=30) if sensor is None else sensor
-            elif brd=="k230_canmv_lckfb":
-                self.sensor = Sensor(fps=30) if sensor is None else sensor
-            elif brd=="k230d_canmv_atk_dnk230d":
-                self.sensor = Sensor(fps=30) if sensor is None else sensor
+            # 默认 FPS
+            default_fps = 30
+            # 支持指定 FPS 的板子类型
+            fps_map = {
+                "k230d_canmv_bpi_zero": default_fps,
+                "k230_canmv_lckfb": default_fps,
+                "k230d_canmv_atk_dnk230d": default_fps,
+            }
+
+            # 获取板子类型
+            brd = os.uname()[-1]
+            # 决定使用的 FPS
+            board_fps = fps_map.get(brd, fps)
+            # 初始化 sensor
+            if sensor_id is not None:
+                self.sensor = sensor if sensor is not None else Sensor(id=sensor_id, fps=board_fps)
             else:
-                self.sensor = Sensor(fps=fps) if sensor is None else sensor
+                self.sensor = sensor if sensor is not None else Sensor(fps=board_fps)
+            # 重置并设置镜像/翻转
             self.sensor.reset()
-            if hmirror is not None and (hmirror==True or hmirror==False):
+            if isinstance(hmirror, bool):
                 self.sensor.set_hmirror(hmirror)
-            if vflip is not None and (vflip==True or vflip==False):
+            if isinstance(vflip, bool):
                 self.sensor.set_vflip(vflip)
+
 
             DISPLAY_MAP = {
                 "hdmi":     Display.LT9611,
@@ -82,17 +91,29 @@ class PipeLine:
                     osd_num=self.osd_layer_num,
                     to_ide=to_ide
                 )
+                # Update actual size after init
+                self.display_size = [Display.width(), Display.height()]
 
-            # Update actual size after init
-            self.display_size = [Display.width(), Display.height()]
-
-            # 通道0直接给到显示VO，格式为YUV420
-            self.sensor.set_framesize(w = self.display_size[0], h = self.display_size[1])
-            self.sensor.set_pixformat(PIXEL_FORMAT_YUV_SEMIPLANAR_420)
-            # 通道2给到AI做算法处理，格式为RGB888
-            self.sensor.set_framesize(w = self.rgb888p_size[0], h = self.rgb888p_size[1], chn=CAM_CHN_ID_2)
-            # set chn2 output format
-            self.sensor.set_pixformat(PIXEL_FORMAT_RGB_888_PLANAR, chn=CAM_CHN_ID_2)
+            if crop_vertical:
+                r=1080/self.display_size[1]
+                crop_w=int(r*self.display_size[0])
+                crop_h=1080
+                crop_x=(1920-crop_w)//2
+                crop_y=0
+                self.crop_param=[crop_x,crop_y,crop_w,crop_h]
+                # 通道0直接给到显示VO，格式为YUV420
+                self.sensor.set_framesize(w = self.display_size[0], h = self.display_size[1],chn=CAM_CHN_ID_0,crop=(crop_x,crop_y,crop_w,crop_h))
+                self.sensor.set_pixformat(Sensor.YUV420SP, chn=CAM_CHN_ID_0)
+                # 通道2给到AI做算法处理，格式为RGB888
+                self.sensor.set_framesize(w = self.rgb888p_size[0], h = self.rgb888p_size[1], chn=CAM_CHN_ID_2,crop=(crop_x,crop_y,crop_w,crop_h))
+                self.sensor.set_pixformat(Sensor.RGBP888, chn=CAM_CHN_ID_2)
+            else:
+                # 通道0直接给到显示VO，格式为YUV420
+                self.sensor.set_framesize(w = self.display_size[0], h = self.display_size[1],chn=CAM_CHN_ID_0)
+                self.sensor.set_pixformat(Sensor.YUV420SP, chn=CAM_CHN_ID_0)
+                # 通道2给到AI做算法处理，格式为RGB888
+                self.sensor.set_framesize(w = self.rgb888p_size[0], h = self.rgb888p_size[1], chn=CAM_CHN_ID_2)
+                self.sensor.set_pixformat(Sensor.RGBP888, chn=CAM_CHN_ID_2)
 
             # OSD图像初始化
             self.osd_img = image.Image(self.display_size[0], self.display_size[1], image.ARGB8888)
