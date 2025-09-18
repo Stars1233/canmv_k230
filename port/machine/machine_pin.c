@@ -437,6 +437,8 @@ STATIC mp_obj_t machine_pin_destroy(mp_obj_t self_in)
     drv_gpio_unregister_irq(self->inst);
     drv_gpio_inst_destroy(&self->inst);
 
+    printf("Set pin%d to input\n", pin);
+
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_pin_destroy_obj, machine_pin_destroy);

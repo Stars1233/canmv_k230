@@ -171,8 +171,6 @@ CANMV_SRC_C += $(wildcard kpu/*.c)
 CANMV_SRC_C += $(wildcard ai_cube/*.c)
 # aidemo
 CANMV_SRC_C += $(wildcard ai_demo/*.c)
-# cv_lite
-CANMV_SRC_C += $(wildcard cv_lite/*.c)
 # omv
 CANMV_SRC_C += $(wildcard omv/*.c)
 CANMV_SRC_C += $(wildcard omv/*/*.c)
@@ -182,6 +180,11 @@ CANMV_SRC_C += $(wildcard multi_media/*.c)
 CANMV_SRC_C += $(wildcard drivers/*.c)
 # modules
 CANMV_SRC_C += $(wildcard modules/*.c)
+
+ifeq ($(CONFIG_ENABLE_MODULE_CV_LITE),y)
+$(info Enable CV_Lite)
+CANMV_SRC_C += $(wildcard cv_lite/*.c)
+endif
 
 # extmod
 CANMV_SRC_C += \
@@ -209,7 +212,8 @@ CANMV_SRC_C += $(addprefix drivers/,\
 	)
 
 ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB)),)
-    CANMV_SRC_C += $(wildcard network/*.c)
+$(info Enable Network)
+CANMV_SRC_C += $(wildcard network/*.c)
 endif
 
 # LVGL build rules
@@ -259,10 +263,13 @@ CANMV_SRC_CXX += $(wildcard ai_cube/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/kws/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/tts_zh/*.cpp)
-CANMV_SRC_CXX += $(wildcard cv_lite/opencv_code/*.cpp)
 CANMV_SRC_CXX += $(wildcard modules/*.cpp)
 CANMV_SRC_CXX += $(wildcard modules/*/*.cpp)
 CANMV_SRC_CXX += $(wildcard multi_media/*.cpp)
+
+ifeq ($(CONFIG_ENABLE_MODULE_CV_LITE),y)
+CANMV_SRC_CXX += $(wildcard cv_lite/opencv_code/*.cpp)
+endif
 
 # 
 OBJ = $(PY_O)

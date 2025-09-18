@@ -10,4 +10,8 @@ menu "CanMV Micropython Components Configurations"
         bool "Enable Touch Driver for gt911"
         default y
 
+    config ENABLE_MODULE_CV_LITE
+        bool "Enable CV_Lite Module"
+        default y
+
 endmenu
