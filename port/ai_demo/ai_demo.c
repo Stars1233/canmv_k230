@@ -1292,6 +1292,74 @@ STATIC mp_obj_t aidemo_yunet_postprocess(size_t n_args, const mp_obj_t *args) {
 };
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aidemo_yunet_postprocess_obj, 8, 8, aidemo_yunet_postprocess);
 
+//*****************************for yolo license plate det postprocess*****************************
+STATIC mp_obj_t aidemo_yolo_license_plate_det_postprocess(size_t n_args, const mp_obj_t *args) {
+    ndarray_obj_t *data_mp_0 = MP_ROM_PTR(args[0]);
+    float *output0 = data_mp_0->array;
+
+    mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[1]);
+    mp_obj_list_t *kmodel_input_size_mp = MP_OBJ_TO_PTR(args[2]);
+    mp_obj_list_t *display_size_mp = MP_OBJ_TO_PTR(args[3]);
+
+    float conf_thresh=mp_obj_get_float(args[4]);
+    float nms_thresh=mp_obj_get_float(args[5]);
+
+    int max_box_cnt = mp_obj_get_int(args[6]);
+
+    FrameSize frame_shape;
+    FrameSize input_shape;
+    FrameSize display_shape;
+
+    frame_shape.height = mp_obj_get_int(frame_size_mp->items[0]);
+    frame_shape.width = mp_obj_get_int(frame_size_mp->items[1]);
+    input_shape.height = mp_obj_get_int(kmodel_input_size_mp->items[0]);
+    input_shape.width = mp_obj_get_int(kmodel_input_size_mp->items[1]);
+    display_shape.height = mp_obj_get_int(display_size_mp->items[0]);
+    display_shape.width = mp_obj_get_int(display_size_mp->items[1]);
+
+    int box_cnt;
+    YoloLicensePlateDetInfo* yolo_license_plate_det_res = yolo_license_plate_det_postprocess(output0, frame_shape, input_shape, display_shape,conf_thresh,nms_thresh,max_box_cnt,&box_cnt);
+    mp_obj_list_t *results_mp_list = mp_obj_new_list(0, NULL);
+    mp_obj_list_t *results_mp_list_boxes = mp_obj_new_list(0, NULL);
+    mp_obj_list_t *results_mp_list_kps = mp_obj_new_list(0, NULL);
+    mp_obj_list_t *results_mp_list_scores = mp_obj_new_list(0, NULL);
+
+    size_t ndarray_shape_box[4];
+    ndarray_shape_box[3] = 4;
+
+    size_t ndarray_shape_kps[8];
+    ndarray_shape_kps[3] = 8;
+    for (int i = 0; i < box_cnt; i++)
+    {
+        ndarray_obj_t *box_obj = ndarray_new_ndarray(1, ndarray_shape_box, NULL, NDARRAY_FLOAT);
+        float *box_data = (float *)box_obj->array;
+        box_data[0] = yolo_license_plate_det_res[i].box_kps[0];
+        box_data[1] = yolo_license_plate_det_res[i].box_kps[1];
+        box_data[2] = yolo_license_plate_det_res[i].box_kps[2];
+        box_data[3] = yolo_license_plate_det_res[i].box_kps[3];
+
+        ndarray_obj_t *kps_obj = ndarray_new_ndarray(1, ndarray_shape_kps, NULL, NDARRAY_FLOAT);
+        float *kps_data = (float *)kps_obj->array;
+        kps_data[0] = yolo_license_plate_det_res[i].box_kps[4];
+        kps_data[1] = yolo_license_plate_det_res[i].box_kps[5];
+        kps_data[2] = yolo_license_plate_det_res[i].box_kps[6];
+        kps_data[3] = yolo_license_plate_det_res[i].box_kps[7];
+        kps_data[4] = yolo_license_plate_det_res[i].box_kps[8];
+        kps_data[5] = yolo_license_plate_det_res[i].box_kps[9];
+        kps_data[6] = yolo_license_plate_det_res[i].box_kps[10];
+        kps_data[7] = yolo_license_plate_det_res[i].box_kps[11];
+        mp_obj_list_append(results_mp_list_kps, kps_obj);
+        mp_obj_list_append(results_mp_list_boxes, box_obj);
+        mp_obj_list_append(results_mp_list_scores, mp_obj_new_float(yolo_license_plate_det_res[i].score));
+    }
+    mp_obj_list_append(results_mp_list, results_mp_list_kps);
+    mp_obj_list_append(results_mp_list, results_mp_list_boxes);
+    mp_obj_list_append(results_mp_list, results_mp_list_scores);
+    free(yolo_license_plate_det_res);
+    return MP_OBJ_FROM_PTR(results_mp_list);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aidemo_yolo_license_plate_det_postprocess_obj, 7, 7, aidemo_yolo_license_plate_det_postprocess);
+
 STATIC mp_obj_t aidemo_opencv_grayscale_find_blobs(size_t n_args, const mp_obj_t *args)
 {
     mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
@@ -1355,6 +1423,7 @@ STATIC const mp_rom_map_elem_t aidemo_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_yolo_obb_postprocess), MP_ROM_PTR(&aidemo_yolo_obb_postprocess_obj) },
     { MP_ROM_QSTR(MP_QSTR_yolov5_det_postprocess), MP_ROM_PTR(&aidemo_yolov5_det_postprocess_obj) },
     { MP_ROM_QSTR(MP_QSTR_yunet_postprocess), MP_ROM_PTR(&aidemo_yunet_postprocess_obj) },
+    { MP_ROM_QSTR(MP_QSTR_yolo_license_plate_det_postprocess), MP_ROM_PTR(&aidemo_yolo_license_plate_det_postprocess_obj) },
     { MP_ROM_QSTR(MP_QSTR_opencv_grayscale_find_blobs), MP_ROM_PTR(&aidemo_opencv_grayscale_find_blobs_obj) },
 
 };

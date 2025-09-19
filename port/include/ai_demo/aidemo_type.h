@@ -168,4 +168,10 @@ struct YUNetFaceDetInfo{
 	float score;
 };
 
+//*****************************for yolo_license_plate_det*****************************
+struct YoloLicensePlateDetInfo{
+    float score;
+	float box_kps[12];
+};
+
 #endif // _AIDEMO_TYPE_H_

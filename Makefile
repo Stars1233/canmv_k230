@@ -118,6 +118,7 @@ copy_examples:
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/yolov8n-obb.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/fruit_*.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/face_liveness_rgb.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
+	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/yolo_license_plate_det.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 
 .PHONY: copy_sdcard
 copy_sdcard:
