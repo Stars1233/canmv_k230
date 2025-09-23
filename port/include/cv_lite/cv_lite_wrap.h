@@ -94,6 +94,8 @@ extern "C" {
     int* rgb888_find_corners_fast(FrameCHWSize frame_shape, uint8_t* data, int maxCorners,float qualityLevel, float minDistance, int* ret_num);
     // 保存图片
     void save_image(const char* save_path,FrameCHWSize frame_shape,uint8_t* data);
+    // 读取图片
+    uint8_t* load_image(const char* load_path,FrameCHWSize* image_frame_shape);
     // 去畸变
     void rgb888_undistort(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs, int dist_len,uint8_t* result);
     void rgb888_undistort_fast(FrameCHWSize frame_shape, uint8_t* data, float* camera_matrix, float* dist_coeffs, int dist_len, uint8_t* result);

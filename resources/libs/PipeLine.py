@@ -32,7 +32,7 @@ class PipeLine:
         self.crop_param=[0,0,0,0]
 
     # PipeLine初始化函数
-    def create(self,sensor_id=None,sensor=None,hmirror=None,vflip=None,fps=60,to_ide=True,crop_vertical=False):
+    def create(self,sensor=None,sensor_id=None,hmirror=None,vflip=None,fps=60,to_ide=True,crop_vertical=False):
         with ScopedTiming("init PipeLine",self.debug_mode > 0):
             if self.display_mode=="nt35516":
                 fps=30

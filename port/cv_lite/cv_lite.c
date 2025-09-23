@@ -1594,6 +1594,31 @@ STATIC mp_obj_t cv_lite_save_image(size_t n_args, const mp_obj_t *args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_save_image_obj, 3, 3, cv_lite_save_image);
 
+STATIC mp_obj_t cv_lite_load_image(size_t n_args, const mp_obj_t *args)
+{
+    // 解析输入参数
+    const char* file_path = mp_obj_str_get_str(args[0]);
+
+    // 调用C++读取函数（假设返回BGR或RGB格式，8UC3）
+    FrameCHWSize frame_shape;
+    uint8_t* img_data = load_image(file_path, &frame_shape); 
+    // ⚠️ 这里 read_image 要能分配内存并返回指针，同时写入宽高通道
+
+    // 构造返回的 numpy 对象（共享内存，不复制）
+    size_t ndarray_shape[4];
+    ndarray_shape[0] = 1;
+    ndarray_shape[1] = frame_shape.height;
+    ndarray_shape[2] = frame_shape.width;
+    ndarray_shape[3] = frame_shape.channel;
+    ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
+    uint8_t *out_data = (uint8_t *)out->array;
+    memcpy(out_data, img_data, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    free(img_data);
+    return MP_OBJ_FROM_PTR(out);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_load_image_obj, 1, 1, cv_lite_load_image);
+
+
 STATIC mp_obj_t cv_lite_rgb888_undistort(size_t n_args, const mp_obj_t *args)
 {
     mp_obj_list_t *frame_size_mp = MP_OBJ_TO_PTR(args[0]);
@@ -2012,6 +2037,8 @@ STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rgb888_find_corners_fast), MP_ROM_PTR(&cv_lite_rgb888_find_corners_fast_obj) },
     // 保存图像
     { MP_ROM_QSTR(MP_QSTR_save_image), MP_ROM_PTR(&cv_lite_save_image_obj) },
+    // 读取图像
+    { MP_ROM_QSTR(MP_QSTR_load_image), MP_ROM_PTR(&cv_lite_load_image_obj) },
     // 畸变修正
     { MP_ROM_QSTR(MP_QSTR_rgb888_undistort), MP_ROM_PTR(&cv_lite_rgb888_undistort_obj) },
     { MP_ROM_QSTR(MP_QSTR_rgb888_undistort_fast), MP_ROM_PTR(&cv_lite_rgb888_undistort_fast_obj) },
