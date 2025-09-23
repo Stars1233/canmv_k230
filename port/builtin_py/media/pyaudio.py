@@ -21,6 +21,9 @@ AUDIO_3A_ENABLE_AEC   = const(4)
 
 USE_EXTERN_BUFFER_CONFIG = True
 
+DEVICE_I2S = "i2s"
+DEVICE_PDM = "pdm"
+
 def _vb_pool_init(frames_per_buffer=1024):
     config = k_vb_config()
     config.max_pool_cnt = 2
@@ -101,6 +104,7 @@ class Stream:
         self._output_device_index = output_device_index
         self._enable_codec = enable_codec
         self._stream_callback = stream_callback
+        self.device_type = DEVICE_I2S
 
     def start_stream(self):
         pass
@@ -253,7 +257,6 @@ class Write_stream(Stream):
         return ao_swap_left_right(state)
 
 class Read_stream(Stream):
-    dev_chn_enable = {0:False,1:False}
     def __init__(self,
                 PA_manager,
                 rate,
@@ -268,12 +271,15 @@ class Read_stream(Stream):
                 start=True,
                 stream_callback=None):
         super().__init__(PA_manager,rate,channels,format,input,output,input_device_index,output_device_index,enable_codec,frames_per_buffer,start,stream_callback)
+        #i2s device 0;pdm device 1
         if (None == self._input_device_index or 0 == self._input_device_index):
             self._ai_dev = 0
             self._ai_chn = 0
         elif (1 == self._input_device_index):
-            self._ai_dev = 0
-            self._ai_chn = 1
+            self._ai_dev = 1
+            self._ai_chn = 0
+            self._pdm_chncnt = self._channels // 2
+            self.device_type = DEVICE_PDM
         else:
             self._ai_dev = 0
             self._ai_chn = 0
@@ -287,7 +293,7 @@ class Read_stream(Stream):
     def start_stream(self):
         if (not self._start_stream):
             #init device only once
-            if (not (Read_stream.dev_chn_enable[0] and Read_stream.dev_chn_enable[1])):
+            if (self.device_type == DEVICE_I2S):
                 aio_dev_attr = k_aio_dev_attr()
                 aio_dev_attr.audio_type = KD_AUDIO_INPUT_TYPE_I2S
                 aio_dev_attr.kd_audio_attr.i2s_attr.sample_rate = self._rate
@@ -311,38 +317,75 @@ class Read_stream(Stream):
                 if (0 != ret):
                     raise ValueError(("kd_mpi_ai_enable failed:%d")%(ret))
 
-                Read_stream.dev_chn_enable[self._ai_chn] = True
+                ret = kd_mpi_ai_enable_chn(self._ai_dev, self._ai_chn)
+                if (0 != ret):
+                    raise ValueError(("kd_mpi_ai_enable_chn failed:%d")%(ret))
+            elif (self.device_type == DEVICE_PDM):
+                aio_dev_attr = k_aio_dev_attr()
+                aio_dev_attr.audio_type = KD_AUDIO_INPUT_TYPE_PDM
+                aio_dev_attr.kd_audio_attr.pdm_attr.sample_rate = self._rate
+                aio_dev_attr.kd_audio_attr.pdm_attr.bit_width = self._format
+                aio_dev_attr.kd_audio_attr.pdm_attr.chn_cnt = self._pdm_chncnt
+                aio_dev_attr.kd_audio_attr.pdm_attr.snd_mode = KD_AUDIO_SOUND_MODE_STEREO
+                aio_dev_attr.kd_audio_attr.pdm_attr.frame_num = DIV_NUM
+                aio_dev_attr.kd_audio_attr.pdm_attr.pdm_oversample = KD_AUDIO_PDM_INPUT_OVERSAMPLE_64
+                aio_dev_attr.kd_audio_attr.pdm_attr.point_num_per_frame = self._frames_per_buffer
 
-            ret = kd_mpi_ai_enable_chn(self._ai_dev, self._ai_chn)
-            if (0 != ret):
-                raise ValueError(("kd_mpi_ai_enable_chn failed:%d")%(ret))
+                ret = kd_mpi_ai_set_pub_attr(self._ai_dev, aio_dev_attr)
+                if (0 != ret):
+                    raise ValueError(("kd_mpi_ai_set_pub_attr failed:%d")%(ret))
+
+                ret = kd_mpi_ai_enable(self._ai_dev)
+                if (0 != ret):
+                    raise ValueError(("kd_mpi_ai_enable failed:%d")%(ret))
+
+                for i in range(self._pdm_chncnt):
+                    ret = kd_mpi_ai_enable_chn(self._ai_dev, i)
+                    if (0 != ret):
+                        raise ValueError(("kd_mpi_ai_set_pdm_clk failed:%d")%(ret))
 
             self._start_stream = True
 
     def stop_stream(self):
         if (self._start_stream):
-            ret = kd_mpi_ai_disable_chn(self._ai_dev, self._ai_chn)
-            if (0 != ret):
-                raise ValueError(("kd_mpi_ai_disable_chn failed:%d")%(ret))
-
-             #deinit device only once
-            if (Read_stream.dev_chn_enable[0] ^ Read_stream.dev_chn_enable[1]):
-                ret = kd_mpi_ai_disable(self._ai_dev)
+            if (self.device_type == DEVICE_I2S):
+                ret = kd_mpi_ai_disable_chn(self._ai_dev, self._ai_chn)
                 if (0 != ret):
-                    raise ValueError(("kd_mpi_ai_disable failed:%d")%(ret))
+                    raise ValueError(("kd_mpi_ai_disable_chn failed:%d")%(ret))
+            elif (self.device_type == DEVICE_PDM):
+                for i in range(self._pdm_chncnt - 1, -1, -1):
+                    ret = kd_mpi_ai_disable_chn(self._ai_dev, i)
+                    if (0 != ret):
+                        raise ValueError(("kd_mpi_ai_disable_chn failed:%d")%(ret))
+
+            #deinit device only once
+            ret = kd_mpi_ai_disable(self._ai_dev)
+            if (0 != ret):
+                raise ValueError(("kd_mpi_ai_disable failed:%d")%(ret))
 
             self._start_stream = False
-            Read_stream.dev_chn_enable[self._ai_chn] = False
 
-    def read(self,block=True):
+    def read(self,chn=0,block=True):
         if (self._start_stream):
-            ret = kd_mpi_ai_get_frame(self._ai_dev, self._ai_chn, self._audio_frame, 1000 if block else 1)
-            if (0 == ret):
-                vir_data = kd_mpi_sys_mmap(self._audio_frame.phys_addr, self._audio_frame.len)
-                data = uctypes.bytes_at(vir_data,self._audio_frame.len)
-                kd_mpi_sys_munmap(vir_data,self._audio_frame.len)
-                kd_mpi_ai_release_frame(self._ai_dev, self._ai_chn, self._audio_frame)
-                return data
+            if (self.device_type == DEVICE_I2S):
+                ret = kd_mpi_ai_get_frame(self._ai_dev, self._ai_chn, self._audio_frame, 1000 if block else 1)
+                if (0 == ret):
+                    vir_data = kd_mpi_sys_mmap(self._audio_frame.phys_addr, self._audio_frame.len)
+                    data = uctypes.bytes_at(vir_data,self._audio_frame.len)
+                    kd_mpi_sys_munmap(vir_data,self._audio_frame.len)
+                    kd_mpi_ai_release_frame(self._ai_dev, self._ai_chn, self._audio_frame)
+                    return data
+            elif (self.device_type == DEVICE_PDM):
+                if (chn < 0 or chn >= self._pdm_chncnt):
+                    raise ValueError("pdm chn %d error"%(chn))
+
+                ret = kd_mpi_ai_get_frame(self._ai_dev, chn, self._audio_frame, 1000 if block else 1)
+                if (0 == ret):
+                    vir_data = kd_mpi_sys_mmap(self._audio_frame.phys_addr, self._audio_frame.len)
+                    data = uctypes.bytes_at(vir_data,self._audio_frame.len)
+                    kd_mpi_sys_munmap(vir_data,self._audio_frame.len)
+                    kd_mpi_ai_release_frame(self._ai_dev, chn, self._audio_frame)
+                    return data
 
     def close(self):
         self._is_running = False
