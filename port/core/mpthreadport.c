@@ -43,10 +43,12 @@
 
 // Some platforms don't have SIGRTMIN but if we do have it, use it to avoid
 // potential conflict with other uses of the more commonly used SIGUSR1.
-#ifdef SIGRTMIN
-#define MP_THREAD_GC_SIGNAL (SIGRTMIN + 5)
+#ifdef SIGRTMAX
+#define MP_THREAD_GC_SIGNAL (SIGRTMAX - 1)
+#define MP_THREAD_WAKE_SIGNAL (SIGRTMAX - 2)
 #else
 #define MP_THREAD_GC_SIGNAL (SIGUSR1)
+#define MP_THREAD_WAKE_SIGNAL (SIGUSR2)
 #endif
 
 // This value seems to be about right for both 32-bit and 64-bit builds.
@@ -109,6 +111,11 @@ STATIC void mp_thread_gc(int signo, siginfo_t *info, void *context) {
     }
 }
 
+STATIC void mp_thread_wake_handler(int signo) {
+    // no-op: just interrupt blocking syscalls
+    (void)signo;
+}
+
 void mp_thread_init(void) {
     pthread_key_create(&tls_key, NULL);
     pthread_setspecific(tls_key, &mp_state_ctx.thread);
@@ -143,35 +150,26 @@ void mp_thread_init(void) {
     sa.sa_sigaction = mp_thread_gc;
     sigemptyset(&sa.sa_mask);
     sigaction(MP_THREAD_GC_SIGNAL, &sa, NULL);
+
+    sa.sa_flags = 0;
+    sa.sa_handler = mp_thread_wake_handler;
+    sigemptyset(&sa.sa_mask);
+    sigaction(MP_THREAD_WAKE_SIGNAL, &sa, NULL);
 }
 
-#if 1
-void mp_thread_deinit(void) {
-    mp_thread_unix_begin_atomic_section();
-    while (thread->next != NULL) {
-        mp_thread_t *th = thread;
-        thread = thread->next;
-        pthread_cancel(th->id);
-        free(th);
-    }
-    mp_thread_unix_end_atomic_section();
-    assert(thread->id == pthread_self());
-    free(thread);
-}
-#else // old version, kept for reference
 void mp_thread_deinit(void) {
     while (1) {
-        usleep(10000);
         mp_thread_unix_begin_atomic_section();
         mp_thread_t *th = thread->next;
         mp_thread_unix_end_atomic_section();
         if (th == NULL)
             break;
+        pthread_kill(th->id, MP_THREAD_WAKE_SIGNAL);
+        usleep(1500); // make a schedule
     }
     assert(thread->id == pthread_self());
     free(thread);
 }
-#endif
 
 // This function scans all pointers that are external to the current thread.
 // It does this by signalling all other threads and getting them to scan their
