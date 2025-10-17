@@ -22,6 +22,8 @@ DPU_MOD_ID = K_ID_DPU              # DPU device module
 VIDEO_ENCODE_MOD_ID = K_ID_VENC    # video encode device module
 VIDEO_DECODE_MOD_ID = K_ID_VDEC    # video decode device module
 
+NONAI_2D_CSC_MOD_ID = K_ID_NONAI_2D
+
 
 # audio device id definition
 # TODO

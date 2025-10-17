@@ -224,7 +224,7 @@ STATIC mp_obj_t py_nonai_2d_csc_make_new(const mp_obj_type_t* type, size_t n_arg
 
     vb_cfg.max_pool_cnt          = 1;
     vb_cfg.comm_pool[0].blk_cnt  = csc.buffer_num;
-    vb_cfg.comm_pool[0].blk_size = (image_size + (4096 - 1)) & ~(4096 - 1);
+    vb_cfg.comm_pool[0].blk_size = (image_size + 0x2FFF) & ~0x2FFF;
     vb_cfg.comm_pool[0].mode     = VB_REMAP_MODE_NOCACHE;
 
     if (0x00 != py_media_vbmgmt_config_vb_comm_pool(&vb_cfg)) {
@@ -232,7 +232,6 @@ STATIC mp_obj_t py_nonai_2d_csc_make_new(const mp_obj_type_t* type, size_t n_arg
         kd_mpi_nonai_2d_destroy_chn(csc.chn);
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("config vb common pool failed."));
     }
-
     csc.stat = 1;
 
     return py_nonai_2d_csc_from_struct(&csc);
@@ -371,7 +370,7 @@ STATIC mp_obj_t py_nonai_2d_csc_convert(mp_uint_t n_args, const mp_obj_t* pos_ar
                 break;
             }
 
-            csc->frame_mmap_size = calc_video_size(info.v_frame.pixel_format, image.w, image.h);
+            csc->frame_mmap_size = (calc_video_size(info.v_frame.pixel_format, image.w, image.h) + 0x2FFF) & ~0x2FFF;
         }
 
         csc->frame_virt_addr = (k_u64)kd_mpi_sys_mmap_cached(info.v_frame.phys_addr[0], csc->frame_mmap_size);
@@ -379,9 +378,24 @@ STATIC mp_obj_t py_nonai_2d_csc_convert(mp_uint_t n_args, const mp_obj_t* pos_ar
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("CSC.convert mmap failed"));
         }
 
+        if ((PIXEL_FORMAT_BGR_888_PLANAR == info.v_frame.pixel_format)
+            || (PIXEL_FORMAT_RGB_888_PLANAR == info.v_frame.pixel_format)) {
+            k_u32 size = image.w * image.h;
+
+            if ((info.v_frame.phys_addr[0] + size) != info.v_frame.phys_addr[1]) {
+                memmove(csc->frame_virt_addr + size,
+                        csc->frame_virt_addr + (info.v_frame.phys_addr[1] - info.v_frame.phys_addr[0]), size);
+            }
+
+            if ((info.v_frame.phys_addr[0] + size * 2) != info.v_frame.phys_addr[2]) {
+                memmove(csc->frame_virt_addr + size * 2,
+                        csc->frame_virt_addr + (info.v_frame.phys_addr[2] - info.v_frame.phys_addr[0]), size);
+            }
+        }
+
         image.alloc_type = ALLOC_VB;
-        image.size = csc->frame_mmap_size;
-        image.data = csc->frame_virt_addr;
+        image.size       = csc->frame_mmap_size;
+        image.data       = csc->frame_virt_addr;
 
         return py_image_from_struct(&image);
     } else {
@@ -389,6 +403,120 @@ STATIC mp_obj_t py_nonai_2d_csc_convert(mp_uint_t n_args, const mp_obj_t* pos_ar
     }
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(py_nonai_2d_csc_convert_obj, 2, py_nonai_2d_csc_convert);
+
+/* CSC.convert(image_or_frame, timeout_ms = 1000, convert_to_image = 1)*/
+STATIC mp_obj_t py_nonai_2d_csc_getframe(mp_uint_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
+{
+    k_s32              ret;
+    image_t            image;
+    k_video_frame_info info;
+
+    int timeout_ms = 1000;
+
+    enum { ARG_timeout_ms };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_timeout_ms, MP_ARG_INT, { .u_int = 1000 } },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    py_nonai_2d_csc_t* csc = py_nonai_2d_csc_cobj(MP_OBJ_TO_PTR(pos_args[0]));
+
+    timeout_ms = args[ARG_timeout_ms].u_int;
+
+    if (0x02 == csc->stat) {
+        if (csc->frame_virt_addr && csc->frame_mmap_size) {
+            kd_mpi_sys_munmap(csc->frame_virt_addr, csc->frame_mmap_size);
+
+            csc->frame_virt_addr = 0;
+            csc->frame_mmap_size = 0;
+        }
+        kd_mpi_nonai_2d_release_frame(csc->chn, &csc->dumped_frame);
+        csc->stat = 0x01;
+    }
+
+    if (K_SUCCESS != (ret = kd_mpi_nonai_2d_get_frame(csc->chn, &csc->dumped_frame, timeout_ms))) {
+        mp_printf(&mp_plat_print, "CSC.getframe get_frame ret %d\n", ret & 0x1FF);
+        if (K_ERR_BUF_EMPTY == (ret & 0x1FF)) {
+            mp_printf(&mp_plat_print, "CSC.getframe get_frame timeout\n");
+            return mp_const_none;
+        }
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("CSC.getframe get_frame failed %d"), ret & 0x1FF);
+    }
+    csc->stat            = 0x02;
+    csc->frame_virt_addr = 0;
+    csc->frame_mmap_size = 0;
+    memcpy(&info, &csc->dumped_frame, sizeof(k_video_frame_info));
+
+    image.w = info.v_frame.width;
+    image.h = info.v_frame.height;
+
+    if ((PIXEL_FORMAT_YUV_SEMIPLANAR_420 == info.v_frame.pixel_format) && (csc->cvt_yuv_to_gray)) {
+        image.pixfmt         = PIXFORMAT_GRAYSCALE;
+        csc->frame_mmap_size = image.w * image.h;
+    } else {
+        switch (info.v_frame.pixel_format) {
+        case PIXEL_FORMAT_RGB_565:
+        case PIXEL_FORMAT_RGB_565_LE:
+        case PIXEL_FORMAT_BGR_565:
+        case PIXEL_FORMAT_BGR_565_LE:
+            image.pixfmt = PIXFORMAT_RGB565;
+            break;
+        case PIXEL_FORMAT_RGB_888:
+        case PIXEL_FORMAT_BGR_888:
+            image.pixfmt = PIXFORMAT_RGB888;
+            break;
+        case PIXEL_FORMAT_ARGB_8888:
+            image.pixfmt = PIXFORMAT_ARGB8888;
+            break;
+        case PIXEL_FORMAT_RGB_888_PLANAR:
+            image.pixfmt = PIXFORMAT_RGBP888;
+            break;
+        case PIXEL_FORMAT_BGR_888_PLANAR:
+            image.pixfmt = PIXFORMAT_BGRP888;
+            break;
+        case PIXEL_FORMAT_YUV_SEMIPLANAR_420:
+            image.pixfmt = PIXFORMAT_YUV420;
+            break;
+        case PIXEL_FORMAT_YVU_SEMIPLANAR_420:
+            image.pixfmt = PIXFORMAT_YVU420;
+            break;
+        default:
+            image.pixfmt = PIXFORMAT_INVALID;
+            break;
+        }
+
+        csc->frame_mmap_size = (calc_video_size(info.v_frame.pixel_format, image.w, image.h) + 0x2FFF) & ~0x2FFF;
+    }
+
+    csc->frame_virt_addr = (k_u64)kd_mpi_sys_mmap_cached(info.v_frame.phys_addr[0], csc->frame_mmap_size);
+    if (0x00 == csc->frame_virt_addr) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("CSC.convert mmap failed"));
+    }
+
+    if ((PIXEL_FORMAT_BGR_888_PLANAR == info.v_frame.pixel_format)
+        || (PIXEL_FORMAT_RGB_888_PLANAR == info.v_frame.pixel_format)) {
+
+        k_u32 size = image.w * image.h;
+
+        if ((info.v_frame.phys_addr[0] + size) != info.v_frame.phys_addr[1]) {
+            memmove(csc->frame_virt_addr + size, csc->frame_virt_addr + (info.v_frame.phys_addr[1] - info.v_frame.phys_addr[0]),
+                    size);
+        }
+
+        if ((info.v_frame.phys_addr[0] + size * 2) != info.v_frame.phys_addr[2]) {
+            memmove(csc->frame_virt_addr + size * 2,
+                    csc->frame_virt_addr + (info.v_frame.phys_addr[2] - info.v_frame.phys_addr[0]), size);
+        }
+    }
+
+    image.alloc_type = ALLOC_VB;
+    image.size       = csc->frame_mmap_size;
+    image.data       = csc->frame_virt_addr;
+
+    return py_image_from_struct(&image);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(py_nonai_2d_csc_getframe_obj, 0, py_nonai_2d_csc_getframe);
 
 STATIC mp_obj_t py_nonai_2d_csc_destroy(mp_obj_t self_in)
 {
@@ -425,6 +553,7 @@ STATIC const mp_rom_map_elem_t py_nonai_2d_csc_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_nonai_2d_csc_destroy_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_convert), MP_ROM_PTR(&py_nonai_2d_csc_convert_obj) },
+    { MP_ROM_QSTR(MP_QSTR_getframe), MP_ROM_PTR(&py_nonai_2d_csc_getframe_obj) },
     { MP_ROM_QSTR(MP_QSTR_destroy), MP_ROM_PTR(&py_nonai_2d_csc_destroy_obj) },
 
     // const
