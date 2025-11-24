@@ -88,10 +88,11 @@ void nms_pose(std::vector<BoxInfo> &input_boxes, float nms_thresh,std::vector<in
     }
 }
 
-bool BatchDetect(float* all_data, std::vector<std::vector<OutputPose>>& output,cv::Vec4d params, float obj_thresh, float nms_thresh)
+bool BatchDetect(float* all_data,int num_box, std::vector<std::vector<OutputPose>>& output,cv::Vec4d params, float obj_thresh, float nms_thresh)
 {
 
-    std::vector<int64_t> _outputTensorShape = { 1, ANCHORLENGTH, BOXNUM};
+
+    std::vector<int64_t> _outputTensorShape = { 1, ANCHORLENGTH, num_box};
     int _anchorLength = ANCHORLENGTH;
 
     // [1, 56 ,8400] -> [1, 8400, 56]
@@ -192,10 +193,10 @@ bool BatchDetect(float* all_data, std::vector<std::vector<OutputPose>>& output,c
  
 }
 
-bool Detect(float* all_data, std::vector<OutputPose> &output,cv::Vec4d params, float obj_thresh, float nms_thresh){
+bool Detect(float* all_data,int num_box, std::vector<OutputPose> &output,cv::Vec4d params, float obj_thresh, float nms_thresh){
     std::vector<std::vector<OutputPose>> temp_output;
 
-    bool flag = BatchDetect(all_data, temp_output,params,obj_thresh,nms_thresh);
+    bool flag = BatchDetect(all_data,num_box, temp_output,params,obj_thresh,nms_thresh);
     output = temp_output[0];
     return true;
 }
@@ -233,8 +234,10 @@ PersonKPOutput* person_kp_postprocess(float *data, FrameSize frame_size, FrameSi
     params[2] = left;
     params[3] = top;
 
+    int num_box=((kmodel_frame_size.width/8)*(kmodel_frame_size.height/8)+(kmodel_frame_size.width/16)*(kmodel_frame_size.height/16)+(kmodel_frame_size.width/32)*(kmodel_frame_size.height/32));
+
     float *foutput_0 = data;
-    bool find_ = Detect(foutput_0,output,params,obj_thresh,nms_thresh);
+    bool find_ = Detect(foutput_0,num_box, output,params,obj_thresh,nms_thresh);
 
     *box_cnt = output.size();
     PersonKPOutput *personKPOutput = (PersonKPOutput *)malloc(*box_cnt * sizeof(PersonKPOutput));
