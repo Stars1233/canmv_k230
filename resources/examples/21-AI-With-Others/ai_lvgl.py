@@ -236,15 +236,19 @@ def media_deinit():
 
 def disp_drv_flush_cb(disp_drv, area, color):
     global disp_img1, disp_img2
-    if disp_drv.flush_is_last() == True:
-        if disp_img1.virtaddr() == uctypes.addressof(color.__dereference__()):
-            disp_img2.bytearray()[:]=bytearray(0)
-            Display.show_image(disp_img1,layer=Display.LAYER_OSD2)
-        else:
-            disp_img1.bytearray()[:]=bytearray(0)
-            Display.show_image(disp_img2,layer=Display.LAYER_OSD2)
-        time.sleep(0.01)
+
+    # 判断当前是哪个 buffer
+    buf = color.__dereference__()
+    addr = uctypes.addressof(buf)
+
+    if addr == disp_img1.virtaddr():
+        Display.show_image(disp_img1, layer=Display.LAYER_OSD2)
+    else:
+        Display.show_image(disp_img2, layer=Display.LAYER_OSD2)
+
+    # 通知 LVGL 刷新完成
     disp_drv.flush_ready()
+
 
 
 class touch_screen():
@@ -258,17 +262,22 @@ class touch_screen():
         self.touch = TOUCH(0)
 
     def callback(self, driver, data):
-        x, y, state = self.x, self.y, lv.INDEV_STATE.RELEASED
         tp = self.touch.read(1)
-        if tp != (): #发生触摸事件
-            for i in range(len(tp)):
-                 pass
-        if len(tp):
-            x, y, event = tp[0].x, tp[0].y, tp[0].event
-            if event == 2 or event == 3:
-                state = lv.INDEV_STATE.PRESSED
-        data.point = lv.point_t({'x': x, 'y': y})
-        data.state = state
+
+        if tp:   # 有触摸
+            p = tp[0]
+            self.x, self.y = p.x, p.y
+            if p.event in (2, 3):        # 2=down, 3=move
+                self.state = lv.INDEV_STATE.PRESSED
+            else:
+                self.state = lv.INDEV_STATE.RELEASED
+        else:
+            self.state = lv.INDEV_STATE.RELEASED
+
+        data.point = lv.point_t({"x": self.x, "y": self.y})
+        data.state = self.state
+
+
 
 def lvgl_init():
     global disp_img1, disp_img2
@@ -356,7 +365,8 @@ lvgl_init()
 user_gui_init()
 try:
     while True:
-        time.sleep_ms(lv.task_handler())
+        lv.task_handler()
+        time.sleep_ms(1)
 except BaseException as e:
     import sys
     sys.print_exception(e)
