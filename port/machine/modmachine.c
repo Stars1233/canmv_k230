@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+#include "py/mpprint.h"
 #include "py/runtime.h"
 #include "py/obj.h"
 
@@ -45,6 +46,7 @@
 #include "extmod/machine_bitstream.h"
 #endif
 
+#include "drv_tsensor.h"
 #include "hal_utils.h"
 
 #include "modmachine.h"
@@ -125,31 +127,11 @@ STATIC mp_obj_t machine_mem_copy(mp_obj_t dst_obj, mp_obj_t src_obj, mp_obj_t si
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(machine_mem_copy_obj, machine_mem_copy);
 
 STATIC mp_obj_t machine_read_temp(void) {
-#define RT_DEVICE_TS_CTRL_SET_MODE          _IOW('T', 1, uint8_t)
-#define RT_DEVICE_TS_CTRL_GET_MODE          _IOR('T', 2, uint8_t)
-#define RT_DEVICE_TS_CTRL_SET_TRIM          _IOW('T', 3, uint8_t)
-#define RT_DEVICE_TS_CTRL_GET_TRIM          _IOR('T', 4, uint8_t)
+    double temp = 0.0;
 
-#define RT_DEVICE_TS_CTRL_MODE_SINGLE       0x01
-#define RT_DEVICE_TS_CTRL_MODE_CONTINUUOS   0x02
-
-    static int fd = -1;
-
-    double temp = 0.0f;
-
-    if(0 > fd) {
-        if(0 > (fd = open("/dev/ts", O_RDWR))) {
-            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("/dev/ts not exist."));
-        }
-
-        uint8_t mode = RT_DEVICE_TS_CTRL_MODE_CONTINUUOS;
-
-        if(0x00 != ioctl(fd, RT_DEVICE_TS_CTRL_SET_MODE, &mode)) {
-            mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set ts deivce mode failed."));
-        }
+    if (drv_tsensor_read_temperature(&temp) != 0) {
+        mp_printf(&mp_plat_print, "read temperature failed.\n");
     }
-
-    read(fd, &temp, sizeof(temp));
 
     return mp_obj_new_float_from_d(temp);
 }
