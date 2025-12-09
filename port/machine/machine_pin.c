@@ -470,7 +470,7 @@ STATIC mp_obj_t machine_pin_make_new(const mp_obj_type_t* type, size_t n_args, s
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("get pin(%d) fpioa func failed"), pin);
     }
 
-    if (GPIO63 < func) {
+    if (GPIO71 < func) {
         mp_printf(&mp_plat_print, "pin(%d) is not a GPIO pin, func=%d, Please notice it.\n", pin, func);
 
         func = GPIO0 + pin; // Use GPIO0 + pin as the default GPIO function
