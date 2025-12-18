@@ -165,6 +165,14 @@ CANMV_SRC_C += $(wildcard $(BOARD_DIR)/*.c)
 CANMV_SRC_C += $(wildcard machine/*.c)
 # mpp
 CANMV_SRC_C += $(wildcard builtin_py/mpp_binding/*.c)
+
+ifeq ($(CONFIG_BOARD_K230_CANMV_YAHBOOM),y)
+# yahboom ybMain
+CANMV_SRC_C += $(wildcard builtin_py/yahboom/ybMain/*.c)
+# yahboom ybUtils
+CANMV_SRC_C += $(wildcard builtin_py/yahboom/ybUtils/*.c)
+endif
+
 # kpu
 CANMV_SRC_C += $(wildcard kpu/*.c)
 # aicube
@@ -250,6 +258,16 @@ LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_timer.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/freetype/lv_freetype.c
+
+ifeq ($(CONFIG_BOARD_K230_CANMV_YAHBOOM),y)
+# add yb_config/lv_font_yb source file
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/yb_config/lv_font_yb_cn_16.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/yb_config/lv_font_yb_cn_22.c
+# include yb_config/lv_conf_yb.h
+CFLAGS += -I$(LVGL_BINDING_DIR)/yb_config
+CFLAGS += -DLV_CONF_PATH=$(LVGL_BINDING_DIR)/yb_config/lv_conf_yb.h
+LV_CFLAGS := -DLV_CONF_PATH=$(LVGL_BINDING_DIR)/yb_config/lv_conf_yb.h
+endif
 
 CFLAGS += -I$(LVGL_DIR)/src/core
 
