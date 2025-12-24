@@ -20,7 +20,7 @@ class PipeLine:
             self.display_size=None
         else:
             self.display_size=[display_size[0],display_size[1]]
-        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399", "nt35516", "nt35532", "gc9503"
+        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399", "nt35516", "nt35532", "gc9503", "aml020t"
         self.display_mode=display_mode
         # sensor对象
         self.sensor=None
@@ -71,6 +71,7 @@ class PipeLine:
                 "nt35516":  Display.NT35516,
                 "nt35532":  Display.NT35532,
                 "gc9503":   Display.GC9503,
+                "aml020t":  Display.AML020T,
             }
 
             # Look up type, fallback to ST7701 if not found
