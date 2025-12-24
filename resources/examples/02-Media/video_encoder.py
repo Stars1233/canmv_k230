@@ -156,26 +156,8 @@ def stream_venc_test(file_name,width=1280, height=720):
         try:
             while True:
                 os.exitpoint()
-                yuv420sp_img = sensor.snapshot(chn=CAM_CHN_ID_0)
-                if (yuv420sp_img == -1):
-                    continue
-
-                frame_info.v_frame.width = yuv420sp_img.width()
-                frame_info.v_frame.height = yuv420sp_img.height()
-                frame_info.v_frame.pixel_format = Sensor.YUV420SP
-                frame_info.pool_id = yuv420sp_img.poolid()
-                frame_info.v_frame.phys_addr[0] = yuv420sp_img.phyaddr()
-                #frame_info.v_frame.phys_addr[1] = yuv420sp_img.phyaddr(1)
-                if (yuv420sp_img.width() == 800 and yuv420sp_img.height() == 480):
-                    frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height + 1024
-                elif (yuv420sp_img.width() == 1920 and yuv420sp_img.height() == 1080):
-                    frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height + 3072
-                elif (yuv420sp_img.width() == 640 and yuv420sp_img.height() == 360):
-                    frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height + 3072
-                else:
-                    frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height
-
-
+                frame_info  = sensor.snapshot(chn=CAM_CHN_ID_0,dump_frame=True)
+                #frame_info.nv12_to_grayscale() # convert to grayscale
                 encoder.SendFrame(venc_chn,frame_info)
                 encoder.GetStream(venc_chn, streamData) # 获取一帧码流
 
@@ -207,5 +189,5 @@ def stream_venc_test(file_name,width=1280, height=720):
 
 if __name__ == "__main__":
     os.exitpoint(os.EXITPOINT_ENABLE)
-    vi_bind_venc_test("/sdcard/examples/test.264",800,480)  # vi绑定venc示例
-    #stream_venc_test("/sdcard/examples/test.264",800,480)  # venc编码数据流示例
+    vi_bind_venc_test("/data/test.264",800,480)  # vi绑定venc示例
+    #stream_venc_test("/data/test.264",800,480)  # venc编码数据流示例
