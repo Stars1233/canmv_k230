@@ -437,10 +437,9 @@ STATIC mp_obj_t machine_pin_destroy(mp_obj_t self_in)
 
     int pin = drv_gpio_get_pin_id(self->inst);
     if (0 <= pin) {
-        gpio_used[pin] = 0;
+        gpio_used[pin]                          = 0;
+        MP_STATE_PORT(machine_pin_irq_obj[pin]) = NULL;
     }
-
-    MP_STATE_PORT(machine_pin_irq_obj[pin]) = NULL;
 
     drv_gpio_unregister_irq(self->inst);
     drv_gpio_inst_destroy(&self->inst);
