@@ -11,6 +11,7 @@ all: gen_image
 
 clean:
 	@make -C port clean
+	@rm -rf $(SDK_CANMV_SRC_DIR)/micropython/mpy-cross/build
 	@rm -rf ${SDK_BUILD_IMAGES_DIR}/sdcard/
 
 distclean: clean
