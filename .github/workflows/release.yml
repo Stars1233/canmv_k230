@@ -52,34 +52,44 @@ jobs:
           source ~/.canmv_venv/bin/activate
           pip3 install pycryptodome gmssl jsonschema jinja2
 
-      - name: Download toolchains
-        run: |
-          make dl_toolchain
-
       - name: Build Projects
         run: |
           source ~/.canmv_venv/bin/activate
+          # Create a clean directory for final assets
+          mkdir -p release_assets
+          
           projects=("k230_canmv_01studio_defconfig" "k230_canmv_v1p0p1_defconfig" "k230_canmv_lckfb_defconfig" "k230_canmv_v3p0_defconfig" "k230d_canmv_bpi_zero_defconfig" "k230d_canmv_atk_dnk230d_defconfig" "k230_canmv_dongshanpi_defconfig" "k230_canmv_rtt_evb_defconfig" "k230d_canmv_junroc_ai_cam_defconfig" "k230_canmv_gt6700_defconfig")
-          echo "Config list is ${projects}"
-          for proj in ${projects[@]};do
+
+          for proj in ${projects[@]}; do
             echo "-------------------"
-            echo "build project ${proj}"
+            echo "Building project: ${proj}"
             echo "-------------------"
+
+            # Build the project
             make ${proj}
             time make log
-            echo "-------------------"
+
+            # 1. Copy the specific images and md5 files to our safe folder
+            # Using find to handle the nested structure within output/
+            find output/ -name "*.img.gz" -exec cp {} release_assets/ \;
+            find output/ -name "*.img.gz.md5" -exec cp {} release_assets/ \;
+
+            # 2. Wipe the output folder to free up space for the next build
+            rm -rf output/
+
+            echo "Cleaned up ${proj} build files."
           done
 
       - name: Generate release.xml
         run: |
-          ~/.bin/repo manifest -r -o release_${{ github.ref_name }}.xml
+          ~/.bin/repo manifest -r -o release_assets/release_${{ github.ref_name }}.xml
 
       - name: Upload images to Release Asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            output/**/*.img.gz
-            output/**/*.img.gz.md5
-            release_${{ github.ref_name }}.xml
+            release_assets/*.img.gz
+            release_assets/*.img.gz.md5
+            release_assets/release_${{ github.ref_name }}.xml
           generate_release_notes: true
