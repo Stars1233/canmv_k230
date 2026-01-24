@@ -1,5 +1,70 @@
 # CanMV K230 Changelog
 
+## CanMV K230 SDK Release Notes v1.5-legacy
+
+This is a **Legacy/Baseline release**. It captures the stable state of the CanMV K230 RTOS environment (based on RTOS SDK v0.6 submodules) before a major transition in the codebase.
+
+If your project requires the current workflow and submodule structure, please use this version. Future releases will introduce significant changes that may not be backward compatible.
+
+### 📌 Release Overview
+
+This version synchronizes all core submodules (rtsmart, mpp, u-boot, etc.) to the **rtos-v0.6** milestone, providing a feature-complete environment for AI, media processing, and RTOS development on the K230.
+
+#### Submodule Version Mapping
+
+* **RT-Smart Kernel:** `rtos-v0.6`
+* **MPP (Media Process Platform):** `rtos-v0.6`
+* **RT-Smart Libs:** `rtos-v0.6`
+* **RT-Smart Examples:** `rtos-v0.6`
+* **U-Boot:** `rtos-v0.6`
+
+---
+
+### 🚀 Key Features in this Legacy Baseline
+
+#### 1. Media Process Platform (MPP) Enhancements
+
+* **Audio 3A Integration:** Added support for Acoustic Echo Cancellation (AEC), Automatic Noise Suppression (ANS), and Automatic Gain Control (AGC).
+* **New Codecs:** Support for G.711A/U audio encoding and decoding.
+* **Video Encoding (VENC):** Added multi-channel encoding demos and support for rotation, mirroring, and OSD (VENC_2D).
+* **Video Input (VICAP):** Enabled hardware-level scaling and cropping for multi-channel output.
+
+#### 2. RT-Smart Kernel & Drivers
+
+* **New Hardware Support:** Support for the **K230D** (SIP version) and `k230d_evb` board.
+* **Display:** Added support for `nt35516` and `nt35532` panels.
+* **New Drivers:** Added `onewire` (DS18x20), `ws2812` (RGB LEDs), and improved CDC/EC200M (4G) support.
+* **System:** Added `romfs` support and `statfs` syscall for better filesystem management.
+
+#### 3. Software Libraries & AI Examples
+
+* **Vision Functions:** Introduced `cv_lite` with support for corner detection, undistortion, and rectangle drawing.
+* **Networking:** Integrated the `mqttclient` library for IoT applications.
+* **New Demos:** Added AI + RTSP streaming examples and a media pipeline demo for saving encoded video to the small core.
+
+---
+
+### 🛠 Stability & Bug Fixes
+
+* Fixed USB CDC 100ms stall and potential kernel crashes during `lsusb`.
+* Optimized I2C transfer reliability and fixed touch screen interrupt handling.
+* Improved memory management and task scheduling stability in the RT-Smart kernel.
+
+---
+
+### ⚠️ Important Notice for Developers
+
+This version is tagged as **legacy** because it represents the "end of an era" for the current SDK structure.
+
+* **Current Projects:** If you are in the middle of a product cycle, stay on this version.
+* **New Projects:** Be aware that the next major version will likely feature a different repository structure or breaking API changes.
+
+### 🔗 Repository Resources
+
+* [SDK Source (Main)](https://github.com/kendryte/canmv_k230/releases/tag/v1.5-legacy)
+* [RTOS SDK Submodules](https://github.com/kendryte/k230_rtos_sdk/releases/tag/rtos-v0.6)
+* [Pre-built Images](https://github.com/kendryte/canmv_k230/releases/tag/v1.5-legacy/) (Link to your specific download portal if applicable)
+
 ## 🚀 CanMV K230 v1.4 Release Notes
 
 We are proud to announce the **v1.4** release of the **CanMV K230** platform!
