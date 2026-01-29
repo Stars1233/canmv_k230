@@ -87,7 +87,7 @@ jobs:
 
             # Build the project
             make ${proj}
-            time make log
+            time make -j8
 
             # 1. Copy the specific images and md5 files to our safe folder
             # Using find to handle the nested structure within output/
