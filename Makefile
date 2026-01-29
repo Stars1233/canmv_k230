@@ -29,13 +29,13 @@ ifeq ($(CONFIG_BOARD_K230_CANMV_YAHBOOM),y)
 gen_image: build copy_sdcard copy_micropython
 
 .PHONY: copy_sdcard
-copy_sdcard:
+copy_sdcard: build
 	@echo "Copy sdcard (Yahboom)"
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/
 	rsync -aq --delete --exclude='.git' $(SDK_SRC_ROOT_DIR)/src/canmv/resources/ybsdcard/ ${SDK_BUILD_IMAGES_DIR}/sdcard/
 
 .PHONY: copy_micropython
-copy_micropython:
+copy_micropython: build
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 	@echo "Copy micropython (Yahboom)"
 	@if [ ! -e $(SDK_CANMV_BUILD_DIR)/micropython ]; then \
@@ -49,7 +49,7 @@ else
 gen_image: build copy_micropython copy_libs copy_sdcard copy_freetype_fonts copy_examples 
 
 .PHONY: copy_micropython
-copy_micropython:
+copy_micropython: build
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy micropython"
@@ -70,7 +70,7 @@ copy_micropython:
 	done
 
 .PHONY: copy_libs
-copy_libs:
+copy_libs: build
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy libs"
@@ -80,7 +80,7 @@ copy_libs:
 	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/libs/ ${SDK_BUILD_IMAGES_DIR}/sdcard/libs/
 
 .PHONY: copy_freetype_fonts
-copy_freetype_fonts:
+copy_freetype_fonts: build
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy freetype resources"
@@ -90,7 +90,7 @@ copy_freetype_fonts:
 	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/font/ ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font/
 
 .PHONY: copy_examples
-copy_examples:
+copy_examples: build
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy examples"
@@ -146,7 +146,7 @@ copy_examples:
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/yolo_license_plate_det.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 
 .PHONY: copy_sdcard
-copy_sdcard:
+copy_sdcard: build
 	@echo "Copy user-customized sdcard resources"
 
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/

@@ -136,16 +136,13 @@ def demuxer_mp4(filename):
 
     vdec = vdecoder.Decoder(vdec_payload_type)
 
-    csc = CSC(2, CSC.PIXEL_FORMAT_RGB_888_PLANAR, buf_num=4)
+    csc = CSC(CSC.PIXEL_FORMAT_RGB_888_PLANAR, buf_num=4)
 
     # 初始化display
     if (display_type == Display.VIRT):
         Display.init(display_type,width = video_info.width, height = video_info.height, fps=30, to_ide = True)
     else:
         Display.init(display_type,to_ide = True)
-
-    #vb buffer初始化
-    MediaManager.init()
 
     # 创建video decoder
     vdec.create()
@@ -155,7 +152,6 @@ def demuxer_mp4(filename):
 
     vdec_link = MediaManager.link((VIDEO_DECODE_MOD_ID, VDEC_DEV_ID, vdec.get_vdec_channel()), (NONAI_2D_CSC_MOD_ID, 0, 2))
     vdec.start()
-
 
     # 记录初始系统时间
     start_system_time = time.ticks_ms()

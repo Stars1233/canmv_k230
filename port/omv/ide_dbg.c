@@ -11,8 +11,6 @@
 #include "k_module.h"
 #include "k_vb_comm.h"
 #include "k_video_comm.h"
-#include "k_dma_comm.h"
-#include "mpi_dma_api.h"
 #include "k_vo_comm.h"
 #include "mpconfig.h"
 #include "mpi_connector_api.h"
@@ -307,9 +305,15 @@ void interrupt_ide(void) {
 }
 
 static bool enable_pic = true;
+
 static void* fb_data = NULL;
 static uint32_t fb_size = 0, fb_width = 0, fb_height = 0;
+
+static void* fb_vo_wbc_data = NULL;
+static size_t fb_vo_wbc_data_size = 0;
+
 static pthread_mutex_t fb_mutex;
+
 // FIXME: reuse buf
 void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height) {
     pthread_mutex_lock(&fb_mutex);
@@ -327,324 +331,12 @@ void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height
     pthread_mutex_unlock(&fb_mutex);
 }
 
-#define ALIGN_UP(x,a) (((x)+(a)-1)/(a)*(a))
-
-#define OSD_ROTATION_DMA_CHN 0
-
-#define ENABLE_VO_WRITEBACK 1
-
-// #define ENABLE_BUFFER_ROTATION 1
-
-static bool _dma_dev_init_flag = false;
-static int32_t _dma_dev_chn = -1;
-
-// for VO writeback
-#if ENABLE_VO_WRITEBACK
-static void* wbc_jpeg_buffer = NULL;
-static size_t wbc_jpeg_buffer_size = 0;
-static uint32_t wbc_jpeg_size = 0;
-static int wbc_jpeg_quality = 90;
-static uint16_t wbc_width, wbc_height;
-static k_video_frame_info frame_info;
-#if ENABLE_BUFFER_ROTATION
-static int vo_wbc_flag = 0; // no set
-static k_video_frame_info rotation_buffer;
-static vb_block_info rotation_block_info;
-#endif
-static bool flag_vo_wbc_enabled = false;
-#endif
-
-void dma_dev_init(void)
+void ide_dbg_enable_vo_wbc(void)
 {
-    int ret;
-    k_dma_dev_attr_t dev_attr;
-
-    dev_attr.burst_len = 0;
-    dev_attr.ckg_bypass = 0xff;
-    dev_attr.outstanding = 7;
-
-    if(_dma_dev_init_flag) {
-        printf("already init dma_dev\n");
-        return;
-    }
-
-    _dma_dev_chn = kd_mpi_dma_request_chn(GDMA_TYPE);
-    if(0 > _dma_dev_chn) {
-        printf("request gdma chn failed.\n");
-        return;
-    }
-
-    ret = kd_mpi_dma_set_dev_attr(&dev_attr);
-    if (ret != K_SUCCESS) {
-        printf("set dev attr error\r\n");
-        return;
-    }
-
-    ret = kd_mpi_dma_start_dev();
-    if (ret != K_SUCCESS) {
-        printf("start dev error\r\n");
-        return;
-    }
-
-    _dma_dev_init_flag = true;
+    pthread_mutex_lock(&fb_mutex);
+    fb_from = FB_FROM_VO_WRITEBACK;
+    pthread_mutex_unlock(&fb_mutex);
 }
-
-void dma_dev_deinit(void)
-{
-    if(false == _dma_dev_init_flag) {
-        printf("did't init dma_dev\n");
-        return;
-    }
-
-    kd_mpi_dma_stop_chn(_dma_dev_chn);
-    kd_mpi_dma_stop_dev();
-
-    kd_mpi_dma_release_chn(_dma_dev_chn);
-
-    _dma_dev_init_flag = false;
-    _dma_dev_chn = -1;
-}
-
-int kd_mpi_vo_osd_rotation(int flag, k_video_frame_info *in, k_video_frame_info *out)
-{
-    int ret;
-    k_video_frame_info tmp;
-
-    k_dma_chn_attr_u chn_attr = {
-        .gdma_attr.buffer_num = 1,
-        .gdma_attr.rotation = flag & K_ROTATION_0 ? DEGREE_0 :
-            flag & K_ROTATION_90 ? DEGREE_90 :
-            flag & K_ROTATION_180 ? DEGREE_180 :
-            flag & K_ROTATION_270 ? DEGREE_270 : DEGREE_0,
-        .gdma_attr.x_mirror = flag & (K_VO_MIRROR_HOR || K_VO_MIRROR_BOTH) ? 1 : 0,
-        .gdma_attr.y_mirror = flag & (K_VO_MIRROR_VER || K_VO_MIRROR_BOTH) ? 1 : 0,
-        .gdma_attr.width = in->v_frame.width,
-        .gdma_attr.height = in->v_frame.height,
-        .gdma_attr.src_stride[0] = in->v_frame.stride[0],
-        .gdma_attr.dst_stride[0] = out->v_frame.stride[0],
-        .gdma_attr.work_mode = DMA_UNBIND,
-        .gdma_attr.pixel_format =
-            (in->v_frame.pixel_format == PIXEL_FORMAT_ARGB_8888 ||
-            in->v_frame.pixel_format == PIXEL_FORMAT_ABGR_8888 ||
-            in->v_frame.pixel_format == PIXEL_FORMAT_BGRA_8888) ? DMA_PIXEL_FORMAT_ARGB_8888 :
-            (in->v_frame.pixel_format == PIXEL_FORMAT_RGB_888 ||
-            in->v_frame.pixel_format == PIXEL_FORMAT_BGR_888) ? DMA_PIXEL_FORMAT_RGB_888 :
-            (in->v_frame.pixel_format == 300 || in->v_frame.pixel_format == 301) ? DMA_PIXEL_FORMAT_RGB_565:
-            (in->v_frame.pixel_format == PIXEL_FORMAT_RGB_MONOCHROME_8BPP) ? DMA_PIXEL_FORMAT_YUV_400_8BIT : 0,
-    };
-
-    if(false == _dma_dev_init_flag) {
-        printf("did't init dma_dev\n");
-        dma_dev_init();
-    }
-
-    if(0 > _dma_dev_chn) {
-        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate runtime error, no free dma channel"));
-    }
-
-    kd_mpi_dma_stop_chn(_dma_dev_chn);
-
-    if (K_SUCCESS != (ret = kd_mpi_dma_set_chn_attr(_dma_dev_chn, &chn_attr))) {
-        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 1, %d"), ret);
-    }
-    if (K_SUCCESS != (ret = kd_mpi_dma_start_chn(_dma_dev_chn))) {
-        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 2, %d"), ret);
-    }
-    if (K_SUCCESS != (ret = kd_mpi_dma_send_frame(_dma_dev_chn, in, -1))) {
-        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 3, %d"), ret);
-    }
-    if (K_SUCCESS != (ret = kd_mpi_dma_get_frame(_dma_dev_chn, &tmp, -1))) {
-        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("OSD rotate error 4, %d"), ret);
-    }
-
-    extern void memcpy_fast(void *dst, void *src, size_t size);
-    uint32_t size = out->v_frame.stride[0] * out->v_frame.height;
-    void *tmp_addr = kd_mpi_sys_mmap_cached(tmp.v_frame.phys_addr[0], size);
-    kd_mpi_sys_mmz_flush_cache(tmp.v_frame.phys_addr[0], tmp_addr, size);
-    memcpy_fast(out->v_frame.virt_addr[0], tmp_addr, size);
-    kd_mpi_sys_munmap(tmp_addr, size);
-    kd_mpi_dma_release_frame(_dma_dev_chn, &tmp);
-
-    return 0;
-}
-
-int ide_dbg_set_vo_wbc(int quality, int width, int height)
-{
-    fb_from = (0x00 != quality) ? FB_FROM_VO_WRITEBACK : FB_FROM_NONE;
-
-#if ENABLE_VO_WRITEBACK
-    wbc_width = width;
-    wbc_height = height;
-    wbc_jpeg_quality = (0x00 != quality) ? quality : 10;
-#endif // ENABLE_VO_WRITEBACK
-
-#if ENABLE_BUFFER_ROTATION
-    if(flag) {
-        if (0x00 == vo_wbc_flag) {
-            vo_wbc_flag = flag;
-        } else {
-            printf("change vo_wbc flag failed, already set %d\n", vo_wbc_flag);
-            return 1;
-        }
-    } else {
-        vo_wbc_flag = 0x00;
-    }
-#endif // ENABLE_BUFFER_ROTATION
-
-    return 0;
-}
-
-int ide_dbg_vo_wbc_init(void) {
-#if ENABLE_VO_WRITEBACK
-    if (fb_from != FB_FROM_VO_WRITEBACK) {
-        return 0;
-    }
-
-    if(flag_vo_wbc_enabled) {
-        printf("already init vo_wbc\n");
-        return 0;
-    }
-
-    k_vo_wbc_attr attr = {
-        .target_size = {
-            .width = wbc_width,
-            .height = wbc_height
-        }
-    };
-
-    pr_verb("[omv] %s(%d), %ux%u", __func__, connector_type, wbc_width, wbc_height);
-
-#if ENABLE_BUFFER_ROTATION
-    if (vo_wbc_flag != 0x00) {
-        // allocate rotation buffer
-        uint32_t buf_size = ALIGN_UP(wbc_width * wbc_height, 0x1000);
-        buf_size = ALIGN_UP(buf_size + buf_size / 2, 0x1000);
-
-        memset(&rotation_block_info, 0, sizeof(rotation_block_info));
-        rotation_block_info.size = buf_size;
-
-        if(0x00 != vb_mgmt_get_block(&rotation_block_info)) {
-            pr_err("can't get vb for rotation");
-            vo_wbc_flag = 0x00;
-        } else {
-            unsigned ysize = wbc_width * wbc_height;
-
-            rotation_buffer.mod_id = K_ID_MMZ;
-            rotation_buffer.pool_id = rotation_block_info.pool_id;
-            rotation_buffer.v_frame.width = wbc_height;
-            rotation_buffer.v_frame.height = wbc_width;
-            rotation_buffer.v_frame.pixel_format = PIXEL_FORMAT_YVU_SEMIPLANAR_420;
-            rotation_buffer.v_frame.stride[0] = rotation_buffer.v_frame.width;
-            rotation_buffer.v_frame.stride[1] = rotation_buffer.v_frame.width;
-            rotation_buffer.v_frame.phys_addr[0] = rotation_block_info.phys_addr;
-            rotation_buffer.v_frame.phys_addr[1] = ALIGN_UP(rotation_buffer.v_frame.phys_addr[0] + ysize, 0x1000);
-            rotation_buffer.v_frame.virt_addr[0] = rotation_block_info.virt_addr;
-            rotation_buffer.v_frame.virt_addr[1] = ALIGN_UP(rotation_buffer.v_frame.virt_addr[0] + ysize, 0x1000);
-        }
-    }
-#endif // ENABLE_BUFFER_ROTATION
-
-    if (kd_mpi_vo_set_wbc_attr(&attr)) {
-        pr_err("[omv] kd_mpi_vo_set_wbc_attr error");
-        return -1;
-    }
-
-    if (kd_mpi_vo_enable_wbc()) {
-        pr_err("[omv] kd_mpi_vo_enable_wbc error");
-        return -1;
-    }
-
-    flag_vo_wbc_enabled = true;
-
-    pr_verb("[omv] VO writeback enabled");
-#endif // ENABLE_VO_WRITEBACK
-
-    return 0;
-}
-
-int ide_dbg_vo_wbc_deinit(void) {
-    pr_verb("[omv] %s", __func__);
-
-#if ENABLE_VO_WRITEBACK
-    if(false == flag_vo_wbc_enabled) {
-        return 0;
-    }
-    flag_vo_wbc_enabled = false;
-
-    int fd = open("/dev/mem", O_RDWR | O_SYNC);
-    if (fd < 0) {
-        mp_raise_OSError(errno);
-    }
-    void *vo_base = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x90840000);
-    if (vo_base == NULL) {
-        mp_raise_OSError(errno);
-    }
-    *(uint32_t *)(vo_base + 0x118) = 0x10000;
-    *(uint32_t *)(vo_base + 0x004) = 0x11;
-    munmap(vo_base, 4096);
-    close(fd);
-    usleep(5000);
-
-    kd_mpi_vo_disable_wbc();
-
-#if ENABLE_BUFFER_ROTATION
-    vo_wbc_flag = 0x00;
-    vb_mgmt_put_block(&rotation_block_info);
-#endif // ENABLE_BUFFER_ROTATION
-
-#endif //ENABLE_VO_WRITEBACK
-
-    kd_display_reset();
-
-    extern void hd_jpeg_encoder_destory(void);
-    hd_jpeg_encoder_destory();
-
-    return 0;
-}
-
-#if ENABLE_BUFFER_ROTATION
-static void rotation90_u8(uint8_t* __restrict dst, uint8_t* __restrict src, unsigned w, unsigned h) {
-    unsigned nw = h;
-    unsigned nh = w;
-    for (unsigned i = 0; i < nh; i++) {
-        for (unsigned j = 0; j < nw; j++) {
-            *(dst + i * nw + j) = *(src + (h - j - 1) * w + i);
-        }
-    }
-}
-
-static void rotation270_u8(uint8_t* __restrict dst, uint8_t* __restrict src, unsigned w, unsigned h) {
-    unsigned nw = h;
-    unsigned nh = w;
-    for (unsigned i = 0; i < nh; i++) {
-        for (unsigned j = 0; j < nw; j++) {
-            *(dst + i * nw + j) = *(src + j * w + (w - i - 1));
-        }
-    }
-}
-
-static void rotation90_u16(uint16_t* __restrict dst, uint16_t* __restrict src, unsigned w, unsigned h) {
-    unsigned nw = h;
-    unsigned nh = w;
-    for (unsigned i = 0; i < nh; i++) {
-        for (unsigned j = 0; j < nw; j++) {
-            *(dst + i * nw + j) = *(src + (h - j - 1) * w + i);
-        }
-    }
-}
-
-static void rotation270_u16(uint16_t* __restrict dst, uint16_t* __restrict src, unsigned w, unsigned h) {
-    unsigned nw = h;
-    unsigned nh = w;
-    for (unsigned i = 0; i < nh; i++) {
-        for (unsigned j = 0; j < nw; j++) {
-            *(dst + i * nw + j) = *(src + j * w + (w - i - 1));
-        }
-    }
-}
-#endif
-
-extern int hd_jpeg_encode(k_video_frame_info* frame, void** buffer, size_t size, int timeout, int quality, void*(*realloc)(void*, unsigned long));
 
 static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* data, size_t length) {
     for (size_t i = 0; i < length;) {
@@ -948,168 +640,75 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                             0, // height
                             0, // size
                         };
-                        if (!enable_pic || fb_from == FB_FROM_NONE)
-                            goto skip;
 
-                        static uint64_t last_frame_ticks_ms = 0;
-                        uint64_t curr_frame_ticks_ms = 0;
+                        if ((enable_pic) && (FB_FROM_NONE != fb_from)) {
+                            static uint64_t last_frame_ticks_ms = 0;
+                            uint64_t        curr_frame_ticks_ms = 0;
 
-                        curr_frame_ticks_ms = mp_hal_ticks_ms();
-                        if(33 > (curr_frame_ticks_ms - last_frame_ticks_ms)) {
-                            goto skip;
-                        }
-                        last_frame_ticks_ms = curr_frame_ticks_ms;
+                            curr_frame_ticks_ms = mp_hal_ticks_ms();
+                            if (33 <= (curr_frame_ticks_ms - last_frame_ticks_ms)) {
+                                last_frame_ticks_ms = curr_frame_ticks_ms;
 
-                        fb_from_current = fb_from;
-                        if (fb_from_current == FB_FROM_USER_SET) {
-                            pthread_mutex_lock(&fb_mutex);
-                            if (fb_data) {
-                                pr_verb("[omv] use user set fb");
-                                resp[0] = fb_width;
-                                resp[1] = fb_height;
-                                resp[2] = fb_size;
-                            }
-                            pthread_mutex_unlock(&fb_mutex);
-                        #if ENABLE_VO_WRITEBACK
-                        } else if (flag_vo_wbc_enabled && (fb_from_current == FB_FROM_VO_WRITEBACK)) {
-                            if (wbc_jpeg_size == 0) {
-                                unsigned error = kd_mpi_wbc_dump_frame(&frame_info, 50);
-                                if (error) {
-                                    pr_verb("[omv] kd_mpi_wbc_dump_frame error: %u", error);
-                                    goto skip;
-                                }
-                                int ssize = 0;
-                                unsigned ysize = frame_info.v_frame.width * frame_info.v_frame.height;
-                                unsigned uvsize = ysize / 2;
-                                #define FIX_UV_OFFSET 0
-                                #if FIX_UV_OFFSET
-                                {
-                                    uint16_t* uv = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[1], uvsize);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
-                                    for (unsigned j = 0; j < frame_info.v_frame.height / 2; j++) {
-                                        for (unsigned i = 0; i < frame_info.v_frame.width / 8; i++) {
-                                            unsigned offset = j * frame_info.v_frame.width + i * 4 * 2;
-                                            uint16_t tmp;
-                                            tmp = uv[offset + 0];
-                                            uv[offset + 0] = uv[offset + 6];
-                                            uv[offset + 6] = tmp;
-                                            tmp = uv[offset + 2];
-                                            uv[offset + 2] = uv[offset + 4];
-                                            uv[offset + 4] = tmp;
-                                            tmp = uv[offset + 1];
-                                            uv[offset + 1] = uv[offset + 7];
-                                            uv[offset + 7] = tmp;
-                                            tmp = uv[offset + 3];
-                                            uv[offset + 3] = uv[offset + 5];
-                                            uv[offset + 5] = tmp;
-                                        }
+                                fb_from_current = fb_from;
+
+                                pthread_mutex_lock(&fb_mutex);
+
+                                if (FB_FROM_USER_SET == fb_from_current) {
+                                    if(fb_data && fb_size) {
+                                        resp[0] = fb_width;
+                                        resp[1] = fb_height;
+                                        resp[2] = fb_size;
                                     }
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
-                                    kd_mpi_sys_munmap(uv, uvsize);
-                                }
-                                #endif
-                                #if ENABLE_BUFFER_ROTATION
-                                if (K_ROTATION_90 == (vo_wbc_flag & K_ROTATION_90)) {
-                                    // y
-                                    uint8_t* y = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[0], ysize);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[0], y, ysize);
-                                    rotation270_u8(rotation_buffer.v_frame.virt_addr[0], y, frame_info.v_frame.width, frame_info.v_frame.height);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[0], y, ysize);
-                                    kd_mpi_sys_munmap(y, ysize);
+                                } else if (FB_FROM_VO_WRITEBACK == fb_from_current) {
+                                    extern int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t* image_widht, uint32_t* image_height);
 
-                                    // uv
-                                    uint16_t* uv = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[1], uvsize);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
-                                    rotation270_u16(rotation_buffer.v_frame.virt_addr[1], uv, frame_info.v_frame.width / 2, frame_info.v_frame.height / 2);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
-                                    kd_mpi_sys_munmap(uv, uvsize);
+                                    uint32_t img_width = 0, img_height = 0;
 
-                                    ssize = hd_jpeg_encode(&rotation_buffer, &wbc_jpeg_buffer, wbc_jpeg_buffer_size, 1000, wbc_jpeg_quality, realloc);
-                                } else if (K_ROTATION_270 == (vo_wbc_flag & K_ROTATION_270)) {
-                                    // y
-                                    uint8_t* y = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[0], ysize);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[0], y, ysize);
-                                    rotation90_u8(rotation_buffer.v_frame.virt_addr[0], y, frame_info.v_frame.width, frame_info.v_frame.height);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[0], y, ysize);
-                                    kd_mpi_sys_munmap(y, ysize);
+                                    if(!fb_vo_wbc_data) {
+                                        if(0x00 != ide_dbg_vo_wbc_dump_and_encode(&fb_vo_wbc_data, &fb_vo_wbc_data_size, &img_width, &img_height)) {
+                                            img_width = 0;
+                                            img_height = 0;
 
-                                    // uv
-                                    uint16_t* uv = kd_mpi_sys_mmap_cached(frame_info.v_frame.phys_addr[1], uvsize);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
-                                    rotation90_u16(rotation_buffer.v_frame.virt_addr[1], uv, frame_info.v_frame.width / 2, frame_info.v_frame.height / 2);
-                                    kd_mpi_sys_mmz_flush_cache(frame_info.v_frame.phys_addr[1], uv, uvsize);
-                                    kd_mpi_sys_munmap(uv, uvsize);
-
-                                    ssize = hd_jpeg_encode(&rotation_buffer, &wbc_jpeg_buffer, wbc_jpeg_buffer_size, 1000, wbc_jpeg_quality, realloc);
-                                } else {
-                                    ssize = hd_jpeg_encode(&frame_info, &wbc_jpeg_buffer, wbc_jpeg_buffer_size, 1000, wbc_jpeg_quality, realloc);
-                                }
-                                #else
-                                ssize = hd_jpeg_encode(&frame_info, &wbc_jpeg_buffer, wbc_jpeg_buffer_size, 1000, wbc_jpeg_quality, realloc);
-                                #endif
-                                if (0) {
-                                    // dump raw file
-                                    static unsigned cnt = 0;
-                                    cnt += 1;
-                                    if (cnt == 100) {
-                                        FILE* f = fopen("/sdcard/wbc_raw", "w");
-                                        if (frame_info.v_frame.pixel_format == PIXEL_FORMAT_YUV_SEMIPLANAR_420 ||
-                                            frame_info.v_frame.pixel_format == PIXEL_FORMAT_YVU_SEMIPLANAR_420) {
-                                            uint8_t* y = kd_mpi_sys_mmap(frame_info.v_frame.phys_addr[0], ysize);
-                                            fwrite(y, 1, ysize, f);
-                                            kd_mpi_sys_munmap(y, ysize);
-                                            uint8_t* uv = kd_mpi_sys_mmap(frame_info.v_frame.phys_addr[1], uvsize);
-                                            fwrite(uv, 1, uvsize, f);
-                                            kd_mpi_sys_munmap(uv, uvsize);
-                                        } else if (frame_info.v_frame.pixel_format == PIXEL_FORMAT_ARGB_8888) {
-                                            uint8_t* buffer = kd_mpi_sys_mmap(frame_info.v_frame.phys_addr[0], ysize * 4);
-                                            fwrite(buffer, 1, ysize * 4, f);
-                                            kd_mpi_sys_munmap(buffer, ysize);
+                                            fb_vo_wbc_data = NULL;
+                                            fb_vo_wbc_data_size = 0;
                                         }
-                                        fclose(f);
 
-                                        f = fopen("/sdcard/wbc.jpg", "w");
-                                        fwrite(wbc_jpeg_buffer, 1, ssize, f);
-                                        fclose(f);
-
-                                        fprintf(stderr, "wbc dump done\n");
+                                        resp[0] = img_width;
+                                        resp[1] = img_height;
+                                        resp[2] = fb_vo_wbc_data_size;
                                     }
                                 }
-                                kd_mpi_wbc_dump_release(&frame_info);
-                                if (ssize <= 0) {
-                                    printf("[omv] hardware JPEG error %d", ssize);
-                                    // error
-                                    goto skip;
-                                }
-                                wbc_jpeg_size = ssize;
+
+                                pthread_mutex_unlock(&fb_mutex);
                             }
-                            resp[0] = frame_info.v_frame.width;
-                            resp[1] = frame_info.v_frame.height;
-                            resp[2] = wbc_jpeg_size;
-                            wbc_jpeg_buffer_size = wbc_jpeg_buffer_size > wbc_jpeg_size ? wbc_jpeg_buffer_size : wbc_jpeg_size;
-                        #endif
                         }
-                        skip:
-                        if (resp[2]) {
-                            // pr_verb("cmd: USBDBG_FRAME_SIZE %u %u %u from(%d)", resp[0], resp[1], resp[2], fb_from);
-                        }
+
                         usb_tx(&resp, sizeof(resp));
-                        break;
-                    }
+                    } break;
                     case USBDBG_FRAME_DUMP: {
-                        if (fb_from_current == FB_FROM_USER_SET) {
+                        if(FB_FROM_NONE != fb_from_current) {
                             pthread_mutex_lock(&fb_mutex);
-                            usb_tx((void*)fb_data, fb_size);
-                            free((void*)fb_data);
-                            fb_data = NULL;
+
+                            if (FB_FROM_USER_SET == fb_from_current) {
+                                if(fb_data && fb_size) {
+                                    usb_tx((void*)fb_data, fb_size);
+
+                                    free((void*)fb_data);
+                                    fb_data = NULL;
+                                    fb_size = 0;
+                                }
+                            }
+                            else if (FB_FROM_VO_WRITEBACK == fb_from_current) {
+                                if(fb_vo_wbc_data && fb_vo_wbc_data_size) {
+                                    usb_tx((void*)fb_vo_wbc_data, fb_vo_wbc_data_size);
+
+                                    fb_vo_wbc_data = NULL;
+                                    fb_vo_wbc_data_size = 0;
+                                }
+                            }
+
                             pthread_mutex_unlock(&fb_mutex);
                         }
-                        #if ENABLE_VO_WRITEBACK
-                        else if (fb_from_current == FB_FROM_VO_WRITEBACK) {
-                            usb_tx(wbc_jpeg_buffer, wbc_jpeg_size);
-                            wbc_jpeg_size = 0;
-                        }
-                        #endif
                         break;
                     }
                     case USBDBG_SYS_RESET: {

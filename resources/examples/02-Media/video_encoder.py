@@ -43,9 +43,6 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     # 绑定camera和venc
     link = MediaManager.link(sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, venc_chn))
 
-    # init media manager
-    MediaManager.init()
-
     if (venc_payload_type == K_PT_H264):
         chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
     elif (venc_payload_type == K_PT_H265):
@@ -94,8 +91,6 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     encoder.Stop(venc_chn)
     # 销毁编码器
     encoder.Destroy(venc_chn)
-    # 清理buffer
-    MediaManager.deinit()
     print("venc_test stop")
 
 def stream_venc_test(file_name,width=1280, height=720):
@@ -129,9 +124,6 @@ def stream_venc_test(file_name,width=1280, height=720):
     # 设置video encoder 输出buffer
     encoder.SetOutBufs(venc_chn, 8, width, height)
 
-    # init media manager
-    MediaManager.init()
-
     if (venc_payload_type == K_PT_H264):
         chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
     elif (venc_payload_type == K_PT_H265):
@@ -157,7 +149,7 @@ def stream_venc_test(file_name,width=1280, height=720):
             while True:
                 os.exitpoint()
                 frame_info  = sensor.snapshot(chn=CAM_CHN_ID_0,dump_frame=True)
-                #frame_info.nv12_to_grayscale() # convert to grayscale
+                #frame_info.v_frame.nv12_to_grayscale() # convert to grayscale
                 encoder.SendFrame(venc_chn,frame_info)
                 encoder.GetStream(venc_chn, streamData) # 获取一帧码流
 
@@ -183,8 +175,6 @@ def stream_venc_test(file_name,width=1280, height=720):
     encoder.Stop(venc_chn)
     # 销毁编码器
     encoder.Destroy(venc_chn)
-    # 清理buffer
-    MediaManager.deinit()
     print("venc_test stop")
 
 if __name__ == "__main__":

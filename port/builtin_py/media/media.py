@@ -35,7 +35,7 @@ CAM_DEV_ID_2 = VICAP_DEV_ID_2
 CAM_DEV_ID_MAX = VICAP_DEV_ID_MAX
 
 # display device id definition
-DISPLAY_DEV_ID = K_VO_DISPLAY_DEV_ID
+DISPLAY_DEV_ID = 0
 
 # DMA device id definition
 # TODO
@@ -60,13 +60,13 @@ CAM_CHN_ID_2 = VICAP_CHN_ID_2
 CAM_CHN_ID_MAX = VICAP_CHN_ID_MAX
 
 # display channel id definition
-DISPLAY_CHN_ID_0 = K_VO_DISPLAY_CHN_ID0
-DISPLAY_CHN_ID_1 = K_VO_DISPLAY_CHN_ID1
-DISPLAY_CHN_ID_2 = K_VO_DISPLAY_CHN_ID2
-DISPLAY_CHN_ID_3 = K_VO_DISPLAY_CHN_ID3
-DISPLAY_CHN_ID_4 = K_VO_DISPLAY_CHN_ID4
-DISPLAY_CHN_ID_5 = K_VO_DISPLAY_CHN_ID5
-DISPLAY_CHN_ID_6 = K_VO_DISPLAY_CHN_ID6
+# DISPLAY_CHN_ID_0 = K_VO_DISPLAY_CHN_ID0
+# DISPLAY_CHN_ID_1 = K_VO_DISPLAY_CHN_ID1
+# DISPLAY_CHN_ID_2 = K_VO_DISPLAY_CHN_ID2
+# DISPLAY_CHN_ID_3 = K_VO_DISPLAY_CHN_ID3
+# DISPLAY_CHN_ID_4 = K_VO_DISPLAY_CHN_ID4
+# DISPLAY_CHN_ID_5 = K_VO_DISPLAY_CHN_ID5
+# DISPLAY_CHN_ID_6 = K_VO_DISPLAY_CHN_ID6
 
 # DMA channel id definition
 # TODO
@@ -99,22 +99,23 @@ from _media import _MediaManager
 
 class MediaManager:
     Buffer = _MediaManager.Buffer
+    VBPool = _MediaManager.VBPool
 
     @staticmethod
     def init(*args, **kwargs):
-        return _MediaManager.init(*args, **kwargs)
+        print("deprecated function")
 
     @staticmethod
     def deinit(*args, **kwargs):
-        return _MediaManager.deinit(*args, **kwargs)
+        print("deprecated function")
 
     @staticmethod
     def _config(*args, **kwargs):
-        return _MediaManager._config(*args, **kwargs)
+        raise RuntimeError("deprecated function")
 
     @staticmethod
     def config_comm_pool(*args, **kwargs):
-        return _MediaManager._config(*args, **kwargs)
+        raise RuntimeError("deprecated function")
 
     @staticmethod
     def link(src, dst):

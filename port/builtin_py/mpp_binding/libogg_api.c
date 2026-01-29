@@ -1,12 +1,12 @@
-/* Copyright (c) 2023, Canaan Bright Sight Co., Ltd
+/* Copyright (c) 2025, Canaan Bright Sight Co., Ltd
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  * 1. Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in the
- * documentation and/or other materials provided with the distribution.
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
  * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
@@ -30,28 +30,22 @@
 #include <errno.h>
 #include "py/runtime.h"
 #include "py/obj.h"
-#include "mpi_connector_api.h"
-
-int ide_dbg_vo_wbc_deinit(void);
-int ide_dbg_vo_wbc_init(void);
-
-int ide_dbg_set_vo_wbc(int, int, int);
-
-int kd_mpi_vo_osd_rotation(int flag, k_video_frame_info *in, k_video_frame_info *out);
+#include "libogg.h"
 
 #define FUNC_IMPL
-#define FUNC_FILE "connector_func_def.h"
+#define FUNC_FILE "libogg_func_def.h"
 #include "func_def.h"
 
-STATIC const mp_rom_map_elem_t connector_api_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_connector_api) },
+STATIC const mp_rom_map_elem_t libogg_api_locals_dict_table[] = {
+    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_libogg_api) },
 #define FUNC_ADD
-#define FUNC_FILE "connector_func_def.h"
+#define FUNC_FILE "libogg_func_def.h"
 #include "func_def.h"
 };
-STATIC MP_DEFINE_CONST_DICT(connector_api_locals_dict, connector_api_locals_dict_table);
 
-const mp_obj_module_t mp_module_connector_api = {
+STATIC MP_DEFINE_CONST_DICT(libogg_api_locals_dict, libogg_api_locals_dict_table);
+
+const mp_obj_module_t mp_module_libogg_api = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&connector_api_locals_dict,
+    .globals = (mp_obj_dict_t *)&libogg_api_locals_dict,
 };

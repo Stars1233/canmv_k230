@@ -656,10 +656,9 @@ MP_NOINLINE int main_(int argc, char **argv) {
     extern void py_media_vbmgmt_init(void);
     py_media_vbmgmt_init();
 
-    extern void hd_jpeg_encoder_enable(void);
-    hd_jpeg_encoder_enable();
-    extern void dma_dev_init(void);
-    dma_dev_init();
+    // extern void hd_jpeg_encoder_enable(void);
+    // hd_jpeg_encoder_enable();
+
     extern void usb_rx_clear(void);
     usb_rx_clear();
     mp_hal_set_interrupt_char(-1);
@@ -866,6 +865,12 @@ MP_NOINLINE int main_(int argc, char **argv) {
     }
 main_thread_exit:
     fprintf(stderr, "[mpy] exit, reset\n");
+
+    extern void ide_dbg_vo_wbc_stop(void);
+    ide_dbg_vo_wbc_stop();
+
+    extern void py_display_deinit(void);
+    py_display_deinit();
 
     // exit other thread
     mp_thread_set_exception_other(mp_obj_new_exception(&mp_type_SystemExit));

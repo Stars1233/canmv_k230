@@ -34,6 +34,7 @@
 
 #include "mpi_nonai_2d_api.h"
 #include "mpi_sys_api.h"
+#include "mpi_vb_api.h"
 
 #include "py/mpprint.h"
 #include "py/obj.h"
@@ -94,6 +95,8 @@ typedef struct _py_nonai_2d_csc {
     int is_destroyed;
     int cvt_yuv_to_gray;
 
+    k_s32 poolid;
+
     pthread_mutex_t  mutex;
     mp_obj_t         cvt_vf_info_obj;
     struct list_head frame_vf_info_list;
@@ -102,7 +105,10 @@ typedef struct _py_nonai_2d_csc {
 typedef struct _py_nonai_2d_csc_obj {
     mp_obj_base_t     base;
     py_nonai_2d_csc_t _cobj;
+    struct list_head  list;
 } py_nonai_2d_csc_obj_t;
+
+STATIC LIST_HEAD(py_nonai_2d_csc_list_head);
 
 static const k_pixel_format supported_format[] = {
     PIXEL_FORMAT_RGB_565,
@@ -135,13 +141,10 @@ static int is_valid_format(k_pixel_format format)
     return 0;
 }
 
-static int csc_chn_stat[K_NONAI_2D_MAX_CHN_NUMS] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-};
-
 STATIC mp_obj_t py_nonai_2d_csc_from_struct(py_nonai_2d_csc_t* csc)
 {
-    py_nonai_2d_csc_obj_t* o = m_new_obj_with_finaliser(py_nonai_2d_csc_obj_t);
+    // py_nonai_2d_csc_obj_t* o = m_new_obj_with_finaliser(py_nonai_2d_csc_obj_t);
+    py_nonai_2d_csc_obj_t* o = malloc(sizeof(py_nonai_2d_csc_obj_t));
 
     o->base.type = &py_nonai_2d_csc_type;
 
@@ -158,6 +161,9 @@ STATIC mp_obj_t py_nonai_2d_csc_from_struct(py_nonai_2d_csc_t* csc)
     pthread_mutexattr_settype(&thread_mutex_attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&o->_cobj.mutex, &thread_mutex_attr);
 
+    INIT_LIST_HEAD(&o->list);
+    list_add_tail(&o->list, &py_nonai_2d_csc_list_head);
+
     return MP_OBJ_FROM_PTR(o);
 }
 
@@ -170,9 +176,8 @@ STATIC void* py_nonai_2d_csc_cobj(mp_obj_t self)
 STATIC mp_obj_t py_nonai_2d_csc_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
 {
     /* clang-format off */
-    enum {ARG_chn, ARG_fmt, ARG_max_width, ARG_max_height, ARG_buf_num, };
+    enum {ARG_fmt, ARG_max_width, ARG_max_height, ARG_buf_num, };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_chn,          MP_ARG_INT,                     { .u_int = 0 }      },
         { MP_QSTR_fmt,          MP_ARG_INT,                     { .u_int = 0 }      },
         { MP_QSTR_max_width,    MP_ARG_KW_ONLY | MP_ARG_INT,    { .u_int = 1920 }   },
         { MP_QSTR_max_height,   MP_ARG_KW_ONLY | MP_ARG_INT,    { .u_int = 1080 }   },
@@ -182,13 +187,13 @@ STATIC mp_obj_t py_nonai_2d_csc_make_new(const mp_obj_type_t* type, size_t n_arg
     mp_map_t     kw_args;
     mp_arg_val_t parsed_args[MP_ARRAY_SIZE(allowed_args)];
 
-    mp_arg_check_num(n_args, n_kw, 2, 5, true);
+    mp_arg_check_num(n_args, n_kw, 1, 4, true);
     mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
 
     mp_arg_parse_all(n_args, args, &kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, parsed_args);
 
     py_nonai_2d_csc_t csc;
-    csc.chn            = parsed_args[ARG_chn].u_int;
+
     csc.dst_fmt        = parsed_args[ARG_fmt].u_int;
     csc.dst_max_width  = parsed_args[ARG_max_width].u_int;
     csc.dst_max_height = parsed_args[ARG_max_height].u_int;
@@ -197,14 +202,6 @@ STATIC mp_obj_t py_nonai_2d_csc_make_new(const mp_obj_type_t* type, size_t n_arg
     csc.cvt_yuv_to_gray = 0;
     csc.cvt_vf_info_obj = mp_const_none;
     INIT_LIST_HEAD(&csc.frame_vf_info_list); // maybe not needed.
-
-    if ((0 > csc.chn) || (K_NONAI_2D_MAX_CHN_NUMS <= csc.chn)) {
-        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("invalid chn %d"), csc.chn);
-    }
-
-    if (0x00 != csc_chn_stat[csc.chn]) {
-        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("chn %d is inuse"), csc.chn);
-    }
 
     if ((0x00 == is_valid_format(csc.dst_fmt)) && (PIXFORMAT_GRAYSCALE != (int)csc.dst_fmt)) {
         mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("invalid fmt %d"), csc.dst_fmt);
@@ -215,33 +212,54 @@ STATIC mp_obj_t py_nonai_2d_csc_make_new(const mp_obj_type_t* type, size_t n_arg
         csc.cvt_yuv_to_gray = 1;
     }
 
-    k_s32 ret = K_SUCCESS;
+    k_u32 csc_chn = UINT32_MAX;
+    k_s32 ret = K_SUCCESS, image_size = 0, poolid = VB_INVALID_POOLID;
+
+    if (0x00 != kd_mpi_nonai_2d_request_chn(&csc_chn)) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("request nonai2d channle failed"));
+    }
+    csc.chn = (int)csc_chn;
+    if ((0 > csc.chn) || (K_NONAI_2D_MAX_CHN_NUMS <= csc.chn)) {
+        kd_mpi_nonai_2d_release_chn(csc_chn); // maybe not reached.
+
+        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("invalid chn %d"), csc.chn);
+    }
+
+    image_size = VB_ALIGN_UP(calc_video_size(csc.dst_fmt, csc.dst_max_width, csc.dst_max_height), 4096);
+
+    poolid = kd_mpi_vb_create_pool_ex(image_size, csc.buffer_num, VB_REMAP_MODE_NOCACHE);
+    if (VB_INVALID_POOLID == poolid) {
+        kd_mpi_nonai_2d_release_chn(csc_chn);
+
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("create vb pool failed"));
+    }
+
+    if (K_SUCCESS != (ret = kd_mpi_nonai_2d_attach_vb_pool(csc.chn, poolid))) {
+        kd_mpi_vb_destory_pool(poolid);
+
+        kd_mpi_nonai_2d_release_chn(csc_chn);
+
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("attach vb pool failed %d"), ret & 0x1FF);
+    }
+    csc.poolid = poolid;
 
     k_nonai_2d_chn_attr nonai2d_attr = { csc.dst_fmt, K_NONAI_2D_CALC_MODE_CSC };
 
     if (K_SUCCESS != (ret = kd_mpi_nonai_2d_create_chn(csc.chn, &nonai2d_attr))) {
+        kd_mpi_vb_destory_pool(poolid);
+
+        kd_mpi_nonai_2d_release_chn(csc_chn);
+
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("create chn failed %d"), ret & 0x1FF);
     }
 
     if (K_SUCCESS != (ret = kd_mpi_nonai_2d_start_chn(csc.chn))) {
-        kd_mpi_nonai_2d_destroy_chn(csc.chn);
+        kd_mpi_nonai_2d_destroy_chn(csc_chn);
+        kd_mpi_vb_destory_pool(poolid);
+
+        kd_mpi_nonai_2d_release_chn(csc_chn);
+
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("start chn failed %d"), ret & 0x1FF);
-    }
-
-    /* configure vb common pool */
-    k_vb_config vb_cfg = { 0 };
-
-    k_u32 image_size = calc_video_size(csc.dst_fmt, csc.dst_max_width, csc.dst_max_height);
-
-    vb_cfg.max_pool_cnt          = 1;
-    vb_cfg.comm_pool[0].blk_cnt  = csc.buffer_num;
-    vb_cfg.comm_pool[0].blk_size = (image_size + 0x2FFF) & ~0x2FFF;
-    vb_cfg.comm_pool[0].mode     = VB_REMAP_MODE_NOCACHE;
-
-    if (0x00 != py_media_vbmgmt_config_vb_comm_pool(&vb_cfg)) {
-        kd_mpi_nonai_2d_stop_chn(csc.chn);
-        kd_mpi_nonai_2d_destroy_chn(csc.chn);
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("config vb common pool failed."));
     }
 
     return py_nonai_2d_csc_from_struct(&csc);
@@ -251,7 +269,7 @@ STATIC void py_nonai_2d_csc_print(const mp_print_t* print, mp_obj_t self_in, mp_
 {
     py_nonai_2d_csc_t* csc = py_nonai_2d_csc_cobj(MP_OBJ_TO_PTR(self_in));
 
-    mp_printf(print, "{\"chn\":%u, \"format\":%u, \"widht\"=%u, \"height\"=%u, \"buf_bum\"=%u}", csc->chn, csc->dst_fmt,
+    mp_printf(print, "{\"chn\":%u, \"format\":%u, \"width\"=%u, \"height\"=%u, \"buf_bum\"=%u}", csc->chn, csc->dst_fmt,
               csc->dst_max_width, csc->dst_max_height, csc->buffer_num);
 }
 
@@ -473,12 +491,12 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(py_nonai_2d_csc_release_frame_obj, py_nonai_2d_
 
 STATIC mp_obj_t py_nonai_2d_csc_destroy(mp_obj_t self_in)
 {
-    py_nonai_2d_csc_t* csc = py_nonai_2d_csc_cobj(MP_OBJ_TO_PTR(self_in));
+    py_nonai_2d_csc_t*     csc = py_nonai_2d_csc_cobj(MP_OBJ_TO_PTR(self_in));
+    py_nonai_2d_csc_obj_t* obj = MP_OBJ_TO_PTR(self_in);
 
     if (csc->is_destroyed) {
         return mp_const_none;
     }
-    csc->is_destroyed = 1;
 
     py_nonai_2d_csc_lock(csc);
 
@@ -501,24 +519,46 @@ STATIC mp_obj_t py_nonai_2d_csc_destroy(mp_obj_t self_in)
         }
     }
 
-    kd_mpi_nonai_2d_stop_chn(csc->chn);
-    kd_mpi_nonai_2d_destroy_chn(csc->chn);
+    if (0 <= csc->chn) {
+        kd_mpi_nonai_2d_stop_chn(csc->chn);
+        kd_mpi_nonai_2d_destroy_chn(csc->chn);
 
-    pthread_mutex_destroy(&csc->mutex);
+        kd_mpi_nonai_2d_detach_vb_pool(csc->chn);
+        kd_mpi_nonai_2d_release_chn((k_u32)csc->chn);
+    }
+    csc->chn          = -1;
+    csc->is_destroyed = 1;
+
+    if (VB_INVALID_POOLID != csc->poolid) {
+        kd_mpi_vb_destory_pool(csc->poolid);
+    }
+    csc->poolid = VB_INVALID_POOLID;
 
     py_nonai_2d_csc_unlock(csc);
 
-    if ((0 <= csc->chn) && (K_NONAI_2D_MAX_CHN_NUMS > csc->chn)) {
-        csc_chn_stat[csc->chn] = 0;
-        csc->chn               = -1;
-    }
+    pthread_mutex_destroy(&csc->mutex);
+
+    list_del(&obj->list);
+    free(obj);
 
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_nonai_2d_csc_destroy_obj, py_nonai_2d_csc_destroy);
 
+void py_nonai_2d_csc_destroy_all(void)
+{
+    py_nonai_2d_csc_obj_t *pos, *n;
+
+    list_for_each_entry_safe(pos, n, &py_nonai_2d_csc_list_head, list)
+    {
+        if (pos->base.type == &py_nonai_2d_csc_type && !pos->_cobj.is_destroyed) {
+            py_nonai_2d_csc_destroy(MP_OBJ_FROM_PTR(pos));
+        }
+    }
+}
+
 STATIC const mp_rom_map_elem_t py_nonai_2d_csc_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_nonai_2d_csc_destroy_obj) },
+    // { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_nonai_2d_csc_destroy_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_convert), MP_ROM_PTR(&py_nonai_2d_csc_convert_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_frame), MP_ROM_PTR(&py_nonai_2d_csc_get_frame_obj) },

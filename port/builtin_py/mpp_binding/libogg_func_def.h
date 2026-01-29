@@ -1,12 +1,12 @@
-/* Copyright (c) 2023, Canaan Bright Sight Co., Ltd
+/* Copyright (c) 2025, Canaan Bright Sight Co., Ltd
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  * 1. Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in the
- * documentation and/or other materials provided with the distribution.
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
  * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
@@ -20,33 +20,14 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * OF  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "mpi_vo_api.h"
-
-#include "mpp_vb_mgmt.h"
-
-#define FUNC_IMPL
-#define FUNC_FILE "vo_func_def.h"
-#include "func_def.h"
-
-STATIC const mp_rom_map_elem_t vo_api_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vo_api) },
-#define FUNC_ADD
-#define FUNC_FILE "vo_func_def.h"
-#include "func_def.h"
-};
-STATIC MP_DEFINE_CONST_DICT(vo_api_locals_dict, vo_api_locals_dict_table);
-
-const mp_obj_module_t mp_module_vo_api = {
-    .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&vo_api_locals_dict,
-};
+DEF_INT_FUNC_STRUCTPTR_STRUCTPTR(kd_ogg_muxer_init, void*, kd_ogg_muxer_params)
+DEF_INT_FUNC_INT(kd_ogg_muxer_destroy)
+DEF_INT_FUNC_INT_STRUCTPTR(kd_ogg_write_frame, kd_ogg_frame_params)
+DEF_INT_FUNC_INT_STRUCTPTR(kd_ogg_write_frame_ex, kd_ogg_frame_params_ex)
+DEF_INT_FUNC_STRUCTPTR_STRUCTPTR(kd_ogg_demuxer_init, void*, kd_ogg_demuxer_params)
+DEF_INT_FUNC_INT_INT_INT(kd_ogg_demuxer_feed_page)
+DEF_INT_FUNC_INT_STRUCTPTR(kd_ogg_demuxer_feed_page_ex, kd_ogg_page_params_ex)
+DEF_INT_FUNC_INT(kd_ogg_demuxer_destroy)

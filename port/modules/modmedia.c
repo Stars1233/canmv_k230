@@ -41,6 +41,10 @@ STATIC const mp_rom_map_elem_t media_module_globals_table[] = {
 #if defined(CONFIG_ENABLE_UVC_CAMERA)
     { MP_ROM_QSTR(MP_QSTR_UVC), MP_ROM_PTR(&py_media_uvc_type) },
 #endif // CONFIG_ENABLE_UVC_CAMERA
+
+    { MP_ROM_QSTR(MP_QSTR__Display), MP_ROM_PTR(&py_media_display_type) },
+
+    { MP_ROM_QSTR(MP_QSTR_GSDMA), MP_ROM_PTR(&py_media_gsdma_type) },
 };
 STATIC MP_DEFINE_CONST_DICT(media_module_globals, media_module_globals_table);
 
