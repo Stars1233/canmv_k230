@@ -1,1 +1,3 @@
-from _media import _Display as Display
+import image
+
+from _media import Display
