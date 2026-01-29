@@ -59,6 +59,7 @@
 #define PY_PANEL_TYPE_GC9503   (309)
 #define PY_PANEL_TYPE_ST7102   (310)
 #define PY_PANEL_TYPE_AML020T  (311)
+#define PY_PANEL_TYPE_JD9852   (312)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Py Panel Map ///////////////////////////////////////////////////////////////
@@ -133,6 +134,10 @@ static const py_display_panel_map_t py_display_panel_map[] = {
     /* AML020T */
     { PY_PANEL_TYPE_AML020T, 480, 360, AML020T_MIPI_2LAN_480X360_30FPS, 0, 1 },
     { PY_PANEL_TYPE_AML020T, 480, 360, AML020T_MIPI_2LAN_480X360_30FPS, 0, 0 },
+
+    /* JD9852 */
+    { PY_PANEL_TYPE_JD9852, 320, 240, JD9852_MIPI_1LAN_240X320_60FPS, 0, 1 },
+    { PY_PANEL_TYPE_JD9852, 240, 320, JD9852_MIPI_1LAN_240X320_60FPS, 0, 0 },
 };
 
 #define MAP_SIZE (sizeof(py_display_panel_map) / sizeof(py_display_panel_map_t))
