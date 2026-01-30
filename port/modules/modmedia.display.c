@@ -1281,16 +1281,16 @@ static k_pixel_format map_omv_image_to_pixel_format(pixformat_t fmt)
         pix_fmt = PIXEL_FORMAT_RGB_565_LE;
         break;
     case PIXFORMAT_ARGB8888:
-        pix_fmt = PIXEL_FORMAT_ARGB_8888;
+        pix_fmt = PIXEL_FORMAT_BGRA_8888;
         break;
     case PIXFORMAT_ABGR8888:
-        pix_fmt = PIXEL_FORMAT_ABGR_8888;
+        pix_fmt = PIXEL_FORMAT_RGBA_8888;
         break;
     case PIXFORMAT_RGBA8888:
-        pix_fmt = PIXEL_FORMAT_BGRA_8888;
+        pix_fmt = PIXEL_FORMAT_ABGR_8888;
         break;
     case PIXFORMAT_BGRA8888:
-        pix_fmt = PIXEL_FORMAT_BGRA_8888;
+        pix_fmt = PIXEL_FORMAT_ARGB_8888;
         break;
     case PIXFORMAT_RGB888:
         pix_fmt = PIXEL_FORMAT_RGB_888;
