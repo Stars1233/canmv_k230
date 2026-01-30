@@ -71,7 +71,7 @@ try:
     # Display.init(Display.ST7701, to_ide = True)
 
     # use IDE as output
-    Display.init(Display.VIRT, width = DETECT_WIDTH, height = DETECT_HEIGHT, fps = 100, to_ide = True)
+    Display.init(Display.VIRT, width = DETECT_WIDTH, height = DETECT_HEIGHT, fps = 60, to_ide = True)
 
 
 

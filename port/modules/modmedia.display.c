@@ -47,7 +47,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PY_PANEL_TYPE_VIRT     (300)
+#define PY_PANEL_TYPE_VIRT     (300) // must be first.
 #define PY_PANEL_TYPE_DEBUGGER (301)
 #define PY_PANEL_TYPE_ST7701   (302)
 #define PY_PANEL_TYPE_HX8399   (303)
@@ -184,8 +184,16 @@ static int py_display_map_panel(py_display_panel_map_t* result, int type_in, int
 
     memset(result, 0, sizeof(*result));
 
-    if (PY_PANEL_TYPE_VIRT > type_in) {
+    if (PY_PANEL_TYPE_VIRT >= type_in) {
         result->type = type_in;
+
+        if ((PY_PANEL_TYPE_VIRT == type_in) || (VIRTUAL_DISPLAY_DEVICE == type_in)) {
+            result->type = VIRTUAL_DISPLAY_DEVICE;
+
+            result->width  = width_in ? width_in : 640;
+            result->height = height_in ? height_in : 480;
+            result->fps    = fps_in ? fps_in : 60;
+        }
 
         return 0;
     }
@@ -218,12 +226,6 @@ static int py_display_map_panel(py_display_panel_map_t* result, int type_in, int
     }
 
     memcpy(result, curr_map, sizeof(*curr_map));
-
-    if (PY_PANEL_TYPE_VIRT == result->py_type) {
-        result->width  = width_in ? width_in : 640;
-        result->height = height_in ? height_in : 480;
-        result->fps    = fps_in ? fps_in : 60;
-    }
 
     return 0;
 }
