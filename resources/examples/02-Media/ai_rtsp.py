@@ -9,6 +9,55 @@ import nncase_runtime as nn
 import ulab.numpy as np
 import image
 import aidemo
+import network,time
+
+
+nic = None
+
+#WIFI连接函数
+def WIFI_Connect(ssid, passwd = None):
+    global nic
+
+    wlan = network.WLAN(network.STA_IF) #STA模式
+    wlan.active(True)                   #激活接口
+
+    start_time=time.time() #记录时间做超时判断
+
+    if not wlan.isconnected():
+        print('connecting to network...')
+
+        #输入WIFI账号密码（仅支持2.4G信号）, 连接超过5秒为超时
+        wlan.connect(ssid, passwd)
+
+        while not wlan.isconnected():
+            #超时判断,10秒没连接成功判定为超时
+            if time.time()-start_time > 10 :
+                print('WIFI Connected Timeout!')
+                break
+
+    if wlan.isconnected(): #连接成功
+        print('connect success')
+        #等待获取IP地址
+        while wlan.ifconfig()[0] == '0.0.0.0':
+            pass
+        #串口打印信息
+        print('network information:', wlan.ifconfig())
+
+        nic = wlan
+    else: #连接失败
+        print("Connect wifi failed.")
+
+#有线以太网连接函数
+def Lan_Connect():
+    global nic
+    lan = network.LAN()
+
+    if lan.isconnected(): #连接成功
+        print('network information:', lan.ifconfig())
+
+        nic = lan
+    else: #连接失败
+        print("Connect lan failed.")
 
 # 自定义人脸检测类，继承自AIBase基类
 class FaceDetectionApp(AIBase):
@@ -75,11 +124,18 @@ if __name__ == "__main__":
     anchors = np.fromfile(anchors_path, dtype=np.float)
     anchors = anchors.reshape((anchor_len, det_dim))
 
+    #执行WIFI连接函数
+    WIFI_Connect("Test", "12345678")
+    #执行以太网连接函数
+    # Lan_Connect()
+
+    print(f"virtual wbc ai + rtsp stream on rtsp://{nic.ifconfig()[0]}:8554/test")
+
     # 初始化PipeLine，用于图像处理流程
     pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode)
+    pl.create(to_ide=False)  # 创建PipeLine实例
     # init wbc,wbc_width和wbc_height为原始屏幕的宽高
     WBCRtsp.configure(wbc_width=480,wbc_height=800)
-    pl.create(to_ide=False)  # 创建PipeLine实例
     # 启用wbc编码推流
     WBCRtsp.start()
 

@@ -5,57 +5,7 @@ from mpp import *
 from media.vencoder import *
 import _thread
 
-class VOWBCFrameGrabber:
-    def __init__(self):
-        pass
-
-    @classmethod
-    def configure(cls, wbc_width,wbc_height):
-        cls.wbc_width = wbc_width
-        cls.wbc_height = wbc_height
-
-    @classmethod
-    def start(cls):
-        """启用WBC功能"""
-        vo_wbc_attr = k_vo_wbc_attr()
-        vo_wbc_attr.blk_cnt = 3
-
-        vo_wbc_attr.dump_size.width = cls.wbc_width
-        vo_wbc_attr.dump_size.height = cls.wbc_height
-
-        print(f"VO_WBC initialized, width: {cls.wbc_width}, height: {cls.wbc_height}")
-
-        ret = kd_mpi_vo_set_wbc_attr(vo_wbc_attr)
-        if ret != 0:
-            raise OSError("set wbc attr failed.")
-
-        ret = kd_mpi_vo_enable_wbc()
-        if ret != 0:
-            raise OSError("enable wbc failed.")
-
-    @classmethod
-    def stop(cls):
-        """禁用WBC功能"""
-        ret = kd_mpi_vo_disable_wbc()
-        if ret != 0:
-            raise OSError("disable wbc failed.")
-
-    @classmethod
-    def capture_frame(cls, frame):
-        """捕获一帧屏幕数据"""
-        return kd_mpi_wbc_dump_frame(frame, -1)
-
-    @classmethod
-    def free_frame(cls, frame):
-        """释放捕获的帧数据"""
-        ret = kd_mpi_wbc_dump_release(frame)
-        if ret != 0:
-            raise OSError("dump release wbc frame failed.")
-
-    @classmethod
-    def get_resolution(cls):
-        """获取当前配置的分辨率"""
-        return cls.wbc_width, cls.wbc_height
+from _media import Display
 
 class RtspServer:
     def __init__(self,session_name="test",port=8554,video_type = mm.multi_media_type.media_h264,enable_audio=False,width=1280,height=720):
@@ -138,21 +88,14 @@ class WBCRtsp:
     @classmethod
     def _wbc_rtsp(cls):
         """内部线程函数：循环获取WBC帧并发送到RTSP服务器"""
-        frame_info = k_video_frame_info()  # 初始化帧信息对象
         cls._running = True  # 启动线程时打开开关
 
         while cls._running:  # 用类属性控制循环
             os.exitpoint()
-            # 获取WBC帧数据（捕获帧）
-            ret = VOWBCFrameGrabber.capture_frame(frame_info)
-            if ret == 0:
-                if frame_info.v_frame.width != VOWBCFrameGrabber.wbc_width or frame_info.v_frame.height != VOWBCFrameGrabber.wbc_height :
-                    print("@@@@@@@@@@@@ invalid wbc frame")
-                    continue
-                # 发送帧到RTSP服务器
-                cls.rtspserver.send_video_frame(frame_info)
-                # 释放帧资源
-                VOWBCFrameGrabber.free_frame(frame_info)
+
+            vf = Display.writeback_dump(100)
+            if vf:
+                cls.rtspserver.send_video_frame(vf)
 
             time.sleep(0.01)
 
@@ -161,10 +104,12 @@ class WBCRtsp:
 
     @classmethod
     def configure(cls, wbc_width,wbc_height):
-        """配置WBC和RTSP服务器参数"""
-        VOWBCFrameGrabber.configure(wbc_width,wbc_height)
-        # 获取分辨率
-        width, height = VOWBCFrameGrabber.get_resolution()
+        if not Display.inited():
+            raise RuntimeError("start wbc before Display.init()")
+
+        width = Display.width()
+        height = Display.height()
+
         # 初始化RTSP服务器
         cls.rtspserver = RtspServer(
             session_name="test",
@@ -179,7 +124,9 @@ class WBCRtsp:
     def start(cls):
         """启动WBC、RTSP服务器和推流线程"""
         if not cls._running:  # 避免重复启动线程
-            VOWBCFrameGrabber.start()
+            if not Display.writeback(True):
+                raise RuntimeError("start wbc failed")
+
             cls.rtspserver.start()
             print("RTSP server started:", cls.rtspserver.get_rtsp_url())
             # 启动线程：调用类的内部方法（需用cls引用）
@@ -189,9 +136,12 @@ class WBCRtsp:
     def stop(cls):
         """停止线程、RTSP服务器和WBC功能"""
         cls._running = False  # 关闭线程循环
+
         while not cls._runthread_over:
             time.sleep(0.1)
-        # time.sleep(0.1)  # 等待线程退出
-        VOWBCFrameGrabber.stop()  # 停止WBC功能
+
+        if not Display.writeback(False):
+            print("stop wbc failed")
+            
         cls.rtspserver.stop()  # 停止RTSP服务器
         print("WBC RTSP stopped")

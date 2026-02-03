@@ -981,6 +981,15 @@ static mp_obj_t py_display_deinit_wrap(void)
 static MP_DEFINE_CONST_FUN_OBJ_0(py_display_deinit_obj, py_display_deinit_wrap);
 static MP_DEFINE_CONST_STATICMETHOD_OBJ(py_display_deinit_method, MP_ROM_PTR(&py_display_deinit_obj));
 
+/*
+@staticmethod
+Display.inited();
+*/
+static mp_obj_t py_display_inited(void) { return py_display_status() ? mp_const_true : mp_const_false; }
+
+static MP_DEFINE_CONST_FUN_OBJ_0(py_display_inited_obj, py_display_inited);
+static MP_DEFINE_CONST_STATICMETHOD_OBJ(py_display_inited_method, MP_ROM_PTR(&py_display_inited_obj));
+
 /**
 @staticmethod
 Display.config_layer(layer, rect, pix_format, alpha, flag)
@@ -1513,6 +1522,7 @@ static mp_obj_t py_display_wbc_dump_wrap(size_t n, const mp_obj_t* args)
 
         return mp_const_none;
     }
+    MP_THREAD_GIL_ENTER();
 
     return py_video_frame_info_from_struct(&info);
 }
@@ -1522,6 +1532,8 @@ static MP_DEFINE_CONST_STATICMETHOD_OBJ(py_display_wbc_dump_method, MP_ROM_PTR(&
 static const mp_rom_map_elem_t display_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&py_display_init_method) },
     { MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&py_display_deinit_method) },
+
+    { MP_ROM_QSTR(MP_QSTR_inited), MP_ROM_PTR(&py_display_inited_method) },
 
     { MP_ROM_QSTR(MP_QSTR_bind_layer), MP_ROM_PTR(&py_display_bind_layer_method) },
     { MP_ROM_QSTR(MP_QSTR_unbind_layer), MP_ROM_PTR(&py_display_unbind_layer_method) },
