@@ -302,3 +302,9 @@ SRC_QSTR += $(CANMV_SRC_C) $(CANMV_SRC_CXX)
 SRC_QSTR_AUTO_DEPS +=
 
 include $(TOP)/py/mkrules.mk
+
+.PHONY: .FORCE
+.FORCE:
+
+core/main.c: .FORCE
+	@touch $@
