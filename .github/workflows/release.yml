@@ -64,18 +64,19 @@ jobs:
 
           projects=(
             "k230_canmv_01studio_defconfig"
-            "k230_canmv_v1p0p1_defconfig"
-            "k230_canmv_lckfb_defconfig"
-            "k230_canmv_v3p0_defconfig"
-            "k230d_canmv_bpi_zero_defconfig"
-            "k230d_canmv_atk_dnk230d_defconfig"
-            "k230_canmv_dongshanpi_defconfig"
-            "k230_canmv_rtt_evb_defconfig"
-            "k230d_canmv_junroc_ai_cam_defconfig"
-            "k230_canmv_gt6700_defconfig"
             "k230_canmv_01studio_emmc_defconfig"
+            "k230_canmv_dongshanpi_defconfig"
+            "k230_canmv_gt6700_defconfig"
             "k230_canmv_hiwonder_defconfig"
+            "k230_canmv_lckfb_defconfig"
+            "k230_canmv_rtt_evb_defconfig"
+            "k230_canmv_v1p0p1_defconfig"
+            "k230_canmv_v3p0_defconfig"
+            "k230_canmv_wondermk_defconfig"
             "k230_canmv_yahboom_defconfig"
+            "k230d_canmv_atk_dnk230d_defconfig"
+            "k230d_canmv_bpi_zero_defconfig"
+            "k230d_canmv_junroc_ai_cam_defconfig"
           )
 
           echo "Total projects to build: ${#projects[@]}"
