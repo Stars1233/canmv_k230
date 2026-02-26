@@ -115,7 +115,8 @@ void lv_init(void)
     /*Do nothing if already initialized*/
     if(lv_initialized) {
         LV_LOG_WARN("lv_init: already inited");
-        return;
+
+        lv_deinit();
     }
 
     LV_LOG_INFO("begin");
