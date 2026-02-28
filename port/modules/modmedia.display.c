@@ -142,6 +142,11 @@ static const py_display_panel_map_t py_display_panel_map[] = {
 
 #define MAP_SIZE (sizeof(py_display_panel_map) / sizeof(py_display_panel_map_t))
 
+enum {
+    ST7701_368X544_APP_SIZE = 544,
+    ST7701_368X544_HW_SIZE  = 552,
+};
+
 static const char* py_display_panel_name(int type)
 {
     switch (type) {
@@ -937,6 +942,11 @@ static mp_obj_t py_display_init_wrap(mp_uint_t n_args, const mp_obj_t* pos_args,
 
     int arg_flag = args[ARG_flag].u_int;
 
+    if (ST7701_V1_MIPI_2LAN_368X544_60FPS == panel_map.type) {
+        panel_map.width  = (panel_map.width == ST7701_368X544_APP_SIZE) ? ST7701_368X544_HW_SIZE : panel_map.width;
+        panel_map.height = (panel_map.height == ST7701_368X544_APP_SIZE) ? ST7701_368X544_HW_SIZE : panel_map.height;
+    }
+
     if (0x00 != kd_display_init_ex(panel_map.type, panel_map.width, panel_map.height, arg_flag, panel_map.fps)) {
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init panel failed"));
     }
@@ -1181,8 +1191,24 @@ static MP_DEFINE_CONST_STATICMETHOD_OBJ(py_display_unbind_layer_method, MP_ROM_P
 
 static inline void py_display_get_resolution(k_u32* width, k_u32* height)
 {
+    k_connector_info info;
+    k_connector_type panel_type = CONNECTOR_BUTT;
+
     if (0x00 != kd_display_get_resolution(width, height)) {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("get vo resolution failed"));
+    }
+
+    if (0x00 == kd_display_get_connector_info(&info)) {
+        panel_type = info.type;
+    }
+
+    if (ST7701_V1_MIPI_2LAN_368X544_60FPS == panel_type) {
+        if (width) {
+            *width = (*width == ST7701_368X544_HW_SIZE) ? ST7701_368X544_APP_SIZE : *width;
+        }
+        if (height) {
+            *height = (*height == ST7701_368X544_HW_SIZE) ? ST7701_368X544_APP_SIZE : *height;
+        }
     }
 }
 
