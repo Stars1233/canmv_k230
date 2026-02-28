@@ -910,6 +910,9 @@ main_thread_exit:
     mp_thread_deinit();
     #endif
 
+    extern void lv_deinit(void);
+    lv_deinit();
+
     extern void py_media_vbmgmt_deinit_pre(void);
     py_media_vbmgmt_deinit_pre();
 
