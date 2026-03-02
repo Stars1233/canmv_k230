@@ -8,6 +8,7 @@
  *
  * Image Python module.
  */
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -6422,6 +6423,98 @@ static mp_obj_t py_image_stereo_disparity(size_t n_args, const mp_obj_t *args, m
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(py_image_stereo_disparity_obj, 1, py_image_stereo_disparity);
 #endif // IMLIB_ENABLE_STEREO_DISPARITY
 
+#if 1
+#include "3rd-party/lv_bindings/lvgl/lvgl.h"
+
+// for 640x480, vector took about 500us, c took about 1000us, 2x faster.
+static void rgb888_to_bgr888_inplace(uint8_t* data, size_t num_pixels)
+{
+#if 0
+    uint8_t *start = data;
+    const uint8_t *end = data + num_pixels * 3;
+    while (start < end) {
+        uint8_t r = *start;
+        uint8_t g = *(start + 1);
+        uint8_t b = *(start + 2);
+
+        // Swap R and B
+        *start = b;
+        *(start + 1) = g; // G stays the same
+        *(start + 2) = r;
+
+        start += 3; // Move to the next pixel
+    }
+#else
+    size_t   vl;
+    uint8_t* ptr = data;
+
+    while (num_pixels > 0) {
+        asm volatile("vsetvli %0, %1, e8, m1, ta, ma" : "=r"(vl) : "r"(num_pixels));
+
+        asm volatile(
+            // Load RGB
+            "vlseg3e8.v v0, (%0)\n\t" // v0=R, v1=G, v2=B
+
+            // Swap R and B
+            "vmv.v.v v3, v0\n\t" // tmp = R
+            "vmv.v.v v0, v2\n\t" // v0 = B
+            "vmv.v.v v2, v3\n\t" // v2 = R
+
+            // Store BGR
+            "vsseg3e8.v v0, (%0)\n\t"
+            :
+            : "r"(ptr)
+            : "v0", "v1", "v2", "v3", "memory");
+
+        ptr += vl * 3;
+        num_pixels -= vl;
+    }
+#endif
+}
+
+static mp_obj_t py_image_as_lvgl_img_src(size_t n, const mp_obj_t* args)
+{
+    mp_buffer_info_t buffer_info;
+
+    image_t* image = py_image_cobj(args[0]);
+
+    if ((PIXFORMAT_RGB565 != image->pixfmt) && (PIXFORMAT_RGB888 != image->pixfmt)) {
+        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("only support RGB565/RGB888 image"));
+    }
+
+    mp_obj_t lv_img_obj = args[1];
+    mp_get_buffer_raise(lv_img_obj, &buffer_info, MP_BUFFER_READ);
+
+    lv_obj_t* obj = *(lv_obj_t**)buffer_info.buf;
+
+    if (obj->class_p != &lv_img_class) {
+        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("not lv.img obj"));
+    }
+
+    lv_img_dsc_t* dsc = m_malloc(sizeof(lv_img_dsc_t));
+    if (NULL == dsc) {
+        mp_raise_msg_varg(&mp_type_MemoryError, MP_ERROR_TEXT("no memory to alloc dsc"));
+    }
+
+    dsc->header.always_zero = 0;
+    dsc->header.w           = image->w;
+    dsc->header.h           = image->h;
+    dsc->header.cf          = (PIXFORMAT_RGB565 == image->pixfmt) ? LV_COLOR_FORMAT_RGB565 : LV_COLOR_FORMAT_RGB888;
+
+    dsc->data      = image->data;
+    dsc->data_size = image_size(image);
+
+    if (LV_COLOR_FORMAT_RGB888 == dsc->header.cf) {
+        rgb888_to_bgr888_inplace(image->data, image->w * image->h);
+    }
+
+    lv_img_set_src(obj, dsc);
+
+    return lv_img_obj;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(py_image_as_lvgl_img_src_obj, 2, 2, py_image_as_lvgl_img_src);
+#endif
+
 static const mp_rom_map_elem_t locals_dict_table[] = {
     /* Basic Methods */
     {MP_ROM_QSTR(MP_QSTR___del__),             MP_ROM_PTR(&py_image_del_obj)},
@@ -6755,6 +6848,9 @@ static const mp_rom_map_elem_t locals_dict_table[] = {
     #else
     {MP_ROM_QSTR(MP_QSTR_stereo_disparity),    MP_ROM_PTR(&py_func_unavailable_obj)},
     #endif
+
+    // lvgl helpers
+    {MP_ROM_QSTR(MP_QSTR_as_lvgl_img_src),    MP_ROM_PTR(&py_image_as_lvgl_img_src_obj)},
 };
 
 STATIC MP_DEFINE_CONST_DICT(py_image_locals_dict, locals_dict_table);
@@ -7162,8 +7258,10 @@ mp_obj_t py_image_load_image(size_t n_args, const mp_obj_t *args, mp_map_t *kw_a
         mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("cvt only support True or False"));
     }
 
-    if(kw_arg_cvt && mp_obj_is_true(kw_arg_cvt->value)) {
+    // for 640x480, c version took about 2000us; vector version took about 800us
+    if (kw_arg_cvt && mp_obj_is_true(kw_arg_cvt->value)) {
         if (PIXFORMAT_RGB888 == image.pixfmt) {
+#if 0
             uint8_t r, g, b;
 
             uint8_t *pixel_rgb888 = image.data;
@@ -7185,7 +7283,56 @@ mp_obj_t py_image_load_image(size_t n_args, const mp_obj_t *args, mp_map_t *kw_a
 
                 *(pixel_rgb565++) = COLOR_R8_G8_B8_TO_RGB565(r, g, b);
             } while (pixel_rgb888 < pixel_rgb888_end);
+#else
+            uint8_t*  src = image.data;
+            uint16_t* dst = (uint16_t*)image.data;
 
+            size_t num_pixels = image.w * image.h;
+
+            while (num_pixels > 0) {
+                size_t vl;
+
+                asm volatile(
+                    /* Set to 8-bit elements, m1 */
+                    "vsetvli   %0, %3, e8, m1, ta, ma\n\t"
+
+                    /* Load RGB888: v0=R, v1=G, v2=B */
+                    "vlseg3e8.v v0, (%1)\n\t"
+
+                    /* Widen 8-bit to 16-bit using widening add with zero */
+                    /* v4 = v0 + 0, v6 = v1 + 0, v8 = v2 + 0 */
+                    "vwaddu.vx v4, v0, x0\n\t" /* R -> 16-bit */
+                    "vwaddu.vx v6, v1, x0\n\t" /* G -> 16-bit */
+                    "vwaddu.vx v8, v2, x0\n\t" /* B -> 16-bit */
+
+                    /* Switch to 16-bit for math (m2 because we widened) */
+                    "vsetvli   zero, zero, e16, m2, ta, ma\n\t"
+
+                    /* RGB565 Conversion Logic */
+                    "vsrl.vi   v4, v4, 3\n\t" /* R >> 3 */
+                    "vsll.vi   v4, v4, 11\n\t" /* R << 11 */
+
+                    "vsrl.vi   v6, v6, 2\n\t" /* G >> 2 */
+                    "vsll.vi   v6, v6, 5\n\t" /* G << 5 */
+
+                    "vsrl.vi   v8, v8, 3\n\t" /* B >> 3 */
+
+                    /* Combine */
+                    "vor.vv    v4, v4, v6\n\t"
+                    "vor.vv    v4, v4, v8\n\t"
+
+                    /* Store 16-bit result */
+                    "vse16.v   v4, (%2)\n\t"
+
+                    : "=r"(vl)
+                    : "r"(src), "r"(dst), "r"(num_pixels)
+                    : "v0", "v1", "v2", "v4", "v5", "v6", "v7", "v8", "v9", "memory");
+
+                src += vl * 3;
+                dst += vl;
+                num_pixels -= vl;
+            }
+#endif
             image.pixfmt = PIXFORMAT_RGB565;
         } else {
             mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("cvt not support format %x"), image.pixfmt);
@@ -7490,6 +7637,7 @@ static const mp_rom_map_elem_t globals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_ARGB8888),            MP_ROM_INT(PIXFORMAT_ARGB8888)},
     {MP_ROM_QSTR(MP_QSTR_BGRA8888),            MP_ROM_INT(PIXFORMAT_BGRA8888)},
     {MP_ROM_QSTR(MP_QSTR_RGB888),              MP_ROM_INT(PIXFORMAT_RGB888)},
+    {MP_ROM_QSTR(MP_QSTR_BGR888),              MP_ROM_INT(PIXFORMAT_BGR888)},
     {MP_ROM_QSTR(MP_QSTR_RGBP888),             MP_ROM_INT(PIXFORMAT_RGBP888)},
     {MP_ROM_QSTR(MP_QSTR_YUV420),              MP_ROM_INT(PIXFORMAT_YUV420)},
     {MP_ROM_QSTR(MP_QSTR_AREA),                MP_ROM_INT(IMAGE_HINT_AREA)},

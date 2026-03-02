@@ -248,6 +248,7 @@ LVGL_SRC_C_EXCLUDE = \
 		core/lv_obj.c \
 		core/lv_refr.c \
 		misc/lv_timer.c \
+		misc/lv_color.c \
 		libs/png/lodepng.c \
 		libs/png/lv_png.c \
 		libs/freetype/lv_freetype.c \
@@ -255,6 +256,7 @@ LVGL_SRC_C_EXCLUDE = \
 LVGL_SRC_C := $(filter-out $(LVGL_SRC_C_EXCLUDE),$(LVGL_SRC_C_ALL))
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_refr.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_color.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_timer.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
