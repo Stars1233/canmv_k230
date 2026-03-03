@@ -66,9 +66,18 @@ def lvgl_flush_cb(disp_drv, area, color):
 def lvgl_setup():
     global disp_imgs
     lv.init()
+
+    # image size should match DISPLAY_WIDTH * DISPLAY_HEIGHT * LV_COLOR_DEPTH / 8
+    # current LV_COLOR_DEPTH is 32.
     disp_imgs = [image.Image(DISPLAY_WIDTH, DISPLAY_HEIGHT, image.BGRA8888) for _ in range(2)]
 
     disp_drv = lv.disp_create(DISPLAY_WIDTH, DISPLAY_HEIGHT)
+
+    # when differ with LV_COLOR_DEPTH, the Display.show_image should set the argument
+    # Display.show_image(....., pixel_format = image.xxxx)
+    # lv.COLOR_FORMAT.RGB565 -> image.RGB565
+    # lv.COLOR_FORMAT.RGB888 -> image.BGR888
+    # lv.COLOR_FORMAT.ARGB8888 -> image.BGRA8888
     disp_drv.set_color_format(lv.COLOR_FORMAT.ARGB8888)
     disp_drv.set_draw_buffers(disp_imgs[0].bytearray(), disp_imgs[1].bytearray(), 
                               disp_imgs[0].size(), lv.DISP_RENDER_MODE.FULL)
