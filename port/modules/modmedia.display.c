@@ -1345,17 +1345,18 @@ static k_pixel_format map_omv_image_to_pixel_format(pixformat_t fmt)
 
 /*
 @staticmethod
-Display.show_image(img, x = 0, y = 0, layer = Display.LAYER_OSD0, alpha = None, flag = 0)
+Display.show_image(img, x = 0, y = 0, layer = Display.LAYER_OSD0, alpha = None, pixel_format = None, flag = 0)
 */
 static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
-    enum { ARG_img, ARG_x, ARG_y, ARG_layer, ARG_alpha, ARG_flag };
+    enum { ARG_img, ARG_x, ARG_y, ARG_layer, ARG_alpha, ARG_pixel_format, ARG_flag };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_img, MP_ARG_OBJ | MP_ARG_REQUIRED, { .u_obj = mp_const_none } },
         { MP_QSTR_x, MP_ARG_INT, { .u_int = 0 } },
         { MP_QSTR_y, MP_ARG_INT, { .u_int = 0 } },
         { MP_QSTR_layer, MP_ARG_INT, { .u_int = K_VO_LAYER_OSD0 } },
         { MP_QSTR_alpha, MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_pixel_format, MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_flag, MP_ARG_INT, { .u_int = 0 } }, // removed.
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -1367,7 +1368,13 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
 
     image_t* arg_img = (image_t*)py_image_cobj(args[ARG_img].u_obj);
 
-    k_pixel_format pix_fmt     = map_omv_image_to_pixel_format(arg_img->pixfmt);
+    // user can force set image pixel format, for lvgl use.
+    pixformat_t img_fmt = arg_img->pixfmt;
+    if (mp_const_none != args[ARG_pixel_format].u_obj) {
+        img_fmt = mp_obj_get_int(args[ARG_pixel_format].u_obj);
+    }
+
+    k_pixel_format pix_fmt     = map_omv_image_to_pixel_format(img_fmt);
     int            pix_fmt_bpp = py_display_vo_layer_pixl_format_bpp(pix_fmt);
 
     if ((PIXEL_FORMAT_BUTT == pix_fmt) || (0x00 == pix_fmt_bpp)) {
