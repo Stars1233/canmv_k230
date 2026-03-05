@@ -16,6 +16,11 @@ DISPLAY_HEIGHT = 480
 CAM_WIDTH  = 640
 CAM_HEIGHT = 480
 
+# Global variables for FPS
+last_time = 0
+frame_count = 0
+stat_label = None
+
 # =======================
 # LVGL Initialization
 # =======================
@@ -50,6 +55,7 @@ def lvgl_init():
     disp_drv.set_flush_cb(flush_cb)
 
 def setup_simple_ui(scr):
+    global stat_label
     # 1. Make the screen background transparent to see the sensor behind it
     scr.set_style_bg_opa(lv.OPA.TRANSP, 0)
 
@@ -70,19 +76,21 @@ def setup_simple_ui(scr):
 
     # 4. Status Indicator
     status_box = lv.obj(scr)
-    status_box.set_size(DISPLAY_WIDTH//2, 60)
-    status_box.align(lv.ALIGN.BOTTOM_MID, 20, -20)
+    status_box.set_size(DISPLAY_WIDTH//2 + 100, 60) # Widened for FPS text
+    status_box.align(lv.ALIGN.BOTTOM_MID, 0, -20)
     status_box.set_style_bg_color(lv.color_hex(0x000000), 0)
     status_box.set_style_bg_opa(lv.OPA._40, 0)
     status_box.set_style_border_color(lv.palette_main(lv.PALETTE.BLUE), 0)
     status_box.set_style_border_width(1, 0)
 
     stat_label = lv.label(status_box)
-    stat_label.set_text(f"{CAM_WIDTH}x{CAM_HEIGHT} | RGB888")
+    # Initialize with formatted string
+    stat_label.set_text(f"{CAM_WIDTH}x{CAM_HEIGHT} | RGB888 | FPS: 0.0")
     stat_label.set_style_text_color(lv.color_hex(0x00FF00), 0)
     stat_label.center()
 
 def main():
+    global frame_count, last_time, stat_label
     # Initialize Display and LVGL
     lvgl_init()
     Display.init(DISPLAY_TYPE, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, to_ide=True, osd_num=1)
@@ -95,6 +103,7 @@ def main():
 
     # Apply the simplified UI overlays
     setup_simple_ui(scr)
+    last_time = time.ticks_ms()
 
     # Sensor Setup from your script
     sensor = Sensor()
@@ -107,10 +116,24 @@ def main():
     while True:
         os.exitpoint()
 
+        frame_count += 1
+        current_time = time.ticks_ms()
+        elapsed = time.ticks_diff(current_time, last_time)
+
         # Update the sensor image in the LVGL object
         img = sensor.snapshot()
         img.as_lvgl_img_src(img1)
         img1.invalidate()
+
+        # Update FPS every 1000ms (1 second)
+        if elapsed >= 1000:
+            fps = (frame_count * 1000.0) / elapsed
+            # Use f-string for sprintf-like formatting
+            stat_label.set_text(f"{CAM_WIDTH}x{CAM_HEIGHT} | RGB888 | FPS: {fps:.1f}")
+            
+            # Reset counters
+            frame_count = 0
+            last_time = current_time
 
         lv.task_handler()
         time.sleep_ms(10)
