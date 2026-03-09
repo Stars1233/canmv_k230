@@ -129,6 +129,70 @@ STATIC mp_obj_t _kd_mpi_sensor_get_focus_caps(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(kd_mpi_sensor_get_focus_caps_obj, _kd_mpi_sensor_get_focus_caps);
 
+STATIC mp_obj_t _kd_mpi_sensor_get_exposure_time_range(mp_obj_t self_in) {
+    k_sensor_exposure_time_range range;
+
+    int sensor_fd = mp_obj_get_int(self_in);
+    if(0 > sensor_fd) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid sensor fd"));
+    }
+
+    if (0x00 != kd_mpi_sensor_get_exposure_time_range(sensor_fd, &range)) {
+        return mp_const_none;
+    }
+
+    return mp_obj_new_tuple(2, ((mp_obj_t []) {
+        mp_obj_new_float(range.max_intg_time_us),
+        mp_obj_new_float(range.min_intg_time_us),
+    }));
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(kd_mpi_sensor_get_exposure_time_range_obj, _kd_mpi_sensor_get_exposure_time_range);
+
+
+STATIC mp_obj_t _kd_mpi_sensor_intg_time_get(mp_obj_t self_in) {
+    k_sensor_intg_time time;
+    int sensor_fd = mp_obj_get_int(self_in);
+    
+    if(0 > sensor_fd) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid sensor fd"));
+    }
+    
+    if (0x00 != kd_mpi_sensor_intg_time_get(sensor_fd, &time)) {
+        return mp_const_none;
+    }
+    
+    // Return exposure time in seconds
+    return mp_obj_new_float(time.intg_time[SENSOR_LINEAR_PARAS]);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(kd_mpi_sensor_intg_time_get_obj, _kd_mpi_sensor_intg_time_get);
+
+STATIC mp_obj_t _kd_mpi_sensor_intg_time_set(size_t n_args, const mp_obj_t *args) {
+    k_sensor_intg_time time;
+    int sensor_fd = mp_obj_get_int(args[0]);
+    
+    if(0 > sensor_fd) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid sensor fd"));
+    }
+    
+    if (n_args < 2 || args[1] == mp_const_none) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Missing integration time parameter"));
+    }
+    
+    // Support float or int parameter (in seconds)
+    if (mp_obj_is_float(args[1]) || mp_obj_is_int(args[1])) {
+        time.intg_time[SENSOR_LINEAR_PARAS] = mp_obj_get_float(args[1]);
+    } else {
+        mp_raise_TypeError(MP_ERROR_TEXT("Time must be a float or int (in seconds)"));
+    }
+    
+    if (0x00 != kd_mpi_sensor_intg_time_set(sensor_fd, time)) {
+        return mp_const_false;
+    }
+    return mp_const_true;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(kd_mpi_sensor_intg_time_set_obj, 1, 2, _kd_mpi_sensor_intg_time_set);
+
+
 #define FUNC_IMPL
 #define FUNC_FILE "vicap_func_def.h"
 #include "func_def.h"
@@ -141,6 +205,9 @@ STATIC const mp_rom_map_elem_t vicap_api_locals_dict_table[] = {
     DEF_FUNC_ADD(kd_mpi_auto_focus)
     DEF_FUNC_ADD(kd_mpi_focus_pos)
     DEF_FUNC_ADD(kd_mpi_sensor_get_focus_caps)
+    DEF_FUNC_ADD(kd_mpi_sensor_get_exposure_time_range)
+    DEF_FUNC_ADD(kd_mpi_sensor_intg_time_get)
+    DEF_FUNC_ADD(kd_mpi_sensor_intg_time_set)
 #define FUNC_ADD
 #define FUNC_FILE "vicap_func_def.h"
 #include "func_def.h"

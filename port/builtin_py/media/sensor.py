@@ -747,14 +747,6 @@ class Sensor:
         pass
 
     @wrap
-    def set_auto_exposure(self, enable, **kwargs):
-        pass
-
-    @wrap
-    def get_exposure_us(self):
-        pass
-
-    @wrap
     def set_auto_whitebal(self, enable, **kwargs):
         pass
 
@@ -1022,3 +1014,106 @@ class Sensor:
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
         return kd_mpi_sensor_get_focus_caps(self.fd)
+
+    def get_exposure_time_range(self):
+        """获取传感器曝光时间范围
+
+        Returns:
+            tuple: (max_intg_time_us, min_intg_time_us) 单位为微秒
+            None: 如果获取失败
+
+        Example:
+            >>> range = sensor.get_exposure_time_range()
+            >>> if range:
+            ...     print(f"曝光范围：{range[0]:.2f} us - {range[1]:.2f} us")
+        """
+        if self.fd < 0:
+            raise RuntimeError("can't get sensor fd")
+        return kd_mpi_sensor_get_exposure_time_range(self.fd)
+
+    def auto_exposure(self, enable=None):
+        """开关自动曝光或获取当前自动曝光状态
+        
+        Args:
+            enable (bool, optional): 
+                - True: 开启自动曝光
+                - False: 关闭自动曝光（手动模式）
+                - None: 获取当前自动曝光状态
+        
+        Returns:
+            bool: 当前自动曝光状态（开启返回 True，关闭返回 False）
+        
+        Raises:
+            RuntimeError: 如果 sensor 未初始化
+        
+        Example:
+            >>> # 获取当前自动曝光状态
+            >>> status = sensor.auto_exposure()
+            >>> print(f"自动曝光：{'开启' if status else '关闭'}")
+            
+            >>> # 关闭自动曝光（手动模式）
+            >>> sensor.auto_exposure(False)
+            >>> sensor.exposure(10000)  # 手动设置曝光时间
+            
+            >>> # 开启自动曝光
+            >>> sensor.auto_exposure(True)
+        """
+        if not hasattr(self, '_dev_attr'):
+            raise RuntimeError("should call reset() first")
+        
+        if enable is None:
+            # Get current auto exposure status
+            return bool(self._dev_attr.pipe_ctrl.bits.ae_enable)
+        else:
+            # Set auto exposure status
+            self._dev_attr.pipe_ctrl.bits.ae_enable = 1 if enable else 0
+            return True
+
+
+    def exposure(self, exposure_us=None):
+        """获取或设置传感器曝光时间
+        
+        Args:
+            exposure_us (float, optional): 曝光时间（微秒）。
+                                           如果为 None，则返回当前曝光时间；
+                                           如果提供值，则设置为该曝光时间
+        
+        Returns:
+            float: 当前曝光时间（微秒），如果失败返回 None
+        
+        Raises:
+            RuntimeError: 如果 sensor fd 无效
+        
+        Example:
+            >>> # 获取当前曝光时间
+            >>> current = sensor.exposure()
+            >>> print(f"当前曝光：{current:.2f} us")
+            
+            >>> # 设置曝光时间为 10000 微秒（10 毫秒）
+            >>> sensor.exposure(10000)
+            
+            >>> # 结合曝光范围使用
+            >>> range = sensor.get_exposure_time_range()
+            >>> if range:
+            ...     mid = (range[0] + range[1]) / 2
+            ...     sensor.exposure(mid)
+        """
+        if self.fd < 0:
+            raise RuntimeError("can't get sensor fd")
+
+        if not hasattr(self, '_dev_attr'):
+            raise RuntimeError("should call run() first")
+                
+        if exposure_us is None:
+            # Get exposure time (底层返回秒，转换为微秒)
+            time_sec = kd_mpi_sensor_intg_time_get(self.fd)
+            if time_sec is None:
+                return None
+            return time_sec * 1000000.0
+        else:
+            if self._dev_attr.pipe_ctrl.bits.ae_enable:
+                raise RuntimeError("now is auto_ae mode,you need close auto_ae first")
+            # Set exposure time (微秒转换为秒)
+            time_sec = exposure_us / 1000000.0
+            return kd_mpi_sensor_intg_time_set(self.fd, time_sec)
+
