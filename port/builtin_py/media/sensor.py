@@ -348,7 +348,6 @@ class Sensor:
         self._dev_attr.pipe_ctrl.data = 0xffffffff
         self._dev_attr.pipe_ctrl.bits.af_enable = 0
         self._dev_attr.pipe_ctrl.bits.ahdr_enable = 0
-        self._dev_attr.pipe_ctrl.bits.dnr3_enable = 0
         self._dev_attr.dw_enable = 0
         self._dev_attr.cpature_frame = 0
 
@@ -357,7 +356,7 @@ class Sensor:
         if self.sensor_name.startswith("sc132gs_csi"):
             if self._dev_attr.sensor_info.width == 640 and self._dev_attr.sensor_info.height == 480:
                 self._dev_attr.pipe_ctrl.bits.ae_enable = 0 # disable ae
-                self._dev_attr.pipe_ctrl.bits.dnr3_enable = 1 # disable 3dnr
+                self._dev_attr.pipe_ctrl.bits.dnr3_enable = 0 # disable 3dnr
             elif self._dev_attr.sensor_info.width == 1080 and self._dev_attr.sensor_info.height == 1280:
                 self._set_inbufs()
 
