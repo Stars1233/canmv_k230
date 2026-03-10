@@ -21,7 +21,7 @@ while True:
         break
     time.sleep_ms(100)
 
-mode = UVC.video_mode(640, 480, UVC.FORMAT_MJPEG, 30)
+mode = UVC.video_mode(640, 480, UVC.FOURCC_MJPEG, 30)
 
 succ, mode = UVC.select_video_mode(mode)
 print(f"select mode success: {succ}, mode: {mode}")
@@ -30,27 +30,28 @@ UVC.start(cvt = True)
 
 clock = time.clock()
 
-while True:
-    clock.tick()
+try:
+    while True:
+        clock.tick()
 
-    img = None
-    while img is None:
-        try:
-            img = UVC.snapshot()
-        except:
-            print("drop frame")
-            continue
+        img = None
+        while img is None:
+            try:
+                img = UVC.snapshot()
+            except:
+                print("drop frame")
+                continue
 
-    img = csc.convert(img)
-    Display.show_image(img)
-    img.__del__()
-    gc.collect()
+        img = csc.convert(img)
+        Display.show_image(img)
+        img.__del__()
+        gc.collect()
 
-    print(f"fps: {clock.fps()}")
-
-# deinit display
-Display.deinit()
-csc.destroy()
-UVC.stop()
-time.sleep_ms(100)
-
+        print(f"fps: {clock.fps()}")
+except KeyboardInterrupt:
+    pass
+finally:
+    UVC.stop()
+    time.sleep_ms(100)
+    csc.destroy()
+    Display.deinit()

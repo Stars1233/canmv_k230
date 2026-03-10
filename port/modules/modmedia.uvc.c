@@ -242,10 +242,9 @@ STATIC void py_uvc_video_mode_print(const mp_print_t* print, mp_obj_t self_in, m
     py_uvc_vicdeo_mode_obj_t* self = MP_OBJ_TO_PTR(self_in);
     struct uvc_format*        mode = py_uvc_video_mode_cobj(self);
 
-    mp_printf(print, "{\"width\":%u, \"height\":%u, \"format\":%s, \"fps\":%.2f}", mode->width, mode->height,
-              (USBH_VIDEO_FORMAT_UNCOMPRESSED == mode->format_type) ? "uncompress"
-                  : (USBH_VIDEO_FORMAT_MJPEG == mode->format_type)  ? "mjpeg"
-                                                                    : "unknown",
+    mp_printf(print, "{\"width\":%u, \"height\":%u, \"format\":%s, \"fourcc\":0x%08x, \"fps\":%.2f}", mode->width, mode->height,
+              (USBH_VIDEO_FOURCC_MJPEG == mode->fourcc) ? "mjpeg" : "raw",
+              mode->fourcc,
               10000000.0f / mode->frameinterval);
 }
 
@@ -263,8 +262,8 @@ STATIC void py_uvc_video_mode_attr(mp_obj_t self_in, qstr attr, mp_obj_t* dest)
         case MP_QSTR_height:
             dest[0] = mp_obj_new_int(mode->height);
             break;
-        case MP_QSTR_format:
-            dest[0] = mp_obj_new_int(mode->format_type);
+        case MP_QSTR_fourcc:
+            dest[0] = mp_obj_new_int(mode->fourcc);
             break;
         case MP_QSTR_fps:
             dest[0] = mp_obj_new_float(10000000.0f / mode->frameinterval);
@@ -287,7 +286,7 @@ STATIC MP_DEFINE_CONST_OBJ_TYPE(
 /* clang-format on */
 /* uvc wrap ******************************************************************/
 static struct uvc_format curr_format = { 0 };
-static struct uvc_frame  curr_frame  = { .index = INVALID_FRAME_INDEX, 0 };
+static struct uvc_frame  curr_frame  = { .index = INVALID_FRAME_INDEX };
 
 static int snap_cfg_convert = 1;
 
@@ -297,7 +296,12 @@ STATIC mp_obj_t uvc_video_mode(size_t n, const mp_obj_t* objs)
         // get current mode
         return py_uvc_video_mode_from_struct(&curr_format);
     } else {
-        struct uvc_format format = { .width = 0, .height = 0, .format_type = USBH_VIDEO_FORMAT_MJPEG, .frameinterval = 0 };
+        struct uvc_format format = {
+            .width = 0,
+            .height = 0,
+            .fourcc = USBH_VIDEO_FOURCC_MJPEG,
+            .frameinterval = 0
+        };
 
         if (0x02 > n) {
             mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("must set width and height"));
@@ -306,7 +310,7 @@ STATIC mp_obj_t uvc_video_mode(size_t n, const mp_obj_t* objs)
         format.height = mp_obj_get_int(objs[1]);
 
         if (0x03 <= n) {
-            format.format_type = mp_obj_get_int(objs[2]);
+            format.fourcc = mp_obj_get_int(objs[2]);
         }
 
         if (0x04 <= n) {
@@ -327,7 +331,7 @@ STATIC mp_obj_t uvc_probe(void)
     mp_obj_t info_obj = mp_const_none;
 
     memset(info, 0, sizeof(info));
-    if (0x00 == uvc_get_devinfo(&info[0], sizeof(info))) {
+    if (0x00 == uvc_host_get_devinfo(&info[0], sizeof(info))) {
         find = 1;
 
         info_obj = mp_obj_new_str(info, strlen(info));
@@ -344,14 +348,14 @@ STATIC mp_obj_t uvc_list_video_mode(void)
     struct uvc_format* fmts       = NULL;
     mp_obj_t           mode_list  = mp_obj_new_list(0, NULL);
 
-    fmts_count = uvc_get_formats(&fmts);
+    fmts_count = uvc_host_get_formats(&fmts);
     if (fmts_count && fmts) {
         for (int i = 0; i < fmts_count; i++) {
             mp_obj_t mode = py_uvc_video_mode_from_struct(&fmts[i]);
             mp_obj_list_append(mode_list, mode);
         }
     }
-    uvc_free_formats(&fmts);
+    uvc_host_free_formats(&fmts);
 
     return MP_OBJ_FROM_PTR(mode_list);
 }
@@ -363,7 +367,7 @@ STATIC mp_obj_t uvc_select_video_mode(mp_obj_t mode_in)
     py_uvc_vicdeo_mode_obj_t* self = MP_OBJ_TO_PTR(mode_in);
     struct uvc_format*        mode = py_uvc_video_mode_cobj(self);
 
-    int succ = uvc_init(mode);
+    int succ = uvc_host_init(mode);
 
     if (0x00 == succ) {
         memcpy(&curr_format, mode, sizeof(*mode));
@@ -389,8 +393,8 @@ STATIC mp_obj_t py_uvc_start(mp_uint_t n_args, const mp_obj_t* pos_args, mp_map_
     start_delay_ms   = args[ARG_delay_ms].u_int;
     snap_cfg_convert = args[ARG_cvt].u_bool;
 
-    if (0x00 == (succ = uvc_start_stream())) {
-        if ((USBH_VIDEO_FORMAT_MJPEG == curr_format.format_type) && (snap_cfg_convert)) {
+    if (0x00 == (succ = uvc_host_start_stream())) {
+        if ((USBH_VIDEO_FOURCC_MJPEG == curr_format.fourcc) && (snap_cfg_convert)) {
             if (0x00 != hard_jpeg_decompress_start(&curr_format)) {
                 mp_printf(&mp_plat_print, "start hard jpeg decoder faild\n");
             }
@@ -412,7 +416,7 @@ void mod_uvc_exit()
 
     if (INVALID_FRAME_INDEX != curr_frame.index) {
 
-        uvc_put_frame(&curr_frame);
+        uvc_host_put_frame(&curr_frame);
         memset(&curr_frame, 0, sizeof(curr_frame));
         curr_frame.index = INVALID_FRAME_INDEX;
     }
@@ -420,7 +424,7 @@ void mod_uvc_exit()
 
     hard_jpeg_decmpress_exit();
 
-    uvc_exit();
+    uvc_host_exit();
 }
 
 STATIC mp_obj_t uvc_stop(void)
@@ -479,6 +483,22 @@ static void yuyv_to_rgb565_inplace(char* buffer, int width, int height)
     }
 }
 
+static void uyvy_to_yuyv_inplace(char* buffer, int width, int height)
+{
+    int total = width * height * 2;
+    for (int i = 0; i < total; i += 4) {
+        uint8_t u = buffer[i + 0];
+        uint8_t y0 = buffer[i + 1];
+        uint8_t v = buffer[i + 2];
+        uint8_t y1 = buffer[i + 3];
+
+        buffer[i + 0] = y0;
+        buffer[i + 1] = u;
+        buffer[i + 2] = y1;
+        buffer[i + 3] = v;
+    }
+}
+
 STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
 {
     int              timeout_ms = 1000;
@@ -494,12 +514,12 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
     }
 
     if (INVALID_FRAME_INDEX != curr_frame.index) {
-        uvc_put_frame(&curr_frame);
+        uvc_host_put_frame(&curr_frame);
         memset(&curr_frame, 0, sizeof(curr_frame));
         curr_frame.index = INVALID_FRAME_INDEX;
     }
 
-    if (0x00 == uvc_get_frame(&req_frame, timeout_ms)) {
+    if (0x00 == uvc_host_get_frame(&req_frame, timeout_ms)) {
         memcpy(&curr_frame, &req_frame, sizeof(req_frame));
 
         image.w          = curr_format.width;
@@ -507,19 +527,7 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
         image.pixels     = (uint8_t*)req_frame.userptr;
         image.alloc_type = ALLOC_VB;
 
-        if (USBH_VIDEO_FORMAT_UNCOMPRESSED == curr_format.format_type) {
-            pixformat_t pixel_fmt = PIXFORMAT_YUV422;
-
-            if (snap_cfg_convert) {
-                pixel_fmt = PIXFORMAT_RGB565;
-                yuyv_to_rgb565_inplace(req_frame.userptr, curr_format.width, curr_format.height);
-            }
-
-            image.pixfmt = pixel_fmt;
-            image.size   = curr_format.width * curr_format.height * 2;
-
-            return py_image_from_struct(&image);
-        } else if (USBH_VIDEO_FORMAT_MJPEG == curr_format.format_type) {
+        if (USBH_VIDEO_FOURCC_MJPEG == curr_format.fourcc) {
             if (snap_cfg_convert) {
                 k_video_frame_info* frame = NULL;
 
@@ -535,8 +543,39 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
                 return py_image_from_struct(&image);
             }
         } else {
-            mp_printf(&mp_plat_print, "unsupport format %d\n", curr_format.format_type);
-            return mp_const_none;
+            switch (curr_format.fourcc) {
+            case USBH_VIDEO_FOURCC_YUY2:
+                if (snap_cfg_convert) {
+                    yuyv_to_rgb565_inplace(req_frame.userptr, curr_format.width, curr_format.height);
+                    image.pixfmt = PIXFORMAT_RGB565;
+                } else {
+                    image.pixfmt = PIXFORMAT_YUV422;
+                }
+                image.size = curr_format.width * curr_format.height * 2;
+                return py_image_from_struct(&image);
+            case USBH_VIDEO_FOURCC_UYVY:
+                uyvy_to_yuyv_inplace(req_frame.userptr, curr_format.width, curr_format.height);
+                if (snap_cfg_convert) {
+                    yuyv_to_rgb565_inplace(req_frame.userptr, curr_format.width, curr_format.height);
+                    image.pixfmt = PIXFORMAT_RGB565;
+                } else {
+                    image.pixfmt = PIXFORMAT_YUV422;
+                }
+                image.size = curr_format.width * curr_format.height * 2;
+                return py_image_from_struct(&image);
+            case USBH_VIDEO_FOURCC_NV12:
+            case USBH_VIDEO_FOURCC_I420:
+                if (snap_cfg_convert) {
+                    mp_raise_msg(&mp_type_RuntimeError,
+                                 MP_ERROR_TEXT("cvt for NV12/I420 is not supported"));
+                }
+                image.pixfmt = PIXFORMAT_YUV420;
+                image.size = curr_format.width * curr_format.height * 3 / 2;
+                return py_image_from_struct(&image);
+            default:
+                mp_printf(&mp_plat_print, "unsupport fourcc 0x%08x\n", curr_format.fourcc);
+                return mp_const_none;
+            }
         }
     }
 
@@ -555,8 +594,11 @@ STATIC const mp_rom_map_elem_t uvc_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_snapshot), MP_ROM_PTR(&uvc_snapsho_method) },
 
     // mode
-    { MP_ROM_QSTR(MP_QSTR_FORMAT_MJPEG), MP_ROM_INT(USBH_VIDEO_FORMAT_MJPEG) },
-    { MP_ROM_QSTR(MP_QSTR_FORMAT_UNCOMPRESS), MP_ROM_INT(USBH_VIDEO_FORMAT_UNCOMPRESSED) },
+    { MP_ROM_QSTR(MP_QSTR_FOURCC_YUY2), MP_ROM_INT(USBH_VIDEO_FOURCC_YUY2) },
+    { MP_ROM_QSTR(MP_QSTR_FOURCC_UYVY), MP_ROM_INT(USBH_VIDEO_FOURCC_UYVY) },
+    { MP_ROM_QSTR(MP_QSTR_FOURCC_NV12), MP_ROM_INT(USBH_VIDEO_FOURCC_NV12) },
+    { MP_ROM_QSTR(MP_QSTR_FOURCC_I420), MP_ROM_INT(USBH_VIDEO_FOURCC_I420) },
+    { MP_ROM_QSTR(MP_QSTR_FOURCC_MJPEG), MP_ROM_INT(USBH_VIDEO_FOURCC_MJPEG) },
 };
 STATIC MP_DEFINE_CONST_DICT(uvc_locals_dict, uvc_locals_dict_table);
 

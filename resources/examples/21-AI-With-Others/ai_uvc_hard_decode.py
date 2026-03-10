@@ -144,7 +144,7 @@ if __name__ == "__main__":
         time.sleep_ms(100)
 
     # Select and configure UVC video mode: 640x480 @ 30 FPS, MJPEG format
-    mode = UVC.video_mode(640, 480, UVC.FORMAT_MJPEG, 30)
+    mode = UVC.video_mode(640, 480, UVC.FOURCC_MJPEG, 30)
     succ, mode = UVC.select_video_mode(mode)
     print(f"select mode success: {succ}, mode: {mode}")
 
@@ -192,38 +192,41 @@ if __name__ == "__main__":
 
     clock = time.clock()
 
-    # Main loop: acquire frame, run inference, draw and display
-    while True:
-        clock.tick()
-        img = UVC.snapshot()
-        if img is not None:
-            # Convert format (e.g., to RGB888)
-            img = csc.convert(img)
-            # Convert to Ulab.Numpy.ndarray
-            img_np_hwc = img.to_numpy_ref()
+    try:
+        # Main loop: acquire frame, run inference, draw and display
+        while True:
+            clock.tick()
+            img = UVC.snapshot()
+            if img is not None:
+                # Convert format (e.g., to RGB888)
+                img = csc.convert(img)
+                # Convert to Ulab.Numpy.ndarray
+                img_np_hwc = img.to_numpy_ref()
 
-            img_np_nhwc=img_np_hwc.reshape((1,3,img_np_hwc.shape[0],img_np_hwc.shape[1]))
+                img_np_nhwc=img_np_hwc.reshape((1,3,img_np_hwc.shape[0],img_np_hwc.shape[1]))
 
-            # Run YOLOv8 inference on the current frame
-            res = ob_det.run(img_np_nhwc)
+                # Run YOLOv8 inference on the current frame
+                res = ob_det.run(img_np_nhwc)
 
-            # Draw detection results on the frame
-            ob_det.draw_result(img, res)
+                # Draw detection results on the frame
+                ob_det.draw_result(img, res)
 
-            # Show result on display
-            Display.show_image(img)
+                # Show result on display
+                Display.show_image(img)
 
-            # Explicitly release image buffer
-            img.__del__()
+                # Explicitly release image buffer
+                img.__del__()
 
-            gc.collect()
+                gc.collect()
 
-        # Print current frame rate
-        print(f"fps: {clock.fps()}")
-
-    # Clean up: stop display and media system
-    ob_det.deinit()
-    Display.deinit()
-    csc.destroy()
-    UVC.stop()
-    time.sleep_ms(100)
+            # Print current frame rate
+            print(f"fps: {clock.fps()}")
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Clean up: stop display and media system
+        UVC.stop()
+        time.sleep_ms(100)
+        ob_det.deinit()
+        csc.destroy()
+        Display.deinit()

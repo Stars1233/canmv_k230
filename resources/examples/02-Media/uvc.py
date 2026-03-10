@@ -16,7 +16,7 @@ while True:
         print(f"detect USB Camera {dev}")
         break
 
-mode = UVC.video_mode(640, 480, UVC.FORMAT_MJPEG, 30)
+mode = UVC.video_mode(640, 480, UVC.FOURCC_MJPEG, 30)
 
 succ, mode = UVC.select_video_mode(mode)
 print(f"select mode success: {succ}, mode: {mode}")
@@ -25,21 +25,23 @@ UVC.start(cvt = False)
 
 fps = time.clock()
 
-while True:
-    fps.tick()
-    img = UVC.snapshot()
-    if img is not None:
-        try:
-            img = img.to_rgb565()
-            Display.show_image(img)
-            img.__del__()
-            gc.collect()
-        except OSError as e:
-            pass
+try:
+    while True:
+        fps.tick()
+        img = UVC.snapshot()
+        if img is not None:
+            try:
+                img = img.to_rgb565()
+                Display.show_image(img)
+                img.__del__()
+                gc.collect()
+            except OSError as e:
+                pass
 
-    print(f"fps: {fps.fps()}")
-
-# deinit display
-Display.deinit()
-UVC.stop()
-time.sleep_ms(100)
+        print(f"fps: {fps.fps()}")
+except KeyboardInterrupt:
+    pass
+finally:
+    UVC.stop()
+    time.sleep_ms(100)
+    Display.deinit()
