@@ -436,69 +436,6 @@ STATIC mp_obj_t uvc_stop(void)
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(uvc_stop_obj, uvc_stop);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(uvc_stop_method, MP_ROM_PTR(&uvc_stop_obj));
 
-static inline __attribute__((__always_inline__)) uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b)
-{
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-}
-
-static void yuv_to_rgb(uint8_t y, uint8_t u, uint8_t v, uint8_t* r, uint8_t* g, uint8_t* b)
-{
-    int c = y - 16;
-    int d = u - 128;
-    int e = v - 128;
-
-    int rt = (298 * c + 409 * e + 128) >> 8;
-    int gt = (298 * c - 100 * d - 208 * e + 128) >> 8;
-    int bt = (298 * c + 516 * d + 128) >> 8;
-
-    *r = rt < 0 ? 0 : (rt > 255 ? 255 : rt);
-    *g = gt < 0 ? 0 : (gt > 255 ? 255 : gt);
-    *b = bt < 0 ? 0 : (bt > 255 ? 255 : bt);
-}
-
-static void yuyv_to_rgb565_inplace(char* buffer, int width, int height)
-{
-    int num_pixels = width * height;
-
-    // Process 4 bytes at a time (2 YUYV pixels -> 2 RGB565 pixels)
-    for (int i = num_pixels - 2; i >= 0; i -= 2) {
-        int index = i * 2;
-
-        uint8_t y0 = buffer[index + 0];
-        uint8_t u  = buffer[index + 1];
-        uint8_t y1 = buffer[index + 2];
-        uint8_t v  = buffer[index + 3];
-
-        uint8_t r, g, b;
-
-        yuv_to_rgb(y0, u, v, &r, &g, &b);
-        uint16_t rgb0 = rgb565(r, g, b);
-
-        yuv_to_rgb(y1, u, v, &r, &g, &b);
-        uint16_t rgb1 = rgb565(r, g, b);
-
-        // Write RGB565 over the original YUYV data
-        ((uint16_t*)buffer)[i]     = rgb0;
-        ((uint16_t*)buffer)[i + 1] = rgb1;
-    }
-}
-
-static void uyvy_to_yuyv_inplace(char* buffer, int width, int height)
-{
-    int total = width * height * 2;
-    for (int i = 0; i < total; i += 4) {
-        uint8_t u = buffer[i + 0];
-        uint8_t y0 = buffer[i + 1];
-        uint8_t v = buffer[i + 2];
-        uint8_t y1 = buffer[i + 3];
-
-        buffer[i + 0] = y0;
-        buffer[i + 1] = u;
-        buffer[i + 2] = y1;
-        buffer[i + 3] = v;
-    }
-}
-
 STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
 {
     int              timeout_ms = 1000;
@@ -546,7 +483,10 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
             switch (curr_format.fourcc) {
             case USBH_VIDEO_FOURCC_YUY2:
                 if (snap_cfg_convert) {
-                    yuyv_to_rgb565_inplace(req_frame.userptr, curr_format.width, curr_format.height);
+                    if (uvc_host_raw_to_rgb565(&req_frame, req_frame.userptr,
+                                               curr_format.width * curr_format.height * 2) != 0) {
+                        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("YUY2 to RGB565 failed"));
+                    }
                     image.pixfmt = PIXFORMAT_RGB565;
                 } else {
                     image.pixfmt = PIXFORMAT_YUV422;
@@ -554,11 +494,17 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
                 image.size = curr_format.width * curr_format.height * 2;
                 return py_image_from_struct(&image);
             case USBH_VIDEO_FOURCC_UYVY:
-                uyvy_to_yuyv_inplace(req_frame.userptr, curr_format.width, curr_format.height);
                 if (snap_cfg_convert) {
-                    yuyv_to_rgb565_inplace(req_frame.userptr, curr_format.width, curr_format.height);
+                    if (uvc_host_raw_to_rgb565(&req_frame, req_frame.userptr,
+                                               curr_format.width * curr_format.height * 2) != 0) {
+                        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("UYVY to RGB565 failed"));
+                    }
                     image.pixfmt = PIXFORMAT_RGB565;
                 } else {
+                    if (uvc_host_raw_to_yuyv(&req_frame, req_frame.userptr,
+                                             curr_format.width * curr_format.height * 2) != 0) {
+                        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("UYVY to YUYV failed"));
+                    }
                     image.pixfmt = PIXFORMAT_YUV422;
                 }
                 image.size = curr_format.width * curr_format.height * 2;
