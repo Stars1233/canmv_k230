@@ -165,3 +165,56 @@ YoloObbInfo* yolo_obb_postprocess(float *output0, FrameSize frame_shape, FrameSi
 	}
 	return yolo_obb_res;
 }
+
+YoloObbInfo* yolo26_obb_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, int max_box_cnt, int *box_cnt)
+{
+    float ratio_w=input_shape.width/(frame_shape.width*1.0);
+    float ratio_h=input_shape.height/(frame_shape.height*1.0);
+    float scale=MIN(ratio_w,ratio_h);
+	std::vector<YoloObbBox> results;
+    int f_len=7;
+    int num_box=300;
+
+    for(int i=0;i<num_box;i++){
+        float* vec=output0+i*f_len;
+        float box[4]={vec[0],vec[1],vec[2],vec[3]};
+        float score=vec[4];
+        float class_id=vec[5];
+        float angle=vec[6];
+        if(score>conf_thresh){
+            YoloObbBox bbox;
+            float cx_=box[0]/scale*(display_shape.width/(frame_shape.width*1.0));
+            float cy_=box[1]/scale*(display_shape.height/(frame_shape.height*1.0));
+            float w_=box[2]/scale*(display_shape.width/(frame_shape.width*1.0));
+            float h_=box[3]/scale*(display_shape.height/(frame_shape.height*1.0));
+            int cx=int(cx_);
+            int cy=int(cy_);
+            int w=int(w_);
+            int h=int(h_);
+            if (w <= 0 || h <= 0) { continue; }
+            bbox.box=cv::Rect(cx,cy,w,h);
+            bbox.confidence=score;
+            bbox.angle=angle;
+            bbox.index=class_id;
+            results.push_back(bbox);
+        }
+    }
+
+    *box_cnt = MIN(results.size(),max_box_cnt);
+	YoloObbInfo* yolo_obb_res = (YoloObbInfo *)malloc(*box_cnt * sizeof(YoloObbInfo));
+	for (int i = 0; i < *box_cnt; i++)
+	{
+        std::vector<std::pair<int, int>> corners=calculate_obb_corners(results[i].box.x, results[i].box.y, results[i].box.width, results[i].box.height, results[i].angle);
+        yolo_obb_res[i].x1=corners[0].first;
+        yolo_obb_res[i].y1=corners[0].second;
+        yolo_obb_res[i].x2=corners[1].first;
+        yolo_obb_res[i].y2=corners[1].second;
+        yolo_obb_res[i].x3=corners[2].first;
+        yolo_obb_res[i].y3=corners[2].second;
+        yolo_obb_res[i].x4=corners[3].first;
+        yolo_obb_res[i].y4=corners[3].second;
+		yolo_obb_res[i].confidence = results[i].confidence;
+		yolo_obb_res[i].index = results[i].index;
+	}
+	return yolo_obb_res;
+}

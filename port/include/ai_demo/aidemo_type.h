@@ -159,6 +159,19 @@ struct YoloObbInfo{
 	int index;
 };
 
+//*****************************for yolo_pose*****************************
+struct YoloPoseInfo{
+	int kp_num;
+    int kp_dim;
+    float *kps;
+    int x;
+    int y;
+    int w;
+    int h; 
+	float confidence;
+	int index;
+};
+
 //*****************************for yunet_face_det*****************************
 struct YUNetFaceDetInfo{
 	int x;

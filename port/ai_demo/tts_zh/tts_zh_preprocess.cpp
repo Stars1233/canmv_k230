@@ -30,13 +30,13 @@ void ttszh_destroy(TtsZh* ttszh){
 
 void ttszh_init(TtsZh* ttszh,const char* dictfile,const char* phasefile,const char* mapfile){
     std::string dict_file(dictfile);
-    std::cout<<dict_file<<std::endl;
+    // std::cout<<dict_file<<std::endl;
     std::string phase_file(phasefile);
-    std::cout<<phase_file<<std::endl;
+    // std::cout<<phase_file<<std::endl;
     std::string mapfile_(mapfile);
-    std::cout<<mapfile<<std::endl;
+    // std::cout<<mapfile<<std::endl;
     pypinyin.Init(dict_file,phase_file);
-    std::cout<<"pypinyin init"<<std::endl;
+    // std::cout<<"pypinyin init"<<std::endl;
     std::ifstream file_zh(mapfile_);
     std::string line;
     while (std::getline(file_zh, line)) {
@@ -65,7 +65,7 @@ int _symbols_to_sequence_zh(string s,map<string,int> symbol_to_id)
 TtsZhOutput* tts_zh_frontend_preprocess(TtsZh* ttszh_,const char* text){
     // zh_frontend zh;
     std::string text_zh(text);
-    std::cout<<text_zh<<std::endl;
+    // std::cout<<text_zh<<std::endl;
     std::vector<std::vector<float>> sequence_list;
     //解析得到的音素数据
     std::vector<string> result_phonemes;
@@ -75,14 +75,14 @@ TtsZhOutput* tts_zh_frontend_preprocess(TtsZh* ttszh_,const char* text){
     std::vector<float> sequence;
     regex RE_DOUHAO_NUM("([0-9])([\\,])([0-9])");        
     std::string text_ = std::regex_replace(text_zh,RE_DOUHAO_NUM,"$1$3"); 
-    std::cout<<text_<<std::endl;
+    // std::cout<<text_<<std::endl;
     //文本转拼音
     std::vector<vector<string>> pinyin = ttszh_->zh.get_phonemes(text_,false,true,false,false);
-    for (std::vector<std::string> tt : pinyin) {
-        for(std::string s:tt){
-            std::cout<<s<<" ";
-        }
-    }
+    // for (std::vector<std::string> tt : pinyin) {
+    //     for(std::string s:tt){
+    //         std::cout<<s<<" ";
+    //     }
+    // }
     //拼音转音素
     for (std::vector<std::string>& t : pinyin) {
         if (t[t.size() - 1] == "\n") {

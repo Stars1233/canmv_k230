@@ -61,6 +61,8 @@ typedef struct YoloDetInfo YoloDetInfo;
 
 typedef struct YoloObbInfo YoloObbInfo;
 
+typedef struct YoloPoseInfo YoloPoseInfo;
+
 typedef struct YUNetFaceDetInfo YUNetFaceDetInfo;
 
 // for yolo_license_plate_det
@@ -111,13 +113,20 @@ extern "C" {
     // for yolo seg
     SegOutputs yolov5_seg_postprocess(float *output0, float *output1, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, float mask_thresh,int *box_cnt);
     SegOutputs yolov8_seg_postprocess(float *output0, float *output1, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, float mask_thresh,int *box_cnt);
+    SegOutputs yolo26_seg_postprocess(float *output0, float *output1, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float mask_thresh,int *box_cnt);
+
     // for yolov8 det
     YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
     // for yolov5 det
     YoloDetInfo* yolov5_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
+    YoloDetInfo* yolo26_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, int max_box_cnt,int *box_cnt);
     
     // for yolo det
     YoloObbInfo* yolo_obb_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
+    YoloObbInfo* yolo26_obb_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num, float conf_thresh, int max_box_cnt,int *box_cnt);
+    
+    YoloPoseInfo* yolov8_pose_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num,int kp_num,int kp_dim, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
+    YoloPoseInfo* yolo26_pose_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num,int kp_num,int kp_dim, float conf_thresh, int max_box_cnt,int *box_cnt);
 
     // for yunet face det
     YUNetFaceDetInfo* yunet_postprocess(float **outputs, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int* strides, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
@@ -126,7 +135,6 @@ extern "C" {
     YoloLicensePlateDetInfo* yolo_license_plate_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt);
     
     int* opencv_grayscale_findblobs(FrameSize frame_shape,uint8_t* data,int threshold_min,int threshold_max,int *ret_num);
-
     void rgb888_compress(FrameSize frame_shape, uint8_t* data, int jpeg_quality, uint8_t* result);
 
 #ifdef __cplusplus
