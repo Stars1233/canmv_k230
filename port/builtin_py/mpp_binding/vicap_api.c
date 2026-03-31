@@ -197,6 +197,55 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(kd_mpi_sensor_intg_time_set_obj, 1, 2
 #define FUNC_FILE "vicap_func_def.h"
 #include "func_def.h"
 
+STATIC mp_obj_t _kd_mpi_sensor_list_mode(mp_obj_t sensor_name) {
+    k_sensor_mode_list list;
+    const char *name = mp_obj_str_get_str(sensor_name);
+    
+    if (0x00 != kd_mpi_sensor_list_mode(name, &list)) {
+        return mp_const_none;
+    }
+    
+    mp_obj_list_t *py_list = MP_OBJ_TO_PTR(mp_obj_new_list(list.count, NULL));
+    
+    for (k_u32 i = 0; i < list.count; i++) {
+        mp_obj_t dict = mp_obj_new_dict(3);
+        mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_width), 
+                          mp_obj_new_int(list.modes[i].width));
+        mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_height), 
+                          mp_obj_new_int(list.modes[i].height));
+        mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_fps), 
+                          mp_obj_new_int(list.modes[i].fps));
+        py_list->items[i] = dict;
+    }
+    
+    return MP_OBJ_FROM_PTR(py_list);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(kd_mpi_sensor_list_mode_obj, _kd_mpi_sensor_list_mode);
+
+STATIC mp_obj_t _kd_mpi_sensor_get_gain_range(mp_obj_t self_in) {
+    k_sensor_gain_info range;
+    int sensor_fd = mp_obj_get_int(self_in);
+    
+    if (0 > sensor_fd) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Invalid sensor fd"));
+    }
+    
+    if (0x00 != kd_mpi_sensor_get_gain_range(sensor_fd, &range)) {
+        return mp_const_none;
+    }
+    
+    mp_obj_t dict = mp_obj_new_dict(3);
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_min), 
+                      mp_obj_new_float(range.min));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_max), 
+                      mp_obj_new_float(range.max));
+    mp_obj_dict_store(dict, MP_OBJ_NEW_QSTR(MP_QSTR_step), 
+                      mp_obj_new_float(range.step));
+    
+    return dict;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(kd_mpi_sensor_get_gain_range_obj, _kd_mpi_sensor_get_gain_range);
+
 STATIC const mp_rom_map_elem_t vicap_api_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_vicap_api) },
     { MP_ROM_QSTR(MP_QSTR_get_default_sensor), MP_ROM_PTR(&get_board_default_sensor_csi_num_obj) },
@@ -208,6 +257,8 @@ STATIC const mp_rom_map_elem_t vicap_api_locals_dict_table[] = {
     DEF_FUNC_ADD(kd_mpi_sensor_get_exposure_time_range)
     DEF_FUNC_ADD(kd_mpi_sensor_intg_time_get)
     DEF_FUNC_ADD(kd_mpi_sensor_intg_time_set)
+    DEF_FUNC_ADD(kd_mpi_sensor_list_mode)
+    DEF_FUNC_ADD(kd_mpi_sensor_get_gain_range)
 #define FUNC_ADD
 #define FUNC_FILE "vicap_func_def.h"
 #include "func_def.h"

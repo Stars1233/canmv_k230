@@ -874,17 +874,41 @@ class Sensor:
         pass
 
     def again(self, again = None):
+        """获取或设置传感器模拟增益 (Again)
+        
+        Args:
+            again (float, optional): 增益值。
+                                    如果为 None，则返回当前增益对象；
+                                    如果提供 float 值，则设置为该增益
+        
+        Returns:
+            k_sensor_gain: 当前增益对象（包含 gain[0] 属性），如果失败返回 None
+            bool: 设置成功返回 True
+        
+        Raises:
+            RuntimeError: 如果 sensor fd 无效
+        
+        Example:
+            >>> # 获取当前增益
+            >>> gain = sensor.again()
+            >>> print(f"当前增益：{gain.gain[0]:.2f}")
+            
+            >>> # 设置增益值（直接传 float）
+            >>> sensor.again(4.0)
+        """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
 
         if again is None:
+            # Get: 返回 k_sensor_gain 对象
             gain = k_sensor_gain()
-
             kd_mpi_sensor_again_get(self.fd, gain)
-
             return gain
         else:
-            return kd_mpi_sensor_again_set(self.fd, again)
+            # Set: 接受 float 参数，自动封装成 k_sensor_gain 对象
+            gain_obj = k_sensor_gain()
+            gain_obj.gain[0] = again
+            return kd_mpi_sensor_again_set(self.fd, gain_obj)
 
     # custom method
     def run(self):
@@ -1116,3 +1140,88 @@ class Sensor:
             time_sec = exposure_us / 1000000.0
             return kd_mpi_sensor_intg_time_set(self.fd, time_sec)
 
+
+    @staticmethod
+    def list_mode(id=None):
+        """列出指定传感器支持的所有分辨率和 FPS 组合（无需初始化即可调用）
+        
+        Args:
+            id (int, optional): CSI 总线编号（0-2），默认为默认传感器
+        
+        Returns:
+            tuple: (sensor_name, modes)
+                - sensor_name (str): 传感器名称
+                - modes (list): 包含字典的列表，每个字典包含：
+                    - width: 宽度
+                    - height: 高度
+                    - fps: 帧率
+            None: 如果获取失败
+        
+        Example:
+            >>> # 在传感器初始化之前调用
+            >>> sensor_name, modes = Sensor.list_mode(id=2)
+            >>> print(f"传感器：{sensor_name}")
+            >>> for mode in modes:
+            ...     print(f"{mode['width']}x{mode['height']}@{mode['fps']}fps")
+        """
+        # 获取默认传感器 ID
+        if id is None:
+            id = get_default_sensor()
+        
+        if (id > CAM_DEV_ID_MAX - 1):
+            raise AssertionError(f"invaild sensor id {id}, should < {CAM_DEV_ID_MAX - 1}")
+        
+        # 使用 kd_mpi_sensor_adapt_get 获取传感器信息
+        info = k_vicap_sensor_info()
+        cfg = k_vicap_probe_config()
+        cfg.csi = id
+        cfg.fps = 30  # 默认帧率
+        cfg.width = 640  # 默认宽度
+        cfg.height = 480  # 默认高度
+        
+        ret = kd_mpi_sensor_adapt_get(cfg, info)
+        if 0 != ret:
+            raise RuntimeError(f"Can not found sensor on CSI {id}")
+        
+        # 获取传感器名称
+        sensor_name = cfg.name.decode()
+        
+        # 调用 MPI 层接口获取模式列表
+        modes = kd_mpi_sensor_list_mode(sensor_name)
+        
+        if modes is None:
+            return (sensor_name, [])
+        
+        # 打印格式化输出
+        print(f"Sensor Mode List (CSI {id}, {sensor_name}):")
+        print("-" * 45)
+        print(f"{'Index':<6} {'Resolution':<15} {'FPS':<6}")
+        print("-" * 45)
+        for i, mode in enumerate(modes):
+            resolution = f"{mode['width']}x{mode['height']}"
+            print(f"{i:<6} {resolution:<15} {mode['fps']:<6}")
+        print("-" * 45)
+        print(f"Total: {len(modes)} modes")
+        
+        return (sensor_name, modes)
+
+    def get_again_range(self):
+        """获取传感器模拟增益 (Again) 的可设置范围
+        
+        Returns:
+            dict: 包含增益范围信息的字典：
+                - min: 最小增益
+                - max: 最大增益
+                - step: 增益步进值
+            None: 如果获取失败
+        
+        Example:
+            >>> sensor = Sensor(id=2)
+            >>> range = sensor.get_again_range()
+            >>> if range:
+            ...     print(f"Gain range: {range['min']:.2f} - {range['max']:.2f}, step: {range['step']:.6f}")
+        """
+        if self.fd < 0:
+            raise RuntimeError("can't get sensor fd")
+        
+        return kd_mpi_sensor_get_gain_range(self.fd)
