@@ -38,10 +38,6 @@ jobs:
           ~/.bin/repo init -u git@github.com:canmv-k230/manifest.git -m canmv_${{ github.ref_name }}.xml
           ~/.bin/repo sync
 
-      # - name: Tag Subprojects
-      #   run: |
-      #     ./.github/tag_subproject.sh ${{ github.ref_name }}
-
       - name: Prepare Environment
         run: |
           sudo apt update
@@ -112,5 +108,4 @@ jobs:
           files: |
             release_assets/*.img.gz
             release_assets/*.img.gz.md5
-            release_assets/release_${{ github.ref_name }}.xml
           generate_release_notes: true
