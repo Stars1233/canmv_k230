@@ -9,13 +9,11 @@
 #ifndef __IDE_DBG_H__
 #define __IDE_DBG_H__
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
-#include "stdint.h"
-#include "stdbool.h"
-#include "obj.h"
-//#include "global_config.h"
-
-#define CONFIG_CANMV_IDE_SUPPORT 1
+#include "generated/autoconf.h"
 
 #if CONFIG_CANMV_IDE_SUPPORT
 
@@ -121,7 +119,34 @@ typedef struct {
     void* recv_data;
 } ide_dbg_state_t;
 
-#else // CONFIG_CANMV_IDE_SUPPORT
-#endif
+void ide_dbg_start(void);
+bool ide_dbg_attach(void);
+char *ide_dbg_get_script(void);
+void ide_dbg_on_script_start(void);
+void ide_dbg_on_script_end(void);
+void ide_dbg_vo_wbc_stop(void);
+void ide_dbg_vo_wbc_start(int enable);
+void ide_dbg_interrupt(void);
+void ide_dbg_stdout_tx(const char *data, size_t size);
+void interrupt_repl(void);
+void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height);
+void ide_dbg_enable_vo_wbc(void);
+
+#else // !CONFIG_CANMV_IDE_SUPPORT
+
+static inline void ide_dbg_start(void) {}
+static inline bool ide_dbg_attach(void) { return false; }
+static inline char *ide_dbg_get_script(void) { return NULL; }
+static inline void ide_dbg_on_script_start(void) {}
+static inline void ide_dbg_on_script_end(void) {}
+static inline void ide_dbg_vo_wbc_stop(void) {}
+static inline void ide_dbg_vo_wbc_start(int enable) { (void)enable; }
+static inline void ide_dbg_interrupt(void) {}
+static inline void ide_dbg_stdout_tx(const char *data, size_t size) { (void)data; (void)size; }
+static inline void interrupt_repl(void) {}
+static inline void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height) { (void)data; (void)size; (void)width; (void)height; }
+static inline void ide_dbg_enable_vo_wbc(void) {}
+
+#endif // CONFIG_CANMV_IDE_SUPPORT
 
 #endif /* __USBDBG_H__ */

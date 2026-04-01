@@ -12,6 +12,7 @@
 #include "mpprint.h"
 #include "framebuffer.h"
 #include "omv_boardconfig.h"
+#include "ide_dbg.h"
 
 void framebuffer_update_jpeg_buffer()
 {
@@ -29,8 +30,6 @@ uint32_t framebuffer_get_buffer_size()
     // fprintf(stderr, "[omv] %s\n", __func__);
     return 0;
 }
-
-void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height);
 
 void fb_encode_for_ide(uint8_t *ptr, image_t *img)
 {

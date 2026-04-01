@@ -275,19 +275,15 @@ STATIC mp_uint_t machine_uart_read(mp_obj_t self_in, void* buf, mp_uint_t size, 
 
     size_t    read_bytes = 0;
     mp_uint_t start      = mp_hal_ticks_ms();
-    while (read_bytes < size && (mp_hal_ticks_ms() - start < effective_timeout)) {
-        MICROPY_EVENT_POLL_HOOK
-
+    for (;;) {
         int r = drv_uart_read(self->inst, (uint8_t*)buf + read_bytes, size - read_bytes);
-        if (r <= 0) {
+        if (r > 0)
+            read_bytes += r;
+        if (read_bytes >= size || effective_timeout == 0)
             break;
-        }
-        read_bytes += r;
-
-        // If timeout == 0, only attempt once
-        if (effective_timeout == 0) {
+        if (mp_hal_ticks_ms() - start >= effective_timeout)
             break;
-        }
+        MICROPY_EVENT_POLL_HOOK
     }
 
     if (read_bytes == 0) {

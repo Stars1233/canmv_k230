@@ -24,134 +24,243 @@
  * THE SOFTWARE.
  */
 
+#include <pthread.h>
+#include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
 #include <time.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/select.h>
+#include <unistd.h>
 
 #include "py/mphal.h"
 #include "py/mpthread.h"
 #include "py/runtime.h"
+#include "py/stream.h"
+
 #include "extmod/misc.h"
+#include "shared/runtime/interrupt_char.h"
+
+#include "drv_uart.h"
 #include "hal_utils.h"
+#include "modmachine.h"
 
-#if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
-#if __GLIBC_PREREQ(2, 25)
-#include <sys/random.h>
-#define _HAVE_GETRANDOM
-#endif
-#endif
+#include "ide_dbg.h"
 
-extern bool process_exit;
-extern bool ide_dbg_attach(void);
-extern void interrupt_repl(void);
-extern void interrupt_ide(void);
+#define MP_HAL_STDIN_WAIT_US (20000)
 
-STATIC void sigint_handler_other(int signum) {
-    if (signum == SIGINT) {
-        process_exit = true;
-        if (ide_dbg_attach()) {
-            interrupt_ide();
+///////////////////////////////////////////////////////////////////////////////
+// K230 UART low-level (used by mp_hal stdio & IDE) //////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+static pthread_mutex_t mp_hal_uart_tx_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mp_hal_uart_reader_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static drv_uart_inst_t *mp_hal_uart_inst = NULL;
+
+static pthread_t mp_hal_reader_tid;
+static bool mp_hal_reader_started = false;
+static bool mp_hal_reader_running = false;
+
+drv_uart_inst_t *mp_hal_uart_get_instance(void) {
+    return __atomic_load_n(&mp_hal_uart_inst, __ATOMIC_ACQUIRE);
+}
+
+static void mp_hal_uart_set_instance(drv_uart_inst_t *inst) {
+    __atomic_store_n(&mp_hal_uart_inst, inst, __ATOMIC_RELEASE);
+}
+
+static void mp_hal_stdin_wait_deadline(struct timespec *ts) {
+    clock_gettime(CLOCK_REALTIME, ts);
+    ts->tv_nsec += MP_HAL_STDIN_WAIT_US * 1000;
+    if (ts->tv_nsec >= 1000000000) {
+        ts->tv_sec += ts->tv_nsec / 1000000000;
+        ts->tv_nsec %= 1000000000;
+    }
+}
+
+void mp_hal_uart_init(int id) {
+    int ret;
+    drv_uart_inst_t *inst = NULL;
+
+    if (id < 0) {
+        ret = drv_uart_inst_create_usb("/dev/ttyUSB", &inst);
+    } else {
+        ret = drv_uart_inst_create(id, &inst);
+    }
+
+    if (ret < 0) {
+        fprintf(stderr, "mp_hal_uart_init: failed to open UART %d\n", id);
+        return;
+    }
+
+    mp_hal_uart_set_instance(inst);
+}
+
+int mp_hal_uart_tx(const void* buffer, size_t size) {
+#define MP_HAL_UART_TX_BLOCK_SIZE (4 * 1024)
+    drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+
+    if (inst == NULL)
+        return -1;
+    if (drv_uart_is_dtr_asserted(inst) <= 0)
+        return 0;
+
+    pthread_mutex_lock(&mp_hal_uart_tx_mutex);
+    size_t sent = 0;
+    while (sent < size) {
+        size_t chunk = size - sent;
+        if (chunk > MP_HAL_UART_TX_BLOCK_SIZE)
+            chunk = MP_HAL_UART_TX_BLOCK_SIZE;
+        ssize_t n = drv_uart_write(inst, (const uint8_t*)buffer + sent, chunk);
+        if (n == (ssize_t)chunk) {
+            sent += chunk;
         } else {
-            interrupt_repl();
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mp_hal_uart_tx_mutex);
+    return sent;
+#undef MP_HAL_UART_TX_BLOCK_SIZE
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// K230 stdin ring buffer & background reader /////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+static pthread_mutex_t mp_hal_stdin_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  mp_hal_stdin_cond = PTHREAD_COND_INITIALIZER;
+static char mp_hal_stdin_ringbuf[4096];
+static unsigned mp_hal_stdin_wptr = 0;
+static unsigned mp_hal_stdin_rptr = 0;
+
+static void mp_hal_interrupt(void)
+{
+    if (ide_dbg_attach()) {
+        ide_dbg_interrupt();
+    }
+
+    mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
+    mp_sched_keyboard_interrupt();
+}
+
+void mp_hal_stdin_push(const uint8_t* data, size_t len) {
+    pthread_mutex_lock(&mp_hal_stdin_lock);
+    for (size_t i = 0; i < len; i++) {
+        if (data[i] == mp_interrupt_char) {
+            pthread_mutex_unlock(&mp_hal_stdin_lock);
+
+            mp_hal_interrupt();
+            return;
+        }
+        mp_hal_stdin_ringbuf[mp_hal_stdin_wptr++] = data[i];
+        mp_hal_stdin_wptr %= sizeof(mp_hal_stdin_ringbuf);
+    }
+    pthread_cond_signal(&mp_hal_stdin_cond);
+    pthread_mutex_unlock(&mp_hal_stdin_lock);
+}
+
+void mp_hal_stdin_clear(void) {
+    pthread_mutex_lock(&mp_hal_stdin_lock);
+    mp_hal_stdin_rptr = mp_hal_stdin_wptr;
+    pthread_mutex_unlock(&mp_hal_stdin_lock);
+}
+
+static void* mp_hal_uart_reader(void* arg) {
+    static uint8_t buf[512];
+
+    (void)arg;
+
+    while (__atomic_load_n(&mp_hal_reader_running, __ATOMIC_ACQUIRE)) {
+        drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+        if (inst == NULL) {
+            break;
+        }
+
+        int ret = drv_uart_poll(inst, 200);
+        if (ret <= 0)
+            continue;
+        ssize_t n = drv_uart_read(inst, buf, sizeof(buf));
+        if (n > 0)
+            mp_hal_stdin_push(buf, n);
+    }
+    return NULL;
+}
+
+void mp_hal_uart_reader_start(void) {
+    pthread_mutex_lock(&mp_hal_uart_reader_mutex);
+    if (mp_hal_reader_started) {
+        pthread_mutex_unlock(&mp_hal_uart_reader_mutex);
+        return;
+    }
+
+    pthread_mutex_lock(&mp_hal_stdin_lock);
+    mp_hal_stdin_wptr = 0;
+    mp_hal_stdin_rptr = 0;
+    pthread_mutex_unlock(&mp_hal_stdin_lock);
+
+    __atomic_store_n(&mp_hal_reader_running, true, __ATOMIC_RELEASE);
+    if (pthread_create(&mp_hal_reader_tid, NULL, mp_hal_uart_reader, NULL) == 0) {
+        mp_hal_reader_started = true;
+    } else {
+        __atomic_store_n(&mp_hal_reader_running, false, __ATOMIC_RELEASE);
+    }
+    pthread_mutex_unlock(&mp_hal_uart_reader_mutex);
+}
+
+void mp_hal_uart_reader_stop(void) {
+    pthread_t reader_tid;
+
+    pthread_mutex_lock(&mp_hal_uart_reader_mutex);
+    if (!mp_hal_reader_started) {
+        pthread_mutex_unlock(&mp_hal_uart_reader_mutex);
+        return;
+    }
+
+    __atomic_store_n(&mp_hal_reader_running, false, __ATOMIC_RELEASE);
+    reader_tid = mp_hal_reader_tid;
+    pthread_mutex_unlock(&mp_hal_uart_reader_mutex);
+
+    pthread_join(reader_tid, NULL);
+
+    pthread_mutex_lock(&mp_hal_uart_reader_mutex);
+    mp_hal_reader_started = false;
+    pthread_mutex_unlock(&mp_hal_uart_reader_mutex);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// MicroPython HAL: stdin & stdout ////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+void mp_hal_poll_dupterm(void) {
+    if (mp_os_dupterm_poll(MP_STREAM_POLL_RD) & MP_STREAM_POLL_RD) {
+        int c = mp_os_dupterm_rx_chr();
+        if (c >= 0) {
+            uint8_t byte = c;
+            mp_hal_stdin_push(&byte, 1);
         }
     }
 }
 
-STATIC void sigint_handler_ctrl_c(int signum) {
-    if (signum == SIGINT) {
-        #if MICROPY_ASYNC_KBD_INTR
-        #if MICROPY_PY_THREAD_GIL
-        // Since signals can occur at any time, we may not be holding the GIL when
-        // this callback is called, so it is not safe to raise an exception here
-        #error "MICROPY_ASYNC_KBD_INTR and MICROPY_PY_THREAD_GIL are not compatible"
-        #endif
-        mp_obj_exception_clear_traceback(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
-        sigset_t mask;
-        sigemptyset(&mask);
-        // On entry to handler, its signal is blocked, and unblocked on
-        // normal exit. As we instead perform longjmp, unblock it manually.
-        sigprocmask(SIG_SETMASK, &mask, NULL);
-        nlr_raise(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
-        #else
-        process_exit = true;
-        mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
-        if (!ide_dbg_attach())
-            interrupt_repl();
-        #endif
-    }
-}
-
-void mp_hal_set_interrupt_char(int c) {
-    if (c == CHAR_CTRL_C) {
-        struct sigaction sa;
-        sa.sa_flags = 0;
-        sa.sa_handler = sigint_handler_ctrl_c;
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGINT, &sa, NULL);
-    } else {
-        struct sigaction sa;
-        sa.sa_flags = 0;
-        sa.sa_handler = sigint_handler_other;
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGINT, &sa, NULL);
-    }
-}
-
-#if MICROPY_USE_READLINE == 1
-
-#include <termios.h>
-
-static struct termios orig_termios;
-
-void mp_hal_stdio_mode_raw(void) {
-    // save and set terminal settings
-    tcgetattr(0, &orig_termios);
-    static struct termios termios;
-    termios = orig_termios;
-    termios.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    termios.c_cflag = (termios.c_cflag & ~(CSIZE | PARENB)) | CS8;
-    termios.c_lflag = 0;
-    termios.c_cc[VMIN] = 1;
-    termios.c_cc[VTIME] = 0;
-    tcsetattr(0, TCSAFLUSH, &termios);
-}
-
-void mp_hal_stdio_mode_orig(void) {
-    // restore terminal settings
-    tcsetattr(0, TCSAFLUSH, &orig_termios);
-}
-
-#endif
-///////////////////////////////////////////////////////////////////////////////
-// mp_hal stdin & stdout //////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-// uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags)
-// {
-
-// }
-
 int mp_hal_stdin_rx_chr(void) {
-    int c;
-    extern int usb_rx(void);
     while (1) {
+        pthread_mutex_lock(&mp_hal_stdin_lock);
+        if (mp_hal_stdin_rptr != mp_hal_stdin_wptr) {
+            int c = (unsigned char)mp_hal_stdin_ringbuf[mp_hal_stdin_rptr++];
+            mp_hal_stdin_rptr %= sizeof(mp_hal_stdin_ringbuf);
+            pthread_mutex_unlock(&mp_hal_stdin_lock);
+            return c;
+        }
+
+        struct timespec ts;
+        mp_hal_stdin_wait_deadline(&ts);
         MP_THREAD_GIL_EXIT();
-        c = usb_rx();
+        pthread_cond_timedwait(&mp_hal_stdin_cond, &mp_hal_stdin_lock, &ts);
         MP_THREAD_GIL_ENTER();
-        if (c != -1)
-            break;
+        pthread_mutex_unlock(&mp_hal_stdin_lock);
+        mp_hal_poll_dupterm();
         mp_handle_pending(true);
     }
-    return c;
 }
 
 void mp_hal_stdout_tx_str(const char *str) {
@@ -159,27 +268,14 @@ void mp_hal_stdout_tx_str(const char *str) {
 }
 
 void mp_hal_stdout_tx_strn(const char *str, size_t len) {
-    extern bool ide_dbg_attach(void);
-    extern bool command_line_mode;
-    if (command_line_mode) {
-        fwrite(str, 1, len, stdout);
-        return;
-    }
     if (ide_dbg_attach()) {
-        extern void mpy_stdout_tx(const char* data, size_t size);
-        mpy_stdout_tx(str, len);
+        ide_dbg_stdout_tx(str, len);
     } else {
-        extern int usb_tx(const void* buffer, size_t size);
-        extern int usb_cdc_get_dtr(void);
-
-        if (usb_cdc_get_dtr()) {
-            usb_tx(str, len);
-        }
+        mp_hal_uart_tx(str, len);
     }
     mp_os_dupterm_tx_strn(str, len);
 }
 
-// replace \n to \r\n
 void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
     size_t last_seg = 0;
 
@@ -194,42 +290,13 @@ void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
         mp_hal_stdout_tx_strn(str + last_seg, len - last_seg);
 }
 
-// k230 added
 void mp_hal_stdout_tx_str_cooked(const char* str) {
     mp_hal_stdout_tx_strn_cooked(str, strlen(str));
 }
-///////////////////////////////////////////////////////////////////////////////
-// mp_hal delay ///////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-void mp_hal_delay_us(mp_uint_t us) {
-    mp_uint_t start = mp_hal_ticks_us();
-    mp_uint_t stop = start + us;
 
-    while ((start + 5000) < stop) {
-        MP_THREAD_GIL_EXIT();
-        usleep(5000);
-        MP_THREAD_GIL_ENTER();
-        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);
-        mp_handle_pending(true);
-        start = mp_hal_ticks_us();
-    }
-
-    if (stop > start) {
-        MP_THREAD_GIL_EXIT();
-        usleep(stop - start);
-        MP_THREAD_GIL_ENTER();
-        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);
-        mp_handle_pending(true);
-    }
-}
-
-void mp_hal_delay_ms(mp_uint_t ms) {
-    mp_hal_delay_us(ms * 1000);
-}
 ///////////////////////////////////////////////////////////////////////////////
-// mp_hal tick ////////////////////////////////////////////////////////////////
+// MicroPython HAL: time & delay //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#include "hal_utils.h"
 
 mp_uint_t mp_hal_ticks_ms(void) {
     return (mp_uint_t)utils_cpu_ticks_ms();
@@ -247,75 +314,91 @@ mp_uint_t mp_hal_ticks_cpu(void) {
     return (mp_uint_t)utils_cpu_ticks();
 }
 
-void mp_hal_delay_us_fast(uint64_t us)
-{
+void mp_hal_delay_us(mp_uint_t us) {
+    mp_uint_t start = mp_hal_ticks_us();
+    mp_uint_t stop = start + us;
+
+    while ((start + 5000) < stop) {
+        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);
+        mp_handle_pending(true);
+        mp_hal_poll_dupterm();
+
+        MP_THREAD_GIL_EXIT();
+        usleep(5000);
+        MP_THREAD_GIL_ENTER();
+
+        start = mp_hal_ticks_us();
+    }
+
+    if (stop > start) {
+        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);
+        mp_handle_pending(true);
+        mp_hal_poll_dupterm();
+
+        MP_THREAD_GIL_EXIT();
+        usleep(stop - start);
+        MP_THREAD_GIL_ENTER();
+    }
+}
+
+void mp_hal_delay_ms(mp_uint_t ms) {
+    mp_hal_delay_us(ms * 1000);
+}
+
+void mp_hal_delay_us_fast(uint64_t us) {
     uint64_t end = utils_cpu_ticks_us() + us;
     while (utils_cpu_ticks_us() < end) { }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// C-level pin HAL ////////////////////////////////////////////////////////////
+// MicroPython HAL: GPIO pin //////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#include "modmachine.h"
 
-mp_hal_pin_obj_t mp_hal_get_pin_obj(mp_obj_t o)
-{
+mp_hal_pin_obj_t mp_hal_get_pin_obj(mp_obj_t o) {
     return machine_pin_get_inst(o);
 }
 
-int mp_hal_pin_name(mp_hal_pin_obj_t pin)
-{
+int mp_hal_pin_name(mp_hal_pin_obj_t pin) {
     return pin->pin;
 }
 
-void mp_hal_pin_input(mp_hal_pin_obj_t pin)
-{
+void mp_hal_pin_input(mp_hal_pin_obj_t pin) {
     drv_gpio_mode_set(pin, GPIO_DM_INPUT);
 }
 
-void mp_hal_pin_output(mp_hal_pin_obj_t pin)
-{
+void mp_hal_pin_output(mp_hal_pin_obj_t pin) {
     drv_gpio_mode_set(pin, GPIO_DM_OUTPUT);
 }
 
-void mp_hal_pin_open_drain(mp_hal_pin_obj_t pin)
-{
+void mp_hal_pin_open_drain(mp_hal_pin_obj_t pin) {
     drv_gpio_mode_set(pin, GPIO_DM_OUTPUT_OD);
 }
 
-void mp_hal_pin_od_low(mp_hal_pin_obj_t pin)
-{
+void mp_hal_pin_od_low(mp_hal_pin_obj_t pin) {
     drv_gpio_value_set(pin, 0);
 }
 
-void mp_hal_pin_od_high(mp_hal_pin_obj_t pin)
-{
+void mp_hal_pin_od_high(mp_hal_pin_obj_t pin) {
     drv_gpio_value_set(pin, 1);
 }
 
-int mp_hal_pin_read(mp_hal_pin_obj_t pin)
-{
+int mp_hal_pin_read(mp_hal_pin_obj_t pin) {
     return drv_gpio_value_get(pin);
 }
 
-void mp_hal_pin_write(mp_hal_pin_obj_t pin, int value)
-{
+void mp_hal_pin_write(mp_hal_pin_obj_t pin, int value) {
     drv_gpio_value_set(pin, value);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Irq Releated ///////////////////////////////////////////////////////////////
+// MicroPython HAL: IRQ ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#include "hal_syscall.h"
 
-uint32_t mp_hal_quiet_timing_enter(void)
-{
+uint32_t mp_hal_quiet_timing_enter(void) {
     uint32_t irq_state = 0;
-    // irq_state = rt_hw_interrupt_disable();
     return irq_state;
 }
 
-void mp_hal_quiet_timing_exit(uint32_t irq_state)
-{
-    // rt_hw_interrupt_enable(irq_state);
+void mp_hal_quiet_timing_exit(uint32_t irq_state) {
+    (void)irq_state;
 }

@@ -63,6 +63,7 @@ INC += -Iinclude/maix
 INC += -Iinclude/mpp
 INC += -Iinclude/multi_media
 INC += -Iinclude/omv
+INC += -Iomv
 INC += -Iomv/alloc
 INC += -Iomv/boards/canmv
 INC += -Iomv/common
@@ -211,6 +212,7 @@ CANMV_SRC_C += $(addprefix shared/,\
 	runtime/gchelper_generic.c \
 	runtime/pyexec.c \
 	runtime/mpirq.c \
+	runtime/interrupt_char.c \
 	timeutils/timeutils.c \
 	readline/readline.c \
 	netutils/netutils.c \

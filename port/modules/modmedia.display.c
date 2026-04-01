@@ -37,6 +37,7 @@
 
 #include "py_assert.h" // use openmv marco, PY_ASSERT_TYPE
 #include "py_image.h"
+#include "ide_dbg.h"
 
 #include "py_modules.h"
 
@@ -972,7 +973,6 @@ static mp_obj_t py_display_init_wrap(mp_uint_t n_args, const mp_obj_t* pos_args,
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init display failed"));
     }
 
-    extern void ide_dbg_vo_wbc_start(int enable);
     ide_dbg_vo_wbc_start(arg_enable_wbc);
 
     return mp_const_none;

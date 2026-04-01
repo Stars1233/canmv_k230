@@ -1,4 +1,38 @@
 menu "CanMV Micropython Components Configurations"
+    comment "IDE/REPL UART Configuration"
+
+    choice
+        bool "IDE Debug UART"
+        default CANMV_REPL_UART_USB
+
+        config CANMV_REPL_UART_USB
+            bool "USB CDC (/dev/ttyUSB)"
+
+        config CANMV_REPL_UART_0
+            bool "UART 0"
+
+        config CANMV_REPL_UART_1
+            bool "UART 1"
+
+        config CANMV_REPL_UART_2
+            bool "UART 2"
+
+        config CANMV_REPL_UART_3
+            bool "UART 3"
+
+        config CANMV_REPL_UART_4
+            bool "UART 4"
+
+    endchoice
+
+    config CANMV_REPL_UART_ID
+        int
+        default -1 if CANMV_REPL_UART_USB
+        default 0  if CANMV_REPL_UART_0
+        default 1  if CANMV_REPL_UART_1
+        default 2  if CANMV_REPL_UART_2
+        default 3  if CANMV_REPL_UART_3
+        default 4  if CANMV_REPL_UART_4
 
     config ENABLE_MODULE_CV_LITE
         bool "Enable CV_Lite Module"

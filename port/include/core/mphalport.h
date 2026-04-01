@@ -23,6 +23,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#ifndef __MPHALPORT_H__
+#define __MPHALPORT_H__
+
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -31,41 +34,10 @@
 #define CHAR_CTRL_C (3)
 #endif
 
+// MicroPython HAL: interrupt
 void mp_hal_set_interrupt_char(int c);
 
-#define mp_hal_stdio_poll unused // this is not implemented, nor needed
-void mp_hal_stdio_mode_raw(void);
-void mp_hal_stdio_mode_orig(void);
-
-#if MICROPY_PY_BUILTINS_INPUT && MICROPY_USE_READLINE == 0
-
-#include <malloc.h>
-#include "py/misc.h"
-#include "input.h"
-#define mp_hal_readline mp_hal_readline
-static inline int mp_hal_readline(vstr_t *vstr, const char *p) {
-    char *line = prompt((char *)p);
-    vstr_add_str(vstr, line);
-    free(line);
-    return 0;
-}
-
-#elif MICROPY_PY_BUILTINS_INPUT && MICROPY_USE_READLINE == 1
-
-#include "py/misc.h"
-#include "shared/readline/readline.h"
-// For built-in input() we need to wrap the standard readline() to enable raw mode
-#define mp_hal_readline mp_hal_readline
-static inline int mp_hal_readline(vstr_t *vstr, const char *p) {
-    mp_hal_stdio_mode_raw();
-    int ret = readline(vstr, p);
-    mp_hal_stdio_mode_orig();
-    return ret;
-}
-
-#endif
-
-// This macro is used to implement PEP 475 to retry specified syscalls on EINTR
+// MicroPython HAL: syscall retry (PEP 475)
 #define MP_HAL_RETRY_SYSCALL(ret, syscall, raise) { \
         for (;;) { \
             MP_THREAD_GIL_EXIT(); \
@@ -83,11 +55,12 @@ static inline int mp_hal_readline(vstr_t *vstr, const char *p) {
         } \
 }
 
+// MicroPython HAL: time & delay
 uint32_t mp_hal_quiet_timing_enter(void);
 void mp_hal_quiet_timing_exit(uint32_t irq_state);
-
 void mp_hal_delay_us_fast(uint64_t us);
 
+// MicroPython HAL: GPIO pin
 #include "modmachine.h"
 
 #define MP_HAL_PIN_FMT "%u"
@@ -105,3 +78,5 @@ void mp_hal_pin_od_high(mp_hal_pin_obj_t pin);
 
 int mp_hal_pin_read(mp_hal_pin_obj_t pin);
 void mp_hal_pin_write(mp_hal_pin_obj_t pin, int value);
+
+#endif /* __MPHALPORT_H__ */

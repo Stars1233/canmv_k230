@@ -23,6 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stddef.h>
+#include "ide_dbg.h"
+
+#if CONFIG_CANMV_IDE_SUPPORT
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -127,7 +131,6 @@ static void wbc_cleanup_resources(void)
 
 void ide_dbg_vo_wbc_start(int enable)
 {
-    extern void ide_dbg_enable_vo_wbc(void);
     if (enable) {
         ide_dbg_enable_vo_wbc();
     }
@@ -425,3 +428,5 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
 
     return 0;
 }
+
+#endif // CONFIG_CANMV_IDE_SUPPORT

@@ -179,8 +179,10 @@ extern const struct _mp_print_t mp_stderr_print;
 #define MICROPY_EVENT_POLL_HOOK                                                                                        \
     do {                                                                                                               \
         extern void mp_handle_pending(bool);                                                                           \
+        extern void mp_hal_poll_dupterm(void);                                                                         \
         mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);                                                                   \
         mp_handle_pending(true);                                                                                       \
+        mp_hal_poll_dupterm();                                                                                         \
         MP_THREAD_GIL_EXIT();                                                                                          \
         usleep(1000);                                                                                                  \
         MP_THREAD_GIL_ENTER();                                                                                         \
@@ -314,8 +316,9 @@ extern const struct _mp_print_t mp_stderr_print;
 // ulab
 #define ULAB_MAX_DIMS   (4)
 
+#if CONFIG_CANMV_IDE_SUPPORT
 extern void ide_before_python_run(int input_kind, mp_uint_t exec_flags);
 extern void ide_afer_python_run(int input_kind, mp_uint_t exec_flags, void *ret_val, int ret);
-
 #define MICROPY_BOARD_BEFORE_PYTHON_EXEC ide_before_python_run
 #define MICROPY_BOARD_AFTER_PYTHON_EXEC ide_afer_python_run
+#endif
