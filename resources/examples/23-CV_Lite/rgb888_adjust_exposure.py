@@ -39,9 +39,7 @@ sensor.run()
 # -------------------------------
 # 设置传感器模拟增益（可选）/ Set sensor analog gain (optional)
 # -------------------------------
-gain = k_sensor_gain()
-gain.gain[0] = 20            # 设置通道0的增益值 / Set gain for channel 0
-sensor.again(gain)           # 应用模拟增益 / Apply analog gain
+sensor.again(20.0)           # 应用模拟增益 / Apply analog gain
 
 # -------------------------------
 # 启动帧率计时器 / Start FPS timer

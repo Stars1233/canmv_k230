@@ -43,9 +43,7 @@ sensor.run()
 # -------------------------------
 # 可选增益设置（亮度/对比度调节）/ Optional sensor gain setting
 # -------------------------------
-gain = k_sensor_gain()
-gain.gain[0] = 20
-sensor.again(gain)
+sensor.again(20.0)
 
 # -------------------------------
 # 启动帧率计时 / Start FPS timer
