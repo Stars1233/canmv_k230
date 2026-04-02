@@ -61,6 +61,7 @@
 #define PY_PANEL_TYPE_ST7102   (310)
 #define PY_PANEL_TYPE_AML020T  (311)
 #define PY_PANEL_TYPE_JD9852   (312)
+#define PY_PANEL_TYPE_ST7789   (313)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Py Panel Map ///////////////////////////////////////////////////////////////
@@ -82,63 +83,67 @@ static const py_display_panel_map_t py_display_panel_map[] = {
 #endif
 
     /* ST7701  */
-    { PY_PANEL_TYPE_ST7701, 800, 480, ST7701_V1_MIPI_2LAN_480X800_30FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 480, 800, ST7701_V1_MIPI_2LAN_480X800_30FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 854, 480, ST7701_V1_MIPI_2LAN_480X854_30FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 480, 854, ST7701_V1_MIPI_2LAN_480X854_30FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 640, 480, ST7701_V1_MIPI_2LAN_480X640_30FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 480, 640, ST7701_V1_MIPI_2LAN_480X640_30FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 368, 544, ST7701_V1_MIPI_2LAN_368X544_60FPS, 0, 0 },
-    { PY_PANEL_TYPE_ST7701, 544, 368, ST7701_V1_MIPI_2LAN_368X544_60FPS, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 800, 480, ST7701_480_800_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 480, 800, ST7701_480_800_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 854, 480, ST7701_480_854_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 480, 854, ST7701_480_854_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 640, 480, ST7701_480_640_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 480, 640, ST7701_480_640_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 368, 544, ST7701_368_544_DSI_V1, 0, 0 },
+    { PY_PANEL_TYPE_ST7701, 544, 368, ST7701_368_544_DSI_V1, 0, 0 },
 #if defined(CONFIG_BOARD_K230D_CANMV_ATK_DNK230D) || defined(CONFIG_BOARD_K230_CANMV_YAHBOOM)
-    { PY_PANEL_TYPE_ST7701, 640, 480, ST7701_V1_MIPI_2LAN_480X640_30FPS, 0, 1 },
+    { PY_PANEL_TYPE_ST7701, 640, 480, ST7701_480_640_DSI_V1, 0, 1 },
 #else
-    { PY_PANEL_TYPE_ST7701, 800, 480, ST7701_V1_MIPI_2LAN_480X800_30FPS, 0, 1 },
+    { PY_PANEL_TYPE_ST7701, 800, 480, ST7701_480_800_DSI_V1, 0, 1 },
 #endif
 
     /* HX8399 */
-    { PY_PANEL_TYPE_HX8399, 1920, 1080, HX8377_V2_MIPI_4LAN_1080X1920_30FPS, 0, 1 },
-    { PY_PANEL_TYPE_HX8399, 1080, 1920, HX8377_V2_MIPI_4LAN_1080X1920_30FPS, 0, 0 },
+    { PY_PANEL_TYPE_HX8399, 1920, 1080, HX8399_1080_1920_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_HX8399, 1080, 1920, HX8399_1080_1920_DSI_V1, 0, 0 },
 
     /* ILI9806 */
-    { PY_PANEL_TYPE_ILI9806, 800, 480, ILI9806_MIPI_2LAN_480X800_30FPS, 0, 1 },
-    { PY_PANEL_TYPE_ILI9806, 480, 800, ILI9806_MIPI_2LAN_480X800_30FPS, 0, 0 },
+    { PY_PANEL_TYPE_ILI9806, 800, 480, ILI9806_480_800_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_ILI9806, 480, 800, ILI9806_480_800_DSI_V1, 0, 0 },
 
     /* LT9611 */
-    { PY_PANEL_TYPE_LT9611, 1920, 1080, LT9611_MIPI_4LAN_1920X1080_60FPS, 60, 0 },
-    { PY_PANEL_TYPE_LT9611, 1920, 1080, LT9611_MIPI_4LAN_1920X1080_30FPS, 0, 1 },
-    { PY_PANEL_TYPE_LT9611, 1280, 720, LT9611_MIPI_4LAN_1280X720_60FPS, 60, 0 },
-    { PY_PANEL_TYPE_LT9611, 1280, 720, LT9611_MIPI_4LAN_1280X720_50FPS, 50, 0 },
-    { PY_PANEL_TYPE_LT9611, 1280, 720, LT9611_MIPI_4LAN_1280X720_30FPS, 30, 0 },
-    { PY_PANEL_TYPE_LT9611, 640, 480, LT9611_MIPI_4LAN_640X480_60FPS, 0, 0 },
+    { PY_PANEL_TYPE_LT9611, 1920, 1080, LT9611_1920_1080_HDMI_V2, 60, 0 },
+    { PY_PANEL_TYPE_LT9611, 1920, 1080, LT9611_1920_1080_HDMI_V1, 0, 1 },
+    { PY_PANEL_TYPE_LT9611, 1280, 720, LT9611_1280_720_HDMI_V1, 60, 0 },
+    { PY_PANEL_TYPE_LT9611, 1280, 720, LT9611_1280_720_HDMI_V2, 50, 0 },
+    { PY_PANEL_TYPE_LT9611, 1280, 720, LT9611_1280_720_HDMI_V3, 30, 0 },
+    { PY_PANEL_TYPE_LT9611, 640, 480, LT9611_640_480_HDMI_V1, 0, 0 },
 
     /* ILI9881 */
-    { PY_PANEL_TYPE_ILI9881, 1280, 800, ILI9881_MIPI_4LAN_800X1280_60FPS, 0, 1 },
-    { PY_PANEL_TYPE_ILI9881, 800, 1280, ILI9881_MIPI_4LAN_800X1280_60FPS, 0, 0 },
+    { PY_PANEL_TYPE_ILI9881, 1280, 800, ILI9881_800_1280_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_ILI9881, 800, 1280, ILI9881_800_1280_DSI_V1, 0, 0 },
 
     /* NT35516 */
-    { PY_PANEL_TYPE_NT35516, 960, 536, NT35516_MIPI_2LAN_536X960_30FPS, 0, 1 },
-    { PY_PANEL_TYPE_NT35516, 536, 960, NT35516_MIPI_2LAN_536X960_30FPS, 0, 0 },
+    { PY_PANEL_TYPE_NT35516, 960, 536, NT35516_536_960_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_NT35516, 536, 960, NT35516_536_960_DSI_V1, 0, 0 },
 
     /* NT35532 */
-    { PY_PANEL_TYPE_NT35532, 1920, 1080, NT35532_MIPI_2LAN_1080X1920_30FPS, 0, 1 },
-    { PY_PANEL_TYPE_NT35532, 1080, 1920, NT35532_MIPI_2LAN_1080X1920_30FPS, 0, 0 },
+    { PY_PANEL_TYPE_NT35532, 1920, 1080, NT35532_1080_1920_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_NT35532, 1080, 1920, NT35532_1080_1920_DSI_V1, 0, 0 },
 
     /* GC9503 */
-    { PY_PANEL_TYPE_GC9503, 800, 480, GC9503_MIPI_2LAN_480X800_60FPS, 0, 1 },
-    { PY_PANEL_TYPE_GC9503, 480, 800, GC9503_MIPI_2LAN_480X800_60FPS, 0, 0 },
+    { PY_PANEL_TYPE_GC9503, 800, 480, GC9503_480_800_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_GC9503, 480, 800, GC9503_480_800_DSI_V1, 0, 0 },
 
     /* ST7102 */
-    { PY_PANEL_TYPE_ST7102, 640, 480, ST7102_MIPI_2LAN_480X640_60FPS, 0, 1 },
-    { PY_PANEL_TYPE_ST7102, 480, 640, ST7102_MIPI_2LAN_480X640_60FPS, 0, 0 },
+    { PY_PANEL_TYPE_ST7102, 640, 480, ST7102_480_640_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_ST7102, 480, 640, ST7102_480_640_DSI_V1, 0, 0 },
 
     /* AML020T */
-    { PY_PANEL_TYPE_AML020T, 480, 360, AML020T_MIPI_2LAN_480X360_30FPS, 0, 1 },
-    { PY_PANEL_TYPE_AML020T, 360, 480, AML020T_MIPI_2LAN_480X360_30FPS, 0, 0 },
+    { PY_PANEL_TYPE_AML020T, 480, 360, AML020T_480_360_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_AML020T, 360, 480, AML020T_480_360_DSI_V1, 0, 0 },
 
     /* JD9852 */
-    { PY_PANEL_TYPE_JD9852, 320, 240, JD9852_MIPI_1LAN_240X320_60FPS, 0, 1 },
-    { PY_PANEL_TYPE_JD9852, 240, 320, JD9852_MIPI_1LAN_240X320_60FPS, 0, 0 },
+    { PY_PANEL_TYPE_JD9852, 320, 240, JD9852_240_320_DSI_V1, 0, 1 },
+    { PY_PANEL_TYPE_JD9852, 240, 320, JD9852_240_320_DSI_V1, 0, 0 },
+
+    /* SPI ST7789 */
+    { PY_PANEL_TYPE_ST7789, 320, 240, ST7789_320_240_SPI_V1, 0, 1 },
+    { PY_PANEL_TYPE_ST7789, 240, 320, ST7789_320_240_SPI_V1, 0, 0 },
 };
 
 #define MAP_SIZE (sizeof(py_display_panel_map) / sizeof(py_display_panel_map_t))
@@ -249,11 +254,11 @@ static int py_display_get_connector_resolution(k_connector_type type, int* widht
     }
 
     if (widht) {
-        *widht = connector_info.resolution.hdisplay;
+        *widht = connector_info.resolution.hactive;
     }
 
     if (height) {
-        *height = connector_info.resolution.vdisplay;
+        *height = connector_info.resolution.vactive;
     }
 
     return 0;
@@ -943,7 +948,7 @@ static mp_obj_t py_display_init_wrap(mp_uint_t n_args, const mp_obj_t* pos_args,
 
     int arg_flag = args[ARG_flag].u_int;
 
-    if (ST7701_V1_MIPI_2LAN_368X544_60FPS == panel_map.type) {
+    if (ST7701_368_544_DSI_V1 == panel_map.type) {
         panel_map.width  = (panel_map.width == ST7701_368X544_APP_SIZE) ? ST7701_368X544_HW_SIZE : panel_map.width;
         panel_map.height = (panel_map.height == ST7701_368X544_APP_SIZE) ? ST7701_368X544_HW_SIZE : panel_map.height;
     }
@@ -1202,7 +1207,7 @@ static inline void py_display_get_resolution(k_u32* width, k_u32* height)
         panel_type = info.type;
     }
 
-    if (ST7701_V1_MIPI_2LAN_368X544_60FPS == panel_type) {
+    if (ST7701_368_544_DSI_V1 == panel_type) {
         if (width) {
             *width = (*width == ST7701_368X544_HW_SIZE) ? ST7701_368X544_APP_SIZE : *width;
         }
@@ -1290,11 +1295,11 @@ static mp_obj_t py_display_fps_wrap(void)
     }
 
     if (VIRTUAL_DISPLAY_DEVICE == info.type) {
-        fps = info.resolution.pclk;
+        fps = info.resolution.pclk_khz;
     } else {
-        k_u32 pclk = info.resolution.pclk;
-        k_u32 ht   = info.resolution.htotal;
-        k_u32 vt   = info.resolution.vtotal;
+        k_u32 pclk = info.resolution.pclk_khz;
+        k_u32 ht   = info.resolution.hactive + info.resolution.hsync_len + info.resolution.hback_porch + info.resolution.hfront_porch;
+        k_u32 vt   = info.resolution.vactive + info.resolution.vsync_len + info.resolution.vback_porch + info.resolution.vfront_porch;
 
         fps = (k_u64)(pclk * 1000) / ht / vt;
     }
@@ -1600,6 +1605,7 @@ static const mp_rom_map_elem_t display_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ST7102), MP_ROM_INT(PY_PANEL_TYPE_ST7102) },
     { MP_ROM_QSTR(MP_QSTR_AML020T), MP_ROM_INT(PY_PANEL_TYPE_AML020T) },
     { MP_ROM_QSTR(MP_QSTR_JD9852), MP_ROM_INT(PY_PANEL_TYPE_JD9852) },
+    { MP_ROM_QSTR(MP_QSTR_ST7789), MP_ROM_INT(PY_PANEL_TYPE_ST7789) },
 
     /* layer */
     { MP_ROM_QSTR(MP_QSTR_LAYER_VIDEO1), MP_ROM_INT(K_VO_LAYER_VIDEO1) },
