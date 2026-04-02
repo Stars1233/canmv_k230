@@ -84,7 +84,7 @@ void mp_hal_uart_init(int id) {
     drv_uart_inst_t *inst = NULL;
 
     if (id < 0) {
-        ret = drv_uart_inst_create_usb("/dev/ttyUSB", &inst);
+        ret = drv_uart_inst_create_usb("/dev/ttyGS0", &inst);
     } else {
         ret = drv_uart_inst_create(id, &inst);
     }

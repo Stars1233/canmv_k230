@@ -6,7 +6,7 @@ menu "CanMV Micropython Components Configurations"
         default CANMV_REPL_UART_USB
 
         config CANMV_REPL_UART_USB
-            bool "USB CDC (/dev/ttyUSB)"
+            bool "USB CDC (/dev/ttyGS0)"
 
         config CANMV_REPL_UART_0
             bool "UART 0"

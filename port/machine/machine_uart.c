@@ -37,6 +37,14 @@
 
 #include "modmachine.h"
 
+#ifdef CONFIG_ENABLE_DUAL_CDC_PORT
+#define KD_UART_USB_GS_ID    KD_HARD_UART_MAX_NUM
+#define KD_UART_MAX_NUM      (KD_HARD_UART_MAX_NUM + 1)
+#define KD_UART_USB_GS_DEV   "/dev/ttyGS1"
+#else
+#define KD_UART_MAX_NUM      KD_HARD_UART_MAX_NUM
+#endif
+
 typedef struct {
     mp_obj_base_t base;
     int           index;
@@ -49,11 +57,26 @@ typedef struct {
 
 } machine_uart_obj_t;
 
+STATIC bool machine_uart_is_usb_gs(int index)
+{
+#ifdef CONFIG_ENABLE_DUAL_CDC_PORT
+    return index == KD_UART_USB_GS_ID;
+#else
+    (void)index;
+    return false;
+#endif
+}
+
 STATIC void machine_uart_print(const mp_print_t* print, mp_obj_t self_in, mp_print_kind_t kind)
 {
     machine_uart_obj_t* self = MP_OBJ_TO_PTR(self_in);
-    mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%u, stop=%u)", self->index, self->baudrate, self->bitwidth,
-              self->parity, self->stop);
+    if (machine_uart_is_usb_gs(self->index)) {
+        mp_printf(print, "UART(UART_GS, baudrate=%u, bits=%u, parity=%u, stop=%u)", self->baudrate, self->bitwidth, self->parity,
+                  self->stop);
+    } else {
+        mp_printf(print, "UART(%u, baudrate=%u, bits=%u, parity=%u, stop=%u)", self->index, self->baudrate, self->bitwidth,
+                  self->parity, self->stop);
+    }
 }
 
 STATIC void machine_uart_init_helper(machine_uart_obj_t* self, size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
@@ -81,7 +104,11 @@ STATIC void machine_uart_init_helper(machine_uart_obj_t* self, size_t n_args, co
         pin_rx = mp_obj_get_int(args[ARG_rx].u_obj);
     }
 
-    {
+    if (machine_uart_is_usb_gs(self->index)) {
+        if (args[ARG_tx].u_obj != MP_OBJ_NULL || args[ARG_rx].u_obj != MP_OBJ_NULL) {
+            mp_raise_ValueError(MP_ERROR_TEXT("UART_GS does not use tx/rx pins"));
+        }
+    } else {
         int uart_id = self->index;
 
 #define UART_TXD_FUNC(id)  ((id) == 0 ? UART0_TXD : \
@@ -161,11 +188,18 @@ STATIC mp_obj_t machine_uart_make_new(const mp_obj_type_t* type, size_t n_args, 
     mp_arg_check_num(n_args, n_kw, 1, MP_OBJ_FUN_ARGS_MAX, true);
 
     int index = mp_obj_get_int(args[0]);
-    if (index < 0 || index >= KD_HARD_UART_MAX_NUM) {
+    if (index < 0 || index >= KD_UART_MAX_NUM) {
         mp_raise_ValueError(MP_ERROR_TEXT("invalid UART index"));
     }
 
     drv_uart_inst_t* inst = NULL;
+#ifdef CONFIG_ENABLE_DUAL_CDC_PORT
+    if (machine_uart_is_usb_gs(index)) {
+        if (drv_uart_inst_create_usb(KD_UART_USB_GS_DEV, &inst) < 0) {
+            mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("cannot create UART_GS"));
+        }
+    } else
+#endif
     if (drv_uart_inst_create(index, &inst) < 0) {
         mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("cannot create UART %u"), index);
     }
@@ -249,6 +283,9 @@ STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_UART2), MP_ROM_INT(2) },
     { MP_ROM_QSTR(MP_QSTR_UART3), MP_ROM_INT(3) },
     { MP_ROM_QSTR(MP_QSTR_UART4), MP_ROM_INT(4) },
+#ifdef CONFIG_ENABLE_DUAL_CDC_PORT
+    { MP_ROM_QSTR(MP_QSTR_UART_GS), MP_ROM_INT(KD_UART_USB_GS_ID) },
+#endif
 
     { MP_ROM_QSTR(MP_QSTR_FIVEBITS), MP_ROM_INT(DATA_BITS_5) },
     { MP_ROM_QSTR(MP_QSTR_SIXBITS), MP_ROM_INT(DATA_BITS_6) },
