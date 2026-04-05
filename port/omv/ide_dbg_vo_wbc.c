@@ -332,13 +332,19 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
         return -1;
     }
 
-    py_display_wbc_dump_relase();
+    // NOTE: Do NOT release the WBC block here! VENC reads from it asynchronously.
+    // We must hold the WBC block until kd_mpi_venc_get_stream() returns, which
+    // guarantees the VPU has finished reading from the WBC buffer. Releasing early
+    // allows the WBC ISR to reuse this block as a DMA write target while the VPU
+    // is still reading, causing memory corruption.
 
     // Query VENC status first to get pack count
     k_venc_chn_status venc_status;
     memset(&venc_status, 0, sizeof(venc_status));
 
     if (kd_mpi_venc_query_status(g_wbc_ctx.chn_id, &venc_status) != 0) {
+        py_display_wbc_dump_relase();
+
         printf("ide dbg vo wbc failed to query VENC status\n");
         return -1;
     }
@@ -363,9 +369,14 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
     memset(stream.pack, 0, sizeof(k_venc_pack) * stream.pack_cnt);
 
     if (kd_mpi_venc_get_stream(g_wbc_ctx.chn_id, &stream, 1000) != 0) {
+        py_display_wbc_dump_relase();
+
         printf("ide dbg vo wbc failed to get stream from VENC\n");
         return -1;
     }
+
+    // VENC has finished reading the WBC buffer — safe to release now
+    py_display_wbc_dump_relase();
 
     // Check if we have valid packets
     if (stream.pack_cnt == 0 || stream.pack[0].phys_addr == 0) {
