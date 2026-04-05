@@ -242,6 +242,30 @@ void mp_hal_poll_dupterm(void) {
     }
 }
 
+uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
+    uintptr_t ret = 0;
+
+    mp_hal_poll_dupterm();
+
+    if (poll_flags & MP_STREAM_POLL_RD) {
+        pthread_mutex_lock(&mp_hal_stdin_lock);
+        if (mp_hal_stdin_rptr != mp_hal_stdin_wptr) {
+            ret |= MP_STREAM_POLL_RD;
+        }
+        pthread_mutex_unlock(&mp_hal_stdin_lock);
+    }
+
+    if (poll_flags & MP_STREAM_POLL_WR) {
+        ret |= MP_STREAM_POLL_WR;
+    }
+
+    if (MICROPY_PY_OS_DUPTERM) {
+        ret |= mp_os_dupterm_poll(poll_flags);
+    }
+
+    return ret;
+}
+
 int mp_hal_stdin_rx_chr(void) {
     while (1) {
         pthread_mutex_lock(&mp_hal_stdin_lock);

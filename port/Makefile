@@ -213,6 +213,7 @@ CANMV_SRC_C += $(addprefix shared/,\
 	runtime/pyexec.c \
 	runtime/mpirq.c \
 	runtime/interrupt_char.c \
+	runtime/sys_stdio_mphal.c \
 	timeutils/timeutils.c \
 	readline/readline.c \
 	netutils/netutils.c \
