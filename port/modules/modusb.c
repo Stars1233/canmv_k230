@@ -31,7 +31,10 @@
 STATIC const mp_rom_map_elem_t usb_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_usb) },
 
+    { MP_ROM_QSTR(MP_QSTR_Keyboard), MP_ROM_PTR(&py_usb_keyboard_type) },
+    { MP_ROM_QSTR(MP_QSTR_Mouse), MP_ROM_PTR(&py_usb_mouse_type) },
     { MP_ROM_QSTR(MP_QSTR_Serial), MP_ROM_PTR(&py_usb_serial_type) },
+    { MP_ROM_QSTR(MP_QSTR_Touch), MP_ROM_PTR(&py_usb_touch_type) },
 };
 STATIC MP_DEFINE_CONST_DICT(usb_module_globals, usb_module_globals_table);
 

@@ -32,6 +32,9 @@
 
 extern const mp_obj_type_t py_nonai_2d_csc_type;
 extern const mp_obj_type_t py_usb_serial_type;
+extern const mp_obj_type_t py_usb_keyboard_type;
+extern const mp_obj_type_t py_usb_mouse_type;
+extern const mp_obj_type_t py_usb_touch_type;
 
 extern const mp_obj_type_t py_media_display_type;
 extern const mp_obj_type_t py_media_gsdma_type;
