@@ -340,11 +340,11 @@ static bool py_usb_hid_kind_matches(const py_usb_hid_obj_t *self, uint32_t kind)
 
 static void py_usb_hid_mark_disconnected(py_usb_hid_obj_t *self)
 {
-    if (self == NULL) {
+    if (self == NULL || self->inst == NULL) {
         return;
     }
 
-    drv_input_inst_destroy(&self->inst);
+    drv_input_inst_mark_disconnected(self->inst);
     memset(&self->info, 0, sizeof(self->info));
     py_usb_hid_reset_keyboard_state(self);
 }
@@ -399,22 +399,28 @@ static int py_usb_hid_open_internal(py_usb_hid_obj_t *self)
             return ret;
         }
     } else {
-        ret = drv_input_reconnect_by_type(&self->inst,
-                                          self->kind,
-                                          self->path,
-                                          sizeof(self->path),
-                                          &self->info);
+        char path[DRV_INPUT_PATH_MAX];
+        struct drv_input_info info;
+
+        ret = drv_input_find_first_by_type(self->kind, path, sizeof(path), &info);
         if (ret != 0) {
             return ret;
         }
-        py_usb_hid_reset_keyboard_state(self);
-        return 0;
+
+        ret = drv_input_inst_create_path(path, &self->inst);
+        if (ret != 0) {
+            return ret;
+        }
     }
 
     ret = py_usb_hid_refresh_info(self);
     if (ret != 0) {
         drv_input_inst_destroy(&self->inst);
         return ret;
+    }
+
+    if (self->auto_reconnect) {
+        drv_input_inst_set_auto_reconnect(self->inst, self->kind);
     }
 
     py_usb_hid_reset_keyboard_state(self);
@@ -430,26 +436,17 @@ static int py_usb_hid_reconnect_internal(py_usb_hid_obj_t *self)
         return -EINVAL;
     }
 
-    if (self->explicit_path && self->path[0] != '\0') {
-        ret = drv_input_reconnect_path(&self->inst, self->path, &self->info);
-    } else {
-        ret = drv_input_reconnect_by_type(&self->inst,
-                                          self->kind,
-                                          self->path,
-                                          sizeof(self->path),
-                                          &self->info);
+    if (self->inst == NULL) {
+        return py_usb_hid_open_internal(self);
     }
 
+    ret = drv_input_inst_try_reconnect(self->inst);
     if (ret != 0) {
         return ret;
     }
 
-    if (!py_usb_hid_kind_matches(self, self->info.kind)) {
-        drv_input_inst_destroy(&self->inst);
-        return -EINVAL;
-    }
-
-    if (self->inst != NULL && self->inst->path[0] != '\0') {
+    self->info = self->inst->info;
+    if (self->inst->path[0] != '\0') {
         py_usb_hid_set_path(self, self->inst->path);
     }
 
@@ -489,21 +486,17 @@ static int py_usb_hid_wait_ready(py_usb_hid_obj_t *self, int timeout_ms)
         return -ENODEV;
     }
 
+    if (self->inst == NULL) {
+        int ret = py_usb_hid_open_internal(self);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+
     start_ms = mp_hal_ticks_ms();
     for (;;) {
         int wait_ms = PY_USB_HID_POLL_SLICE_MS;
         int ret;
-
-        if (self->inst == NULL) {
-            ret = py_usb_hid_wait_reconnect(self, timeout_ms, start_ms);
-            if (ret == 0) {
-                continue;
-            }
-            if (ret > 0) {
-                return 0;
-            }
-            return ret;
-        }
 
         if (timeout_ms >= 0) {
             mp_uint_t elapsed_ms = mp_hal_ticks_ms() - start_ms;
@@ -526,7 +519,7 @@ static int py_usb_hid_wait_ready(py_usb_hid_obj_t *self, int timeout_ms)
             continue;
         }
 
-        if (self->auto_reconnect && drv_input_is_disconnect_error(ret)) {
+        if (ret == -ENODEV && self->auto_reconnect) {
             ret = py_usb_hid_reconnect_after_disconnect(self, timeout_ms, start_ms);
             if (ret == 0) {
                 continue;
@@ -753,7 +746,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_usb_hid_close_obj, py_usb_hid_close);
 static mp_obj_t py_usb_hid_is_open(mp_obj_t self_in)
 {
     py_usb_hid_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    return mp_obj_new_bool(self->inst != NULL);
+    return mp_obj_new_bool(drv_input_inst_is_connected(self->inst));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_usb_hid_is_open_obj, py_usb_hid_is_open);
 
@@ -771,7 +764,7 @@ static mp_obj_t py_usb_hid_poll(size_t n_args, const mp_obj_t *args)
     int timeout_ms = py_usb_hid_get_timeout_arg(self, n_args, args);
     int ret;
 
-    if (self->inst == NULL && !self->auto_reconnect) {
+    if (!drv_input_inst_is_connected(self->inst) && !self->auto_reconnect) {
         py_usb_hid_raise_error("poll", -ENODEV);
     }
 
@@ -789,31 +782,25 @@ static mp_obj_t py_usb_hid_info(mp_obj_t self_in)
     py_usb_hid_obj_t *self = MP_OBJ_TO_PTR(self_in);
     int ret;
 
-    if (self->inst == NULL && self->auto_reconnect) {
-        ret = py_usb_hid_wait_reconnect(self, self->timeout_ms, mp_hal_ticks_ms());
-        if (ret > 0) {
-            return mp_const_none;
-        }
-        if (ret < 0) {
+    if (self->inst == NULL) {
+        ret = py_usb_hid_open_internal(self);
+        if (ret != 0) {
             py_usb_hid_raise_error("info", ret);
         }
     }
 
-    if (self->inst == NULL) {
-        py_usb_hid_raise_error("info", -ENODEV);
+    if (!drv_input_inst_is_connected(self->inst)) {
+        if (self->auto_reconnect) {
+            ret = py_usb_hid_reconnect_internal(self);
+            if (ret != 0) {
+                py_usb_hid_raise_error("info", -ENODEV);
+            }
+        } else {
+            py_usb_hid_raise_error("info", -ENODEV);
+        }
     }
 
     ret = py_usb_hid_refresh_info(self);
-    if (ret != 0) {
-        if (self->auto_reconnect && drv_input_is_disconnect_error(ret)) {
-            ret = py_usb_hid_reconnect_after_disconnect(self, self->timeout_ms, mp_hal_ticks_ms());
-            if (ret == 0) {
-                ret = py_usb_hid_refresh_info(self);
-            } else if (ret > 0) {
-                return mp_const_none;
-            }
-        }
-    }
     if (ret != 0) {
         py_usb_hid_raise_error("info", ret);
     }
@@ -880,7 +867,7 @@ static mp_obj_t py_usb_keyboard_read(size_t n_args, const mp_obj_t *args)
         }
 
         ret = drv_input_read_keyboard_frame(self->inst, &frame);
-        if (ret >= 0) {
+        if (ret > 0) {
             if (frame.count == 0 && !frame.complete) {
                 MICROPY_EVENT_POLL_HOOK;
                 continue;
@@ -888,15 +875,9 @@ static mp_obj_t py_usb_keyboard_read(size_t n_args, const mp_obj_t *args)
             return py_usb_hid_build_keyboard_frame(self, &frame);
         }
 
-        if (self->auto_reconnect && drv_input_is_disconnect_error(ret)) {
-            ret = py_usb_hid_reconnect_after_disconnect(self, remaining_ms, start_ms);
-            if (ret == 0) {
-                continue;
-            }
-            if (ret > 0) {
-                return mp_const_none;
-            }
-            py_usb_hid_raise_error("read", ret);
+        if (ret == 0) {
+            MICROPY_EVENT_POLL_HOOK;
+            continue;
         }
 
         py_usb_hid_raise_error("read", ret);
@@ -934,7 +915,7 @@ static mp_obj_t py_usb_pointer_read(size_t n_args, const mp_obj_t *args)
         }
 
         ret = drv_input_read_pointer_frame(self->inst, &frame);
-        if (ret >= 0) {
+        if (ret > 0) {
             if (!frame.complete && !frame.has_rel && !frame.has_abs && frame.pressed_mask == 0 && frame.released_mask == 0) {
                 MICROPY_EVENT_POLL_HOOK;
                 continue;
@@ -942,15 +923,9 @@ static mp_obj_t py_usb_pointer_read(size_t n_args, const mp_obj_t *args)
             return py_usb_hid_build_pointer_frame(&frame, self->kind);
         }
 
-        if (self->auto_reconnect && drv_input_is_disconnect_error(ret)) {
-            ret = py_usb_hid_reconnect_after_disconnect(self, remaining_ms, start_ms);
-            if (ret == 0) {
-                continue;
-            }
-            if (ret > 0) {
-                return mp_const_none;
-            }
-            py_usb_hid_raise_error("read", ret);
+        if (ret == 0) {
+            MICROPY_EVENT_POLL_HOOK;
+            continue;
         }
 
         py_usb_hid_raise_error("read", ret);
