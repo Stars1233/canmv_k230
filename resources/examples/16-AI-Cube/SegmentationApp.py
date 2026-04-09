@@ -55,14 +55,17 @@ class SegmentationApp(AIBase):
 
 
 if __name__=="__main__":
-    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516/nt35532/gc9503/aml020t/jd9852/ili9806/virt；其中hdmi默认对应lt9611，lcd默认对应st7701
     display_mode="hdmi"
+    # 显示分辨率，None表示使用当前显示屏默认分辨率；使用virt时可在这里手动设置，例如[800, 480]
+    display_size=None
     # kmodel路径
     kmodel_path="/sdcard/examples/ai_test_kmodel/ocular_seg.kmodel"
     # 分割类别数，设置类别数时必须包含背景，且背景为第一类
     num_class=2
-    # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=[512,512],display_mode=display_mode)
+    # 初始化PipeLine，rgb888p_size为传给AI的图像分辨率，display_size为显示分辨率
+    pl=PipeLine(rgb888p_size=[512,512],display_mode=display_mode, display_size=display_size)
+    # 创建PipeLine，可按需传入sensor_id选择摄像头，例如pl.create(sensor_id=2)
     pl.create()
     display_size=pl.get_display_size()
     # 分割类实例，关注模型输入分辨率，传给AI的图像分辨率，显示的分辨率

@@ -20,7 +20,7 @@ class PipeLine:
             self.display_size=None
         else:
             self.display_size=[display_size[0],display_size[1]]
-        # 视频显示模式，支持："lcd"(default st7701 800*480)，"hdmi"(default lt9611)，"lt9611"，"st7701"，"hx8399", "nt35516", "nt35532", "gc9503", "aml020t"
+        # 视频显示模式，支持："lcd"(default st7701), "hdmi"(default lt9611), "lt9611", "st7701", "hx8399", "nt35516", "nt35532", "gc9503", "aml020t", "jd9852", "ili9806", "virt"；若选择"virt"，可通过display_size自定义分辨率
         self.display_mode=display_mode
         # sensor对象
         self.sensor=None

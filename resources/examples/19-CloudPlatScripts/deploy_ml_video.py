@@ -28,6 +28,8 @@ from libs.Utils import *
 # Set display mode: options are 'hdmi', 'lcd', 'lt9611', 'st7701', 'hx8399'
 # 'hdmi' defaults to 'lt9611' (1920x1080); 'lcd' defaults to 'st7701' (800x480)
 display_mode = "lt9611"
+# Display resolution. Use None for the panel default; set a custom size here when using 'virt', for example [800, 480]
+display_size = None
 
 # Define the input size for the RGB888P video frames
 rgb888p_size = [1280, 720]
@@ -45,8 +47,9 @@ model_input_size = deploy_conf["img_size"]                         # Model input
 inference_mode = "video"                                           # Inference mode: 'video'
 debug_mode = 0                                                     # Debug mode flag
 
-# Create and initialize the video/display pipeline
-pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode)
+# Initialize the PipeLine. rgb888p_size is the AI input resolution and display_size is the display resolution
+pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode, display_size=display_size)
+# Create the PipeLine. Pass sensor_id to select a camera when needed, for example pl.create(sensor_id=2)
 pl.create()
 display_size = pl.get_display_size()
 

@@ -241,8 +241,10 @@ class FaceLandMark:
 
 
 if __name__=="__main__":
-    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516/nt35532/gc9503/aml020t/jd9852/ili9806/virt；其中hdmi默认对应lt9611，lcd默认对应st7701
     display_mode="hdmi"
+    # 显示分辨率，None表示使用当前显示屏默认分辨率；使用virt时可在这里手动设置，例如[800, 480]
+    display_size=None
     # k230保持不变，k230d可调整为[640,360]
     rgb888p_size = [1280, 720]
 
@@ -265,8 +267,9 @@ if __name__=="__main__":
     anchors = np.fromfile(anchors_path, dtype=np.float)
     anchors = anchors.reshape((anchor_len,det_dim))
 
-    # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
+    # 初始化PipeLine，rgb888p_size为传给AI的图像分辨率，display_size为显示分辨率
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode, display_size=display_size)
+    # 创建PipeLine，可按需传入sensor_id选择摄像头，例如pl.create(sensor_id=2)
     pl.create()
     display_size=pl.get_display_size()
     flm=FaceLandMark(face_det_kmodel_path,face_landmark_kmodel_path,det_input_size=face_det_input_size,landmark_input_size=face_landmark_input_size,anchors=anchors,confidence_threshold=confidence_threshold,nms_threshold=nms_threshold,rgb888p_size=rgb888p_size,display_size=display_size)

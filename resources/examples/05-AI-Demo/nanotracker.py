@@ -329,8 +329,10 @@ class NanoTracker:
 
 
 if __name__=="__main__":
-    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516,其中hdmi默认置为lt9611，分辨率1920*1080；lcd默认置为st7701，分辨率800*480
+    # 添加显示模式，默认hdmi，可选hdmi/lcd/lt9611/st7701/hx8399/nt35516/nt35532/gc9503/aml020t/jd9852/ili9806/virt；其中hdmi默认对应lt9611，lcd默认对应st7701
     display_mode="lcd"
+    # 显示分辨率，None表示使用当前显示屏默认分辨率；使用virt时可在这里手动设置，例如[800, 480]
+    display_size=None
     rgb888p_size=[640,360]
     # 跟踪模板模型路径
     track_crop_kmodel_path="/sdcard/examples/kmodel/cropped_test127.kmodel"
@@ -343,8 +345,9 @@ if __name__=="__main__":
     track_src_input_size=[255,255]
     threshold=0.1
 
-    # 初始化PipeLine，只关注传给AI的图像分辨率，显示的分辨率
-    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode)
+    # 初始化PipeLine，rgb888p_size为传给AI的图像分辨率，display_size为显示分辨率
+    pl=PipeLine(rgb888p_size=rgb888p_size,display_mode=display_mode, display_size=display_size)
+    # 创建PipeLine，可按需传入sensor_id选择摄像头，例如pl.create(sensor_id=2)
     pl.create()
     display_size=pl.get_display_size()
     track=NanoTracker(track_crop_kmodel_path,track_src_kmodel_path,tracker_kmodel_path,crop_input_size=track_crop_input_size,src_input_size=track_src_input_size,threshold=threshold,rgb888p_size=rgb888p_size,display_size=display_size)

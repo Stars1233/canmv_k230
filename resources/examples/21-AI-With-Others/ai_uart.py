@@ -147,6 +147,8 @@ class ObjectDetectionApp(AIBase):
 if __name__ == "__main__":
     # Choose display mode: lcd / hdmi / lt9611 / st7701 / hx8399
     display_mode = "lcd"
+    # Display resolution. Use None for the panel default; set a custom size here when using 'virt', for example [800, 480]
+    display_size = None
     rgb888p_size = [224, 224]
     kmodel_path = "/sdcard/examples/kmodel/yolov8n_224.kmodel"
 
@@ -166,8 +168,9 @@ if __name__ == "__main__":
     nms_threshold = 0.4
     max_boxes_num = 30
 
-    # Initialize video pipeline
-    pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode)
+    # Initialize the PipeLine. rgb888p_size is the AI input resolution and display_size is the display resolution
+    pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode, display_size=display_size)
+    # Create the PipeLine. Pass sensor_id to select a camera when needed, for example pl.create(sensor_id=2)
     pl.create()
     display_size = pl.get_display_size()
 
