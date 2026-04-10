@@ -108,12 +108,12 @@ void from_numpy(cv_and_ndarray_convert_info *info,cv::Mat& mat_data)
 void to_numpy(cv::Mat& mat_data, cv_and_ndarray_convert_info *info)
 {
     info->dtype_ = get_dtype_for_mp(mat_data.type());
-    memset(info->shape_,0,sizeof(size_t)*3);
+    hal_rvv_memset(info->shape_,0,sizeof(size_t)*3);
     info->shape_[0] = mat_data.rows;        //hwc
     info->shape_[1] = mat_data.cols;
     info->shape_[2] = mat_data.channels();
 
-    memset(info->strides_,0,sizeof(size_t)*3);
+    hal_rvv_memset(info->strides_,0,sizeof(size_t)*3);
     int numpy_elem_size = mat_data.elemSize() / mat_data.channels();
     info->strides_[0] = numpy_elem_size * info->shape_[1] * info->shape_[2];
     info->strides_[1] = numpy_elem_size * info->shape_[2];
@@ -122,7 +122,7 @@ void to_numpy(cv::Mat& mat_data, cv_and_ndarray_convert_info *info)
     info->ndim_ = mat_data.dims;
     info->len_ = mat_data.total();
     info->data_ = (void *)malloc(info->len_ * mat_data.elemSize());
-    std::memcpy(info->data_, mat_data.data, mat_data.total() * mat_data.elemSize());
+    hal_rvv_memcpy(info->data_, mat_data.data, mat_data.total() * mat_data.elemSize());
 }
 
 void invert_affine_transform(float *data,cv_and_ndarray_convert_info *info)

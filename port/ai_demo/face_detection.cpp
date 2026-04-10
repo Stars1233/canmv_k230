@@ -279,7 +279,7 @@ FaceDetectionInfoVector* face_detetion_post_process(float obj_thresh,float nms_t
             (mp_results->bbox + ret_i)->y = results[ret_i].bbox.y;
             (mp_results->bbox + ret_i)->w = results[ret_i].bbox.w;
             (mp_results->bbox + ret_i)->h = results[ret_i].bbox.h;
-            memcpy((mp_results->sparse_kps + ret_i)->points,results[ret_i].sparse_kps.points,sizeof(SparseLandmarks));
+            hal_rvv_memcpy((mp_results->sparse_kps + ret_i)->points,results[ret_i].sparse_kps.points,sizeof(SparseLandmarks));
             mp_results->score[ret_i] = results[ret_i].score;
         }
     }

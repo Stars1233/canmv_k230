@@ -14,6 +14,8 @@
 #include "py/mphal.h"
 #include "xalloc.h"
 
+#include "hal_rvv_ops.h"
+
 NORETURN static void xalloc_fail(uint32_t size) {
     mp_raise_msg_varg(&mp_type_MemoryError,
                       MP_ERROR_TEXT("memory allocation failed, allocating %u bytes"), (uint) size);
@@ -39,7 +41,7 @@ void *xalloc0(uint32_t size) {
     if (size && (mem == NULL)) {
         xalloc_fail(size);
     }
-    memset(mem, 0, size);
+    hal_rvv_memset(mem, 0, size);
     return mem;
 }
 

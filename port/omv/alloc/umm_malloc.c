@@ -185,7 +185,7 @@ void umm_init_x(size_t size) {
     /* init heap pointer and size, and memset it to 0 */
     umm_heap = (umm_block *) UMM_MALLOC_CFG_HEAP_ADDR;
     umm_numblocks = (UMM_MALLOC_CFG_HEAP_SIZE / sizeof(umm_block));
-    memset(umm_heap, 0x00, UMM_MALLOC_CFG_HEAP_SIZE);
+    hal_rvv_memset(umm_heap, 0x00, UMM_MALLOC_CFG_HEAP_SIZE);
 
     /* setup initial blank heap structure */
     {
@@ -579,7 +579,7 @@ void *umm_realloc(void *ptr, size_t size) {
         void *oldptr = ptr;
         if ( (ptr = umm_malloc(size)) ) {
             DBGLOG_DEBUG("realloc %i to a bigger block %i, copy, and free the old\n", blockSize, blocks);
-            memcpy(ptr, oldptr, curSize);
+            hal_rvv_memcpy(ptr, oldptr, curSize);
             umm_free(oldptr);
         } else {
             DBGLOG_DEBUG("realloc %i to a bigger block %i failed - return NULL and leave the old block!\n",
@@ -614,7 +614,7 @@ void *umm_calloc(size_t num, size_t item_size) {
     ret = umm_malloc((size_t) (item_size * num));
 
     if (ret) {
-        memset(ret, 0x00, (size_t) (item_size * num));
+        hal_rvv_memset(ret, 0x00, (size_t) (item_size * num));
     }
 
     return ret;

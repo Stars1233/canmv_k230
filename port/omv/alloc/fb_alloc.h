@@ -51,12 +51,17 @@
  */
 #ifndef __FB_ALLOC_H__
 #define __FB_ALLOC_H__
+
 #include <stdint.h>
 #include "py/obj.h"
+
+#include "hal_rvv_ops.h"
+
 #define FB_ALLOC_NO_HINT         0
 #define FB_ALLOC_PREFER_SPEED    1
 #define FB_ALLOC_PREFER_SIZE     2
 #define FB_ALLOC_CACHE_ALIGN     4
+
 void fb_alloc_fail();
 void fb_alloc_init0();
 uint32_t fb_avail();

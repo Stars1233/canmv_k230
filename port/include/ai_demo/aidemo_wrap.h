@@ -30,6 +30,8 @@
 #include <stdbool.h>
 #include "aidemo_type.h"
 
+#include "hal_rvv_ops.h"
+
 //for common
 typedef struct generic_array generic_array;
 typedef struct FrameSize FrameSize;

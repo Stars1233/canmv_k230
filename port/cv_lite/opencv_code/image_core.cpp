@@ -11,6 +11,8 @@
 
 #include <riscv_vector.h>
 
+#include "hal_rvv_ops.h"
+
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
@@ -31,7 +33,7 @@ uint8_t* load_image(const char* load_path,FrameCHWSize* image_frame_shape){
     cvtColor(image, image, COLOR_RGB2BGR);
     // 分配内存并复制数据
     uint8_t* img_data = (uint8_t*)malloc(image_frame_shape->height * image_frame_shape->width * image_frame_shape->channel * sizeof(uint8_t));
-    memcpy(img_data, image.data, image_frame_shape->height * image_frame_shape->width * image_frame_shape->channel * sizeof(uint8_t));
+    hal_rvv_memcpy(img_data, image.data, image_frame_shape->height * image_frame_shape->width * image_frame_shape->channel * sizeof(uint8_t));
     // 释放OpenCV分配的内存
     image.release();
     // 返回数据指针

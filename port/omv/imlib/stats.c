@@ -157,7 +157,7 @@ void imlib_get_similarity(image_t *img,
 void imlib_get_histogram(histogram_t *out, image_t *ptr, rectangle_t *roi, list_t *thresholds, bool invert, image_t *other) {
     switch (ptr->pixfmt) {
         case PIXFORMAT_BINARY: {
-            memset(out->LBins, 0, out->LBinCount * sizeof(uint32_t));
+            hal_rvv_memset(out->LBins, 0, out->LBinCount * sizeof(uint32_t));
 
             int pixel_count = roi->w * roi->h;
             float mult = (out->LBinCount - 1) / ((float) (COLOR_BINARY_MAX - COLOR_BINARY_MIN));
@@ -231,7 +231,7 @@ void imlib_get_histogram(histogram_t *out, image_t *ptr, rectangle_t *roi, list_
             break;
         }
         case PIXFORMAT_GRAYSCALE: {
-            memset(out->LBins, 0, out->LBinCount * sizeof(uint32_t));
+            hal_rvv_memset(out->LBins, 0, out->LBinCount * sizeof(uint32_t));
 
             int pixel_count = roi->w * roi->h;
             float mult = (out->LBinCount - 1) / ((float) (COLOR_GRAYSCALE_MAX - COLOR_GRAYSCALE_MIN));
@@ -309,9 +309,9 @@ void imlib_get_histogram(histogram_t *out, image_t *ptr, rectangle_t *roi, list_
             break;
         }
         case PIXFORMAT_RGB565: {
-            memset(out->LBins, 0, out->LBinCount * sizeof(uint32_t));
-            memset(out->ABins, 0, out->ABinCount * sizeof(uint32_t));
-            memset(out->BBins, 0, out->BBinCount * sizeof(uint32_t));
+            hal_rvv_memset(out->LBins, 0, out->LBinCount * sizeof(uint32_t));
+            hal_rvv_memset(out->ABins, 0, out->ABinCount * sizeof(uint32_t));
+            hal_rvv_memset(out->BBins, 0, out->BBinCount * sizeof(uint32_t));
 
             int pixel_count = roi->w * roi->h;
             float l_mult = (out->LBinCount - 1) / ((float) (COLOR_L_MAX - COLOR_L_MIN));
@@ -418,7 +418,7 @@ void imlib_get_histogram(histogram_t *out, image_t *ptr, rectangle_t *roi, list_
 }
 
 void imlib_get_percentile(percentile_t *out, pixformat_t pixfmt, histogram_t *ptr, float percentile) {
-    memset(out, 0, sizeof(percentile_t));
+    hal_rvv_memset(out, 0, sizeof(percentile_t));
     switch (pixfmt) {
         case PIXFORMAT_BINARY: {
             float mult = (COLOR_BINARY_MAX - COLOR_BINARY_MIN) / ((float) (ptr->LBinCount - 1));
@@ -497,8 +497,8 @@ void imlib_get_percentile(percentile_t *out, pixformat_t pixfmt, histogram_t *pt
 }
 
 static int ostu(int bincount, float *bins) {
-    float cdf[bincount]; memset(cdf, 0, bincount * sizeof(float));
-    float weighted_cdf[bincount]; memset(weighted_cdf, 0, bincount * sizeof(float));
+    float cdf[bincount]; hal_rvv_memset(cdf, 0, bincount * sizeof(float));
+    float weighted_cdf[bincount]; hal_rvv_memset(weighted_cdf, 0, bincount * sizeof(float));
 
     cdf[0] = bins[0];
     weighted_cdf[0] = 0 * bins[0];
@@ -508,7 +508,7 @@ static int ostu(int bincount, float *bins) {
         weighted_cdf[i] = weighted_cdf[i - 1] + (i * bins[i]);
     }
 
-    float variance[bincount]; memset(variance, 0, bincount * sizeof(float));
+    float variance[bincount]; hal_rvv_memset(variance, 0, bincount * sizeof(float));
     float max_variance = 0.0f;
     int threshold = 0;
 
@@ -530,7 +530,7 @@ static int ostu(int bincount, float *bins) {
 }
 
 void imlib_get_threshold(threshold_t *out, pixformat_t pixfmt, histogram_t *ptr) {
-    memset(out, 0, sizeof(threshold_t));
+    hal_rvv_memset(out, 0, sizeof(threshold_t));
     switch (pixfmt) {
         case PIXFORMAT_BINARY: {
             out->LValue = (ostu(ptr->LBinCount, ptr->LBins) * (COLOR_BINARY_MAX - COLOR_BINARY_MIN)) / (ptr->LBinCount - 1);
@@ -554,7 +554,7 @@ void imlib_get_threshold(threshold_t *out, pixformat_t pixfmt, histogram_t *ptr)
 }
 
 void imlib_get_statistics(statistics_t *out, pixformat_t pixfmt, histogram_t *ptr) {
-    memset(out, 0, sizeof(statistics_t));
+    hal_rvv_memset(out, 0, sizeof(statistics_t));
     switch (pixfmt) {
         case PIXFORMAT_BINARY: {
             float mult = (COLOR_BINARY_MAX - COLOR_BINARY_MIN) / ((float) (ptr->LBinCount - 1));
@@ -846,7 +846,7 @@ bool imlib_get_regression(find_lines_list_lnk_data_t *out,
                           unsigned int pixels_threshold,
                           bool robust) {
     bool result = false;
-    memset(out, 0, sizeof(find_lines_list_lnk_data_t));
+    hal_rvv_memset(out, 0, sizeof(find_lines_list_lnk_data_t));
 
     if (!robust) {
         // Least Squares
@@ -998,7 +998,7 @@ bool imlib_get_regression(find_lines_list_lnk_data_t *out,
                 out->rho += fast_roundf((roi->x * cos_table[out->theta]) + (roi->y * sin_table[out->theta]));
                 result = true;
             } else {
-                memset(out, 0, sizeof(find_lines_list_lnk_data_t));
+                hal_rvv_memset(out, 0, sizeof(find_lines_list_lnk_data_t));
             }
         }
     } else {
@@ -1155,7 +1155,7 @@ bool imlib_get_regression(find_lines_list_lnk_data_t *out,
                         out->rho += fast_roundf((roi->x * cos_table[out->theta]) + (roi->y * sin_table[out->theta]));
                         result = true;
                     } else {
-                        memset(out, 0, sizeof(find_lines_list_lnk_data_t));
+                        hal_rvv_memset(out, 0, sizeof(find_lines_list_lnk_data_t));
                     }
                 }
             }

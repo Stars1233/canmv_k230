@@ -145,7 +145,7 @@ static inline void zarray_destroy(zarray_t *za)
 
     if (za->data != NULL)
         free(za->data);
-    memset(za, 0, sizeof(zarray_t));
+    hal_rvv_memset(za, 0, sizeof(zarray_t));
     free(za);
 }
 
@@ -159,7 +159,7 @@ static inline zarray_t *zarray_copy(const zarray_t *za)
     zb->size = za->size;
     zb->alloc = za->alloc;
     zb->data = (char*) malloc(zb->alloc * zb->el_sz);
-    memcpy(zb->data, za->data, za->size * za->el_sz);
+    hal_rvv_memcpy(zb->data, za->data, za->size * za->el_sz);
     return zb;
 }
 
@@ -189,7 +189,7 @@ static inline zarray_t *zarray_copy_subset(const zarray_t *za,
     out->size = end_idx_exclusive - start_idx;
     out->alloc = iceillog2(out->size); // round up pow 2
     out->data = (char*) malloc(out->alloc * out->el_sz);
-    memcpy(out->data,  za->data +(start_idx*out->el_sz), out->size*out->el_sz);
+    hal_rvv_memcpy(out->data,  za->data +(start_idx*out->el_sz), out->size*out->el_sz);
     return out;
 }
 
@@ -254,7 +254,7 @@ static inline void zarray_add(zarray_t *za, const void *p)
 
     zarray_ensure_capacity(za, za->size + 1);
 
-    memcpy(&za->data[za->size*za->el_sz], p, za->el_sz);
+    hal_rvv_memcpy(&za->data[za->size*za->el_sz], p, za->el_sz);
     za->size++;
 }
 
@@ -288,7 +288,7 @@ static inline void zarray_add_fail_ok(zarray_t *za, const void *p)
         }
     }
 
-    memcpy(&za->data[za->size*za->el_sz], p, za->el_sz);
+    hal_rvv_memcpy(&za->data[za->size*za->el_sz], p, za->el_sz);
     za->size++;
 }
 
@@ -304,7 +304,7 @@ static inline void zarray_get(const zarray_t *za, int idx, void *p)
     assert(idx >= 0);
     assert(idx < za->size);
 
-    memcpy(p, &za->data[idx*za->el_sz], za->el_sz);
+    hal_rvv_memcpy(p, &za->data[idx*za->el_sz], za->el_sz);
 }
 
 /**
@@ -347,7 +347,7 @@ static inline size_t zarray_copy_data(const zarray_t *za, void *buffer, size_t b
     assert(za != NULL);
     assert(buffer != NULL);
     assert(buffer_bytes >= za->el_sz * za->size);
-    memcpy(buffer, za->data, za->el_sz * za->size);
+    hal_rvv_memcpy(buffer, za->data, za->el_sz * za->size);
     return za->el_sz * za->size;
 }
 
@@ -364,7 +364,7 @@ static inline void zarray_remove_index(zarray_t *za, int idx, int shuffle)
 
     if (shuffle) {
         if (idx < za->size-1)
-            memcpy(&za->data[idx*za->el_sz], &za->data[(za->size-1)*za->el_sz], za->el_sz);
+            hal_rvv_memcpy(&za->data[idx*za->el_sz], &za->data[(za->size-1)*za->el_sz], za->el_sz);
         za->size--;
         return;
     } else {
@@ -430,7 +430,7 @@ static inline void zarray_insert(zarray_t *za, int idx, const void *p)
     int ncopy = za->size - idx;
 
     memmove(&za->data[(idx+1)*za->el_sz], &za->data[idx*za->el_sz], ncopy*za->el_sz);
-    memcpy(&za->data[idx*za->el_sz], p, za->el_sz);
+    hal_rvv_memcpy(&za->data[idx*za->el_sz], p, za->el_sz);
 
     za->size++;
 }
@@ -449,9 +449,9 @@ static inline void zarray_set(zarray_t *za, int idx, const void *p, void *outp)
     assert(idx < za->size);
 
     if (outp != NULL)
-        memcpy(outp, &za->data[idx*za->el_sz], za->el_sz);
+        hal_rvv_memcpy(outp, &za->data[idx*za->el_sz], za->el_sz);
 
-    memcpy(&za->data[idx*za->el_sz], p, za->el_sz);
+    hal_rvv_memcpy(&za->data[idx*za->el_sz], p, za->el_sz);
 }
 
 /**
@@ -1238,7 +1238,7 @@ matd_t *matd_inverse(const matd_t *a);
 
 static inline void matd_set_data(matd_t *m, const float *data)
 {
-    memcpy(m->data, data, m->nrows * m->ncols * sizeof(float));
+    hal_rvv_memcpy(m->data, data, m->nrows * m->ncols * sizeof(float));
 }
 
 /**
@@ -1564,7 +1564,7 @@ matd_t *matd_copy(const matd_t *m)
     if (matd_is_scalar(m))
         x->data[0] = m->data[0];
     else
-        memcpy(x->data, m->data, sizeof(TYPE)*m->ncols*m->nrows);
+        hal_rvv_memcpy(x->data, m->data, sizeof(TYPE)*m->ncols*m->nrows);
 
     return x;
 }
@@ -2828,7 +2828,7 @@ static matd_svd_t matd_svd_tall(matd_t *A, int flags)
     matd_destroy(RP);
 
     matd_svd_t res;
-    memset(&res, 0, sizeof(res));
+    hal_rvv_memset(&res, 0, sizeof(res));
 
     // make B exactly diagonal
 
@@ -2865,7 +2865,7 @@ matd_svd_t matd_svd_flags(matd_t *A, int flags)
 
         matd_svd_t tmp = matd_svd_tall(At, flags);
 
-        memset(&res, 0, sizeof(res));
+        hal_rvv_memset(&res, 0, sizeof(res));
         res.U = tmp.V; //matd_transpose(tmp.V);
         res.S = matd_transpose(tmp.S);
         res.V = tmp.U; //matd_transpose(tmp.U);
@@ -2938,9 +2938,9 @@ matd_plu_t *matd_plu(const matd_t *a)
         // swap rows p and j?
         if (p != j) {
             TYPE tmp[lu->ncols];
-            memcpy(tmp, &MATD_EL(lu, p, 0), sizeof(TYPE) * lu->ncols);
-            memcpy(&MATD_EL(lu, p, 0), &MATD_EL(lu, j, 0), sizeof(TYPE) * lu->ncols);
-            memcpy(&MATD_EL(lu, j, 0), tmp, sizeof(TYPE) * lu->ncols);
+            hal_rvv_memcpy(tmp, &MATD_EL(lu, p, 0), sizeof(TYPE) * lu->ncols);
+            hal_rvv_memcpy(&MATD_EL(lu, p, 0), &MATD_EL(lu, j, 0), sizeof(TYPE) * lu->ncols);
+            hal_rvv_memcpy(&MATD_EL(lu, j, 0), tmp, sizeof(TYPE) * lu->ncols);
             int k = piv[p];
             piv[p] = piv[j];
             piv[j] = k;
@@ -2982,7 +2982,7 @@ void matd_plu_destroy(matd_plu_t *mlu)
 {
     matd_destroy(mlu->lu);
     free(mlu->piv);
-    memset(mlu, 0, sizeof(matd_plu_t));
+    hal_rvv_memset(mlu, 0, sizeof(matd_plu_t));
     free(mlu);
 }
 
@@ -3052,7 +3052,7 @@ matd_t *matd_plu_solve(const matd_plu_t *mlu, const matd_t *b)
 
     // permute right hand side
     for (int i = 0; i < mlu->lu->nrows; i++)
-        memcpy(&MATD_EL(x, i, 0), &MATD_EL(b, mlu->piv[i], 0), sizeof(TYPE) * b->ncols);
+        hal_rvv_memcpy(&MATD_EL(x, i, 0), &MATD_EL(b, mlu->piv[i], 0), sizeof(TYPE) * b->ncols);
 
     // solve Ly = b
     for (int k = 0; k < mlu->lu->nrows; k++) {
@@ -3168,8 +3168,8 @@ int main(int argc, char *argv[])
 
         matd_svd22_impl(A->data, &s);
 
-        memcpy(U->data, s.U, 4*sizeof(float));
-        memcpy(V->data, s.V, 4*sizeof(float));
+        hal_rvv_memcpy(U->data, s.U, 4*sizeof(float));
+        hal_rvv_memcpy(V->data, s.V, 4*sizeof(float));
         MATD_EL(S,0,0) = s.S[0];
         MATD_EL(S,1,1) = s.S[1];
 
@@ -3295,7 +3295,7 @@ void matd_chol_destroy(matd_chol_t *chol)
 void matd_ltransposetriangle_solve(matd_t *u, const TYPE *b, TYPE *x)
 {
     int n = u->ncols;
-    memcpy(x, b, n*sizeof(TYPE));
+    hal_rvv_memcpy(x, b, n*sizeof(TYPE));
     for (int i = 0; i < n; i++) {
         x[i] /= MATD_EL(u, i, i);
 
@@ -4381,7 +4381,7 @@ void g2d_polygon_closest_boundary_point(const zarray_t *poly, const float q[2], 
 
         float dist = g2d_distance(q, thisp);
         if (dist < min_dist) {
-            memcpy(p, thisp, sizeof(float[2]));
+            hal_rvv_memcpy(p, thisp, sizeof(float[2]));
             min_dist = dist;
         }
     }
@@ -9333,7 +9333,7 @@ static inline void ptsort(struct pt *pts, int sz)
 
     struct pt *tmp = fb_alloc(sizeof(struct pt) * sz, FB_ALLOC_NO_HINT);
 
-    memcpy(tmp, pts, sizeof(struct pt) * sz);
+    hal_rvv_memcpy(tmp, pts, sizeof(struct pt) * sz);
 
     int asz = sz/2;
     int bsz = sz - asz;
@@ -9361,9 +9361,9 @@ static inline void ptsort(struct pt *pts, int sz)
     }
 
     if (apos < asz)
-        memcpy(&pts[outpos], &as[apos], (asz-apos)*sizeof(struct pt));
+        hal_rvv_memcpy(&pts[outpos], &as[apos], (asz-apos)*sizeof(struct pt));
     if (bpos < bsz)
-        memcpy(&pts[outpos], &bs[bpos], (bsz-bpos)*sizeof(struct pt));
+        hal_rvv_memcpy(&pts[outpos], &bs[bpos], (bsz-bpos)*sizeof(struct pt));
 
     fb_free(); // tmp
 
@@ -9612,7 +9612,7 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
         }
 
         fb_free(); // f
-        memcpy(errs, y, sz * sizeof(float));
+        hal_rvv_memcpy(errs, y, sz * sizeof(float));
         fb_free(); // y
     }
 
@@ -9641,7 +9641,7 @@ int quad_segment_maxima(apriltag_detector_t *td, zarray_t *cluster, struct line_
 
     if (nmaxima > max_nmaxima) {
         float *maxima_errs_copy = fb_alloc(nmaxima * sizeof(float), FB_ALLOC_NO_HINT);
-        memcpy(maxima_errs_copy, maxima_errs, nmaxima * sizeof(float));
+        hal_rvv_memcpy(maxima_errs_copy, maxima_errs, nmaxima * sizeof(float));
 
         // throw out all but the best handful of maxima. Sorts descending.
         qsort(maxima_errs_copy, nmaxima, sizeof(float), err_compare_descending);
@@ -9808,7 +9808,7 @@ int fit_quad(apriltag_detector_t *td, image_u8_t *im, zarray_t *cluster, struct 
                     if (i != outpos)  {
                         struct pt *out;
                         zarray_get_volatile(cluster, outpos, &out);
-                        memcpy(out, p, sizeof(struct pt));
+                        hal_rvv_memcpy(out, p, sizeof(struct pt));
                     }
 
                     outpos++;
@@ -9835,7 +9835,7 @@ int fit_quad(apriltag_detector_t *td, image_u8_t *im, zarray_t *cluster, struct 
 
 #define ASSOC 2
         struct pt v[nbuckets][ASSOC];
-        memset(v, 0, sizeof(v));
+        hal_rvv_memset(v, 0, sizeof(v));
 
         // put each point into a bucket.
         for (int i = 0; i < sz; i++) {
@@ -9884,7 +9884,7 @@ int fit_quad(apriltag_detector_t *td, image_u8_t *im, zarray_t *cluster, struct 
         zarray_get_volatile(cluster, i, &p);
 
         if (i > 0) {
-            memcpy(&lfps[i], &lfps[i-1], sizeof(struct line_fit_pt));
+            hal_rvv_memcpy(&lfps[i], &lfps[i-1], sizeof(struct line_fit_pt));
         }
 
         if (0) {
@@ -10411,8 +10411,8 @@ image_u8_t *threshold(apriltag_detector_t *td, image_u8_t *im)
             }
         }
 #endif
-        memcpy(im_max, im_max_tmp, tw*th*sizeof(uint8_t));
-        memcpy(im_min, im_min_tmp, tw*th*sizeof(uint8_t));
+        hal_rvv_memcpy(im_max, im_max_tmp, tw*th*sizeof(uint8_t));
+        hal_rvv_memcpy(im_min, im_min_tmp, tw*th*sizeof(uint8_t));
         fb_free(); // im_min_tmp
         fb_free(); // im_max_tmp
     }
@@ -10751,7 +10751,7 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im, bool ove
             }
 
             struct quad quad;
-            memset(&quad, 0, sizeof(struct quad));
+            hal_rvv_memset(&quad, 0, sizeof(struct quad));
 
             if (fit_quad(td, im, cluster, &quad, overrideMode)) {
 
@@ -10803,7 +10803,7 @@ struct graymodel
 
 void graymodel_init(struct graymodel *gm)
 {
-    memset(gm, 0, sizeof(struct graymodel));
+    hal_rvv_memset(gm, 0, sizeof(struct graymodel));
 }
 
 void graymodel_add(struct graymodel *gm, float x, float y, float gray)
@@ -10923,7 +10923,7 @@ void quad_destroy(struct quad *quad)
 struct quad *quad_copy(struct quad *quad)
 {
     struct quad *q = calloc(1, sizeof(struct quad));
-    memcpy(q, quad, sizeof(struct quad));
+    hal_rvv_memcpy(q, quad, sizeof(struct quad));
     if (quad->H)
         q->H = matd_copy(quad->H);
     if (quad->Hinv)
@@ -11533,7 +11533,7 @@ float optimize_quad_generic(apriltag_family_t *family, image_u8_t *im, struct qu
 
     matd_destroy(quad0->H);
     matd_destroy(quad0->Hinv);
-    memcpy(quad0, best_quad, sizeof(struct quad)); // copy pointers
+    hal_rvv_memcpy(quad0, best_quad, sizeof(struct quad)); // copy pointers
     free(best_quad);
     return best_score;
 }
@@ -12279,8 +12279,8 @@ void imlib_rotation_corr(image_t *img, float x_rotation, float y_rotation, float
     // Create a tmp copy of the image to pull pixels from.
     size_t size = image_size(img);
     void *data = fb_alloc(size, FB_ALLOC_NO_HINT);
-    memcpy(data, img->data, size);
-    memset(img->data, 0, size);
+    hal_rvv_memcpy(data, img->data, size);
+    hal_rvv_memset(img->data, 0, size);
 
     umm_init_x(fb_avail());
 

@@ -1112,7 +1112,7 @@ static mp_obj_t py_image_to(pixformat_t pixfmt, const uint16_t *default_color_pa
 
     if (src_img->pixfmt == PIXFORMAT_RGB888) {
         src_is_rgb888 = true;
-        memcpy(&temp_img, src_img, sizeof(image_t));
+        hal_rvv_memcpy(&temp_img, src_img, sizeof(image_t));
         temp_img.pixfmt = PIXFORMAT_RGB565;
         temp_img.alloc_type = ALLOC_MPGC;
         temp_img.data = xalloc(image_size(&temp_img));
@@ -1234,7 +1234,7 @@ static mp_obj_t py_image_to(pixformat_t pixfmt, const uint16_t *default_color_pa
 
         if ((dst_img.pixfmt != src_img->pixfmt) || (!simple)) {
             image_t temp;
-            memcpy(&temp, src_img, sizeof(image_t));
+            hal_rvv_memcpy(&temp, src_img, sizeof(image_t));
 
             if (src_img->is_compressed || (!simple)) {
                 temp.w = dst_img.w;
@@ -1267,7 +1267,7 @@ static mp_obj_t py_image_to(pixformat_t pixfmt, const uint16_t *default_color_pa
     if (dst_img.is_compressed) {
         if (arg_e)
             fb_encode_for_ide(NULL, &dst_img_tmp);
-        memcpy(dst_img.data, dst_img_tmp.data, dst_img.size);
+        hal_rvv_memcpy(dst_img.data, dst_img_tmp.data, dst_img.size);
         fb_alloc_free_till_mark();
     } else {
         fb_alloc_mark();
@@ -1413,7 +1413,7 @@ STATIC mp_obj_t py_image_clear(size_t n_args, const mp_obj_t *args, mp_map_t *kw
         py_helper_keyword_to_image_mutable_mask(n_args, args, 1, kw_args);
 
     if (!arg_msk) {
-        memset(arg_img->data, 0, image_size(arg_img));
+        hal_rvv_memset(arg_img->data, 0, image_size(arg_img));
     } else {
         imlib_zero(arg_img, arg_msk, false);
     }
@@ -7196,7 +7196,7 @@ retry:
     }
 
     if (data_obj && alloc_type != ALLOC_REF)
-        memcpy(image->data, bufinfo.buf, size);
+        hal_rvv_memcpy(image->data, bufinfo.buf, size);
 }
 
 void py_image_free(image_t *image)

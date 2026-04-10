@@ -325,7 +325,7 @@ SegOutputs object_seg_post_process(float *data_0, float *data_1, FrameSize frame
 
 	SegOutputs segOutputs;
 	segOutputs.masks_results = (uint8_t *)malloc(display_frame_size.width * display_frame_size.height * 4 * sizeof(uint8_t));
-    memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_frame_size.width * display_frame_size.height * 4 );
+    hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_frame_size.width * display_frame_size.height * 4 );
 	*box_cnt = results.size();
 	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
 	for (int i = 0; i < *box_cnt; i++)

@@ -262,7 +262,7 @@ void imlib_find_lines(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                 && (row_ptr[x] >= row_ptr[x + theta_size + 1])) {
 
                 find_lines_list_lnk_data_t lnk_line;
-                memset(&lnk_line, 0, sizeof(find_lines_list_lnk_data_t));
+                hal_rvv_memset(&lnk_line, 0, sizeof(find_lines_list_lnk_data_t));
 
                 lnk_line.magnitude = row_ptr[x];
                 lnk_line.theta = (x - 1) * hough_divide; // remove offset

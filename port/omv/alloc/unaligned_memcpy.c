@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <string.h>
+
 #include "unaligned_memcpy.h"
+
+#include "hal_rvv_ops.h"
 
 void *unaligned_memcpy(void *dest, void *src, size_t n) {
     void *ret = dest;
@@ -14,6 +17,6 @@ void *unaligned_memcpy(void *dest, void *src, size_t n) {
         src = src64;
     }
     if (n)
-        memcpy(dest, src, n);
+        hal_rvv_memcpy(dest, src, n);
     return ret;
 }

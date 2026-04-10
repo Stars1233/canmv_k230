@@ -78,7 +78,7 @@ static void imlib_replace_line_op(image_t *img, int line, void *other, void *dat
     image_t *mask = ((imlib_replace_line_op_state_t *) data)->mask;
 
     image_t target;
-    memcpy(&target, img, sizeof(image_t));
+    hal_rvv_memcpy(&target, img, sizeof(image_t));
 
     if (transpose) {
         int w = target.w;
@@ -142,9 +142,9 @@ void imlib_replace(image_t *img,
     image_t temp;
 
     if (in_place) {
-        memcpy(&temp, other, sizeof(image_t));
+        hal_rvv_memcpy(&temp, other, sizeof(image_t));
         temp.data = fb_alloc(image_size(&temp), FB_ALLOC_NO_HINT);
-        memcpy(temp.data, other->data, image_size(&temp));
+        hal_rvv_memcpy(temp.data, other->data, image_size(&temp));
         other = &temp;
     }
 

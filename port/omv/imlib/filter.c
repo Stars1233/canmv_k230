@@ -195,7 +195,7 @@ void imlib_mean_filter(image_t *img, const int ksize, bool threshold, int offset
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -203,7 +203,7 @@ void imlib_mean_filter(image_t *img, const int ksize, bool threshold, int offset
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -258,7 +258,7 @@ void imlib_mean_filter(image_t *img, const int ksize, bool threshold, int offset
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -266,7 +266,7 @@ void imlib_mean_filter(image_t *img, const int ksize, bool threshold, int offset
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -338,7 +338,7 @@ void imlib_mean_filter(image_t *img, const int ksize, bool threshold, int offset
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -346,7 +346,7 @@ void imlib_mean_filter(image_t *img, const int ksize, bool threshold, int offset
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -446,7 +446,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -454,7 +454,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -487,7 +487,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
                         } // for j
                     } else {
                         // slow way
-                        memset(data, 0, 64);
+                        hal_rvv_memset(data, 0, 64);
                         for (int j = -ksize; j <= ksize; j++) {
                             uint8_t *k_row_ptr = IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img,
                                                                                        IM_MIN(IM_MAX(y + j, 0), (img->h - 1)));
@@ -515,7 +515,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -523,7 +523,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -563,7 +563,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
                         }
                     } else {
                         // need to check bounds
-                        memset(r_data, 0, 32); memset(g_data, 0, 64); memset(b_data, 0, 32);
+                        hal_rvv_memset(r_data, 0, 32); hal_rvv_memset(g_data, 0, 64); hal_rvv_memset(b_data, 0, 32);
                         for (int j = -ksize; j <= ksize; j++) {
                             uint16_t *k_row_ptr = IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img,
                                                                                      IM_MIN(IM_MAX(y + j, 0), (img->h - 1)));
@@ -598,7 +598,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -606,7 +606,7 @@ void imlib_median_filter(image_t *img, const int ksize, float percentile, bool t
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -696,7 +696,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -704,7 +704,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -754,7 +754,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
                     } else {
                         // slow way
                         mcount = -1;
-                        memset(bins, 0, (COLOR_GRAYSCALE_MAX - COLOR_GRAYSCALE_MIN + 1));
+                        hal_rvv_memset(bins, 0, (COLOR_GRAYSCALE_MAX - COLOR_GRAYSCALE_MIN + 1));
                         for (int j = -ksize; j <= ksize; j++) {
                             uint8_t *k_row_ptr = IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img,
                                                                                        IM_MIN(IM_MAX(y + j, 0), (img->h - 1)));
@@ -786,7 +786,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -794,7 +794,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -893,9 +893,9 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
                         }
                     } else {
                         // slower way
-                        memset(r_bins, 0, (COLOR_R5_MAX - COLOR_R5_MIN + 1));
-                        memset(g_bins, 0, (COLOR_G6_MAX - COLOR_G6_MIN + 1));
-                        memset(b_bins, 0, (COLOR_B5_MAX - COLOR_B5_MIN + 1));
+                        hal_rvv_memset(r_bins, 0, (COLOR_R5_MAX - COLOR_R5_MIN + 1));
+                        hal_rvv_memset(g_bins, 0, (COLOR_G6_MAX - COLOR_G6_MIN + 1));
+                        hal_rvv_memset(b_bins, 0, (COLOR_B5_MAX - COLOR_B5_MIN + 1));
                         r_mcount = g_mcount = b_mcount = 0;
                         for (int j = -ksize; j <= ksize; j++) {
                             uint16_t *k_row_ptr = IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img,
@@ -934,7 +934,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -942,7 +942,7 @@ void imlib_mode_filter(image_t *img, const int ksize, bool threshold, int offset
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -1029,7 +1029,7 @@ void imlib_midpoint_filter(image_t *img, const int ksize, float bias, bool thres
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -1037,7 +1037,7 @@ void imlib_midpoint_filter(image_t *img, const int ksize, float bias, bool thres
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -1103,7 +1103,7 @@ void imlib_midpoint_filter(image_t *img, const int ksize, float bias, bool thres
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -1111,7 +1111,7 @@ void imlib_midpoint_filter(image_t *img, const int ksize, float bias, bool thres
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -1209,7 +1209,7 @@ void imlib_midpoint_filter(image_t *img, const int ksize, float bias, bool thres
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -1217,7 +1217,7 @@ void imlib_midpoint_filter(image_t *img, const int ksize, float bias, bool thres
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -1306,7 +1306,7 @@ void imlib_morph(image_t *img,
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -1314,7 +1314,7 @@ void imlib_morph(image_t *img,
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -1376,7 +1376,7 @@ void imlib_morph(image_t *img,
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -1384,7 +1384,7 @@ void imlib_morph(image_t *img,
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -1468,7 +1468,7 @@ void imlib_morph(image_t *img,
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -1476,7 +1476,7 @@ void imlib_morph(image_t *img,
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -1574,7 +1574,7 @@ void imlib_bilateral_filter(image_t *img,
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -1582,7 +1582,7 @@ void imlib_bilateral_filter(image_t *img,
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -1664,7 +1664,7 @@ void imlib_bilateral_filter(image_t *img,
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -1672,7 +1672,7 @@ void imlib_bilateral_filter(image_t *img,
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -1791,7 +1791,7 @@ void imlib_bilateral_filter(image_t *img,
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -1799,7 +1799,7 @@ void imlib_bilateral_filter(image_t *img,
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -1952,12 +1952,12 @@ void imlib_cartoon_filter(image_t *img, float seed_threshold, float floating_thr
             if (!IMAGE_GET_BINARY_PIXEL_FAST(row_ptr, x)) {
 
                 imlib_cartoon_filter_mean_state_t mean_state;
-                memset(&mean_state, 0, sizeof(imlib_cartoon_filter_mean_state_t));
+                hal_rvv_memset(&mean_state, 0, sizeof(imlib_cartoon_filter_mean_state_t));
                 imlib_flood_fill_int(&mean_image, img, x, y, color_seed_threshold, color_floating_threshold,
                                      imlib_cartoon_filter_mean, &mean_state);
 
                 imlib_cartoon_filter_fill_state_t fill_state;
-                memset(&fill_state, 0, sizeof(imlib_cartoon_filter_fill_state_t));
+                hal_rvv_memset(&fill_state, 0, sizeof(imlib_cartoon_filter_fill_state_t));
 
                 switch (img->pixfmt) {
                     case PIXFORMAT_BINARY: {

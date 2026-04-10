@@ -13,6 +13,9 @@
 #include "py/stackctrl.h"
 #include "xalloc.h"
 #include "array.h"
+
+#include "hal_rvv_ops.h"
+
 #define ARRAY_INIT_SIZE    (4) // Size of one GC block.
 
 void array_alloc(array_t **a, array_dtor_t dtor) {
@@ -80,7 +83,7 @@ void *array_take(array_t *array, int idx) {
     void *el = array->data[idx];
     if ((1 < array->index) && (idx < (array->index - 1))) {
         /* Since dst is always < src we can just use memcpy */
-        memcpy(array->data + idx, array->data + idx + 1, (array->index - idx - 1) * sizeof(void *));
+        hal_rvv_memcpy(array->data + idx, array->data + idx + 1, (array->index - idx - 1) * sizeof(void *));
     }
     array->index--;
     return el;

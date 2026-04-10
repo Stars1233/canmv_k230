@@ -54,6 +54,6 @@ uint8_t* body_seg_postprocess(float* data, int num_class, FrameSize ori_shape, F
     cv::resize(images_pred_color, images_pred_color, cv::Size(dst_shape.width, dst_shape.height));
 
     uint8_t *result = (uint8_t *)malloc(dst_shape.width * dst_shape.height * 4 * sizeof(uint8_t));
-    memcpy(result, images_pred_color.data, sizeof(uint8_t) * dst_shape.width * dst_shape.height * 4);
+    hal_rvv_memcpy(result, images_pred_color.data, sizeof(uint8_t) * dst_shape.width * dst_shape.height * 4);
     return result;
 }

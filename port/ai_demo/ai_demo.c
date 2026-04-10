@@ -58,7 +58,7 @@ STATIC mp_obj_t aidemo_invert_affine_transform(mp_obj_t matrix_ndarray)
                 mp_stride[ULAB_MAX_DIMS - 1-i] = (int32_t)info.strides_[info.ndim_ - 1 - i];
             }
             ndarray_obj_t *matrix_inv = ndarray_new_ndarray(info.ndim_, mp_shape, mp_stride, info.dtype_);
-            memcpy((void *)matrix_inv->origin, (void *)info.data_, matrix_inv->len * matrix_inv->itemsize);
+            hal_rvv_memcpy((void *)matrix_inv->origin, (void *)info.data_, matrix_inv->len * matrix_inv->itemsize);
 
             free(info.data_);
             return MP_OBJ_FROM_PTR(matrix_inv);
@@ -82,7 +82,7 @@ STATIC mp_obj_t aidemo_polylines(size_t n_args, const mp_obj_t *args)
     in_info.dtype_ = mp_img->dtype;
     in_info.ndim_ = mp_img->ndim;
     in_info.len_ = mp_img->len;
-    memset(in_info.shape_,0,sizeof(size_t)*3);
+    hal_rvv_memset(in_info.shape_,0,sizeof(size_t)*3);
     for(int i=0; i<mp_img->ndim; i++)
     {
         in_info.shape_[in_info.ndim_ - 1 - i] = mp_img->shape[ULAB_MAX_DIMS - 1-i];
@@ -128,7 +128,7 @@ STATIC mp_obj_t aidemo_contours(size_t n_args, const mp_obj_t *args)
     in_info.dtype_ = mp_img->dtype;
     in_info.ndim_ = mp_img->ndim;
     in_info.len_ = mp_img->len;
-    memset(in_info.shape_,0,sizeof(size_t)*3);
+    hal_rvv_memset(in_info.shape_,0,sizeof(size_t)*3);
     for(int i=0; i<mp_img->ndim; i++)
     {
         in_info.shape_[in_info.ndim_ - 1 - i] = mp_img->shape[ULAB_MAX_DIMS - 1-i];
@@ -190,7 +190,7 @@ STATIC mp_obj_t aidemo_face_det_post_process(size_t n_args, const mp_obj_t *args
         bbox_shape[3] = sizeof(Bbox) / sizeof(float);
         ndarray_obj_t *bbox_obj = ndarray_new_ndarray(2, bbox_shape, NULL, NDARRAY_FLOAT);
         float *bbox_data = (float *)bbox_obj->array;
-        memcpy(bbox_data,result->bbox,sizeof(Bbox) * result->vec_len);
+        hal_rvv_memcpy(bbox_data,result->bbox,sizeof(Bbox) * result->vec_len);
         free(result->bbox);
         mp_obj_list_append(results_mp_list, bbox_obj);
 
@@ -199,7 +199,7 @@ STATIC mp_obj_t aidemo_face_det_post_process(size_t n_args, const mp_obj_t *args
         kps_shape[3] = sizeof(SparseLandmarks) / sizeof(float);
         ndarray_obj_t *kps_obj = ndarray_new_ndarray(2, kps_shape, NULL, NDARRAY_FLOAT);
         float *kps_data = (float *)kps_obj->array;
-        memcpy(kps_data,result->sparse_kps,sizeof(SparseLandmarks) * result->vec_len);
+        hal_rvv_memcpy(kps_data,result->sparse_kps,sizeof(SparseLandmarks) * result->vec_len);
         free(result->sparse_kps);
         mp_obj_list_append(results_mp_list, kps_obj);
 
@@ -208,7 +208,7 @@ STATIC mp_obj_t aidemo_face_det_post_process(size_t n_args, const mp_obj_t *args
         score_shape[3] = sizeof(float) / sizeof(float);
         ndarray_obj_t *score_obj = ndarray_new_ndarray(2, score_shape, NULL, NDARRAY_FLOAT);
         float *score_data = (float *)score_obj->array;
-        memcpy(score_data,result->score,sizeof(float) * result->vec_len);
+        hal_rvv_memcpy(score_data,result->score,sizeof(float) * result->vec_len);
         free(result->score);
         mp_obj_list_append(results_mp_list, score_obj);
     }
@@ -226,7 +226,7 @@ STATIC mp_obj_t aidemo_face_parse_post_process(size_t n_args, const mp_obj_t *ar
     in_info.dtype_ = mp_img->dtype;
     in_info.ndim_ = mp_img->ndim;
     in_info.len_ = mp_img->len;
-    memset(in_info.shape_,0,sizeof(size_t)*3);
+    hal_rvv_memset(in_info.shape_,0,sizeof(size_t)*3);
     for(int i=0; i<mp_img->ndim; i++)
     {
         in_info.shape_[in_info.ndim_ - 1 - i] = mp_img->shape[ULAB_MAX_DIMS - 1-i];
@@ -294,7 +294,7 @@ STATIC mp_obj_t aidemo_face_draw_mesh(mp_obj_t img, mp_obj_t vertices)
     in_info.dtype_ = mp_img->dtype;
     in_info.ndim_ = mp_img->ndim;
     in_info.len_ = mp_img->len;
-    memset(in_info.shape_,0,sizeof(size_t)*3);
+    hal_rvv_memset(in_info.shape_,0,sizeof(size_t)*3);
     for(int i=0; i<mp_img->ndim; i++)
     {
         in_info.shape_[in_info.ndim_ - 1 - i] = mp_img->shape[ULAB_MAX_DIMS - 1-i];
@@ -1414,7 +1414,7 @@ STATIC mp_obj_t aidemo_rgb888_compress(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = 3;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * 3);
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * 3);
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }

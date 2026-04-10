@@ -162,7 +162,7 @@ bool png_compress(image_t *src, image_t *dst) {
     } else {
         if (image_size(dst) <= png_size) {
             dst->size = png_size;
-            memcpy(dst->data, png_data, png_size);
+            hal_rvv_memcpy(dst->data, png_data, png_size);
         } else {
             mp_raise_msg_varg(&mp_type_RuntimeError,
                               MP_ERROR_TEXT("Failed to compress image in place"));
@@ -219,7 +219,7 @@ void png_decompress(image_t *dst, image_t *src) {
 
     uint32_t new_img_size = image_size(dst);
     if (new_img_size <= img_size) {
-        memcpy(dst->data, png_data, new_img_size);
+        hal_rvv_memcpy(dst->data, png_data, new_img_size);
     } else {
         fb_free();
         mp_raise_msg_varg(&mp_type_RuntimeError,

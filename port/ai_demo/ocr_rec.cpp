@@ -38,7 +38,7 @@ float* mask_resize(float* dest, FrameSize ori_shape, FrameSize tag_shape)
     cv::Mat mask;
     resize(dest_mat, mask, cv::Size(tag_shape.width, tag_shape.height), cv::INTER_NEAREST);
     float *result = (float *)malloc(tag_shape.width * tag_shape.height * sizeof(float));
-    memcpy(result, mask.data, sizeof(float) * tag_shape.width * tag_shape.height);
+    hal_rvv_memcpy(result, mask.data, sizeof(float) * tag_shape.width * tag_shape.height);
     return result;
 }
 
@@ -166,7 +166,7 @@ ArrayWrapperMat1* ocr_rec_pre_process(uint8_t* data, FrameSize ori_shape, BoxPoi
         cv::cvtColor(crop, crop_gray, cv::COLOR_BGR2GRAY);
 
         arrayWrapperMat1[i].data = (uint8_t *)malloc(crop_gray.cols * crop_gray.rows * sizeof(uint8_t));
-        memcpy(arrayWrapperMat1[i].data, crop_gray.data, crop_gray.cols * crop_gray.rows * sizeof(uint8_t));
+        hal_rvv_memcpy(arrayWrapperMat1[i].data, crop_gray.data, crop_gray.cols * crop_gray.rows * sizeof(uint8_t));
         arrayWrapperMat1[i].framesize.width = crop_gray.cols;
         arrayWrapperMat1[i].framesize.height = crop_gray.rows;
         for(int j = 0; j < 4; j++)

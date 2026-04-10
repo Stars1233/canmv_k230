@@ -30,6 +30,8 @@
 #include "ff_wrapper.h"
 #include "py/obj.h"
 
+#include "hal_rvv_ops.h"
+
 #ifndef M_PI
 #define M_PI                     3.14159265f
 #define M_PI_2                   1.57079632f

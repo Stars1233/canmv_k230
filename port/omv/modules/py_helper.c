@@ -382,7 +382,7 @@ void py_helper_arg_to_thresholds(const mp_obj_t arg, list_t *thresholds) {
                 (arg_threshold_len > 5) ? IM_MAX(IM_MIN(mp_obj_get_int(arg_threshold[5]), COLOR_B_MAX),
                                                  COLOR_B_MIN) : COLOR_B_MAX;
             color_thresholds_list_lnk_data_t lnk_data_tmp;
-            memcpy(&lnk_data_tmp, &lnk_data, sizeof(color_thresholds_list_lnk_data_t));
+            hal_rvv_memcpy(&lnk_data_tmp, &lnk_data, sizeof(color_thresholds_list_lnk_data_t));
             lnk_data.LMin = IM_MIN(lnk_data_tmp.LMin, lnk_data_tmp.LMax);
             lnk_data.LMax = IM_MAX(lnk_data_tmp.LMin, lnk_data_tmp.LMax);
             lnk_data.AMin = IM_MIN(lnk_data_tmp.AMin, lnk_data_tmp.AMax);

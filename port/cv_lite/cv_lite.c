@@ -36,6 +36,8 @@
 #include "cv_lite_type.h"
 #include "cv_lite_wrap.h"
 
+#include "hal_rvv_ops.h"
+
 //*****************************for cv*****************************
 STATIC mp_obj_t cv_lite_grayscale_find_blobs(size_t n_args, const mp_obj_t *args)
 {
@@ -698,7 +700,7 @@ STATIC mp_obj_t cv_lite_grayscale_find_edges(size_t n_args, const mp_obj_t *args
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height*frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height*frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -731,7 +733,7 @@ STATIC mp_obj_t cv_lite_rgb888_find_edges(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = 1;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -765,7 +767,7 @@ STATIC mp_obj_t cv_lite_grayscale_threshold_binary(size_t n_args, const mp_obj_t
     ndarray_shape[3] = 1;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -799,7 +801,7 @@ STATIC mp_obj_t cv_lite_rgb888_threshold_binary(size_t n_args, const mp_obj_t *a
     ndarray_shape[3] = 1;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -827,7 +829,7 @@ STATIC mp_obj_t cv_lite_rgb888_white_balance_gray_world(size_t n_args, const mp_
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -855,7 +857,7 @@ STATIC mp_obj_t cv_lite_rgb888_white_balance_gray_world_fast(size_t n_args, cons
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -904,7 +906,7 @@ STATIC mp_obj_t cv_lite_rgb888_white_balance_gray_world_fast_ex(size_t n_args, c
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel);
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel);
     free(result);
 
     return MP_OBJ_FROM_PTR(out);
@@ -935,7 +937,7 @@ STATIC mp_obj_t cv_lite_rgb888_white_balance_white_patch(size_t n_args, const mp
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -987,7 +989,7 @@ STATIC mp_obj_t cv_lite_rgb888_white_balance_white_patch_ex(size_t n_args, const
     shape[3] = frame_shape.channel;
 
     ndarray_obj_t *out = ndarray_new_ndarray(3, shape, NULL, NDARRAY_UINT8);
-    memcpy(out->array, result, frame_shape.width * frame_shape.height * frame_shape.channel);
+    hal_rvv_memcpy(out->array, result, frame_shape.width * frame_shape.height * frame_shape.channel);
     free(result);
 
     return MP_OBJ_FROM_PTR(out);
@@ -1020,7 +1022,7 @@ STATIC mp_obj_t cv_lite_rgb888_white_balance_gray_world_adjustable(size_t n_args
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1050,7 +1052,7 @@ STATIC mp_obj_t cv_lite_rgb888_adjust_exposure(size_t n_args, const mp_obj_t *ar
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1080,7 +1082,7 @@ STATIC mp_obj_t cv_lite_rgb888_adjust_exposure_fast(size_t n_args, const mp_obj_
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1110,7 +1112,7 @@ STATIC mp_obj_t cv_lite_rgb888_denoise(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1138,7 +1140,7 @@ STATIC mp_obj_t cv_lite_rgb888_mean_blur(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1166,7 +1168,7 @@ STATIC mp_obj_t cv_lite_rgb888_mean_blur_fast(size_t n_args, const mp_obj_t *arg
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1193,7 +1195,7 @@ STATIC mp_obj_t cv_lite_rgb888_gaussian_blur_fast(size_t n_args, const mp_obj_t 
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1224,7 +1226,7 @@ STATIC mp_obj_t cv_lite_rgb888_denoise_fast(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1258,7 +1260,7 @@ STATIC mp_obj_t cv_lite_rgb888_erode(size_t n_args, const mp_obj_t *args)
     ndarray_obj_t *out = ndarray_new_ndarray(3, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
     // 拷贝输出结果
-    memcpy(out_data, result, frame_shape.width * frame_shape.height);
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height);
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1289,7 +1291,7 @@ STATIC mp_obj_t cv_lite_rgb888_dilate(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = 1;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1321,7 +1323,7 @@ STATIC mp_obj_t cv_lite_rgb888_open(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = 1;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1353,7 +1355,7 @@ STATIC mp_obj_t cv_lite_rgb888_close(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = 1;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1383,7 +1385,7 @@ STATIC mp_obj_t cv_lite_rgb888_gradient(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1413,7 +1415,7 @@ STATIC mp_obj_t cv_lite_rgb888_tophat(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1443,7 +1445,7 @@ STATIC mp_obj_t cv_lite_rgb888_blackhat(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1612,7 +1614,7 @@ STATIC mp_obj_t cv_lite_load_image(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, img_data, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, img_data, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(img_data);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1665,7 +1667,7 @@ STATIC mp_obj_t cv_lite_rgb888_undistort(size_t n_args, const mp_obj_t *args)
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1717,7 +1719,7 @@ STATIC mp_obj_t cv_lite_rgb888_undistort_fast(size_t n_args, const mp_obj_t *arg
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1769,7 +1771,7 @@ STATIC mp_obj_t cv_lite_rgb888_undistort_new_cam_mat(size_t n_args, const mp_obj
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }
@@ -1974,7 +1976,7 @@ STATIC mp_obj_t cv_lite_rgb888_perspective_transform(size_t n_args, const mp_obj
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }

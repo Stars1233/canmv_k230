@@ -25,6 +25,8 @@
 #include <stddef.h>
 #include "ide_dbg.h"
 
+#include "hal_rvv_ops.h"
+
 #if CONFIG_CANMV_IDE_SUPPORT
 
 #include <stdint.h>
@@ -126,7 +128,7 @@ static void wbc_cleanup_resources(void)
     g_wbc_ctx.height   = 0;
     g_wbc_ctx.quality  = 0;
     g_wbc_ctx.rotation = K_VPU_ROTATION_0;
-    memset(g_wbc_ctx.static_packs, 0, sizeof(g_wbc_ctx.static_packs));
+    hal_rvv_memset(g_wbc_ctx.static_packs, 0, sizeof(g_wbc_ctx.static_packs));
 }
 
 void ide_dbg_vo_wbc_start(int enable)
@@ -248,7 +250,7 @@ static k_s32 ide_dbg_vo_wbc_init(void)
 
     //  Setup VENC attributes
     k_venc_chn_attr attr;
-    memset(&attr, 0, sizeof(attr));
+    hal_rvv_memset(&attr, 0, sizeof(attr));
     attr.venc_attr.type = K_PT_JPEG;
 
     // Set input dimensions: Swap width/height if WBC is providing a rotated buffer
@@ -340,7 +342,7 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
 
     // Query VENC status first to get pack count
     k_venc_chn_status venc_status;
-    memset(&venc_status, 0, sizeof(venc_status));
+    hal_rvv_memset(&venc_status, 0, sizeof(venc_status));
 
     if (kd_mpi_venc_query_status(g_wbc_ctx.chn_id, &venc_status) != 0) {
         py_display_wbc_dump_relase();
@@ -351,7 +353,7 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
 
     // Get stream from VENC using static packs
     k_venc_stream stream;
-    memset(&stream, 0, sizeof(stream));
+    hal_rvv_memset(&stream, 0, sizeof(stream));
 
     // Set pack_cnt based on status query
     stream.pack_cnt = (venc_status.cur_packs > 0) ? venc_status.cur_packs : 1;
@@ -366,7 +368,7 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
     stream.pack = g_wbc_ctx.static_packs;
 
     // Initialize pack array
-    memset(stream.pack, 0, sizeof(k_venc_pack) * stream.pack_cnt);
+    hal_rvv_memset(stream.pack, 0, sizeof(k_venc_pack) * stream.pack_cnt);
 
     if (kd_mpi_venc_get_stream(g_wbc_ctx.chn_id, &stream, 1000) != 0) {
         py_display_wbc_dump_relase();

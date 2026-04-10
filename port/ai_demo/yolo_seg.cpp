@@ -290,7 +290,7 @@ SegOutputs yolov5_seg_postprocess(float *output0, float *output1, FrameSize fram
 
 	SegOutputs segOutputs;
 	segOutputs.masks_results = (uint8_t *)malloc(display_shape.width * display_shape.height * 4 * sizeof(uint8_t));
-    memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
+    hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
 	*box_cnt = results.size();
 	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
 	for (int i = 0; i < *box_cnt; i++)
@@ -407,7 +407,7 @@ SegOutputs yolov8_seg_postprocess(float *output0, float *output1, FrameSize fram
 
 	SegOutputs segOutputs;
 	segOutputs.masks_results = (uint8_t *)malloc(display_shape.width * display_shape.height * 4 * sizeof(uint8_t));
-    memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
+    hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
 	*box_cnt = results.size();
 	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
 	for (int i = 0; i < *box_cnt; i++)

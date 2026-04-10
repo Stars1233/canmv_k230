@@ -30,6 +30,6 @@ void rgb888_compress(FrameSize frame_shape, uint8_t* data, int jpeg_quality, uin
 
     // 7. 拷贝输出
     size_t data_size = decompressed.total() * decompressed.channels();
-    std::memcpy(result, decompressed.data, data_size);
+    hal_rvv_memcpy(result, decompressed.data, data_size);
     
 }

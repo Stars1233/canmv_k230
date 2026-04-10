@@ -122,7 +122,7 @@ void mjpeg_write(FIL *fp, int width, int height, uint32_t *frames, uint32_t *byt
 
     if ((dst_img.pixfmt != img->pixfmt) || (!simple)) {
         image_t temp;
-        memcpy(&temp, img, sizeof(image_t));
+        hal_rvv_memcpy(&temp, img, sizeof(image_t));
 
         if (img->is_compressed || (!simple)) {
             temp.w = dst_img.w;
@@ -140,17 +140,17 @@ void mjpeg_write(FIL *fp, int width, int height, uint32_t *frames, uint32_t *byt
 
             if (black) {
                 // zero the whole image
-                memset(temp.data, 0, temp.w * temp.h * sizeof(uint16_t));
+                hal_rvv_memset(temp.data, 0, temp.w * temp.h * sizeof(uint16_t));
             } else {
                 // Zero the top rows
                 if (y0) {
-                    memset(temp.data, 0, temp.w * y0 * sizeof(uint16_t));
+                    hal_rvv_memset(temp.data, 0, temp.w * y0 * sizeof(uint16_t));
                 }
 
                 if (x0) {
                     for (int i = y0; i < y1; i++) {
                         // Zero left
-                        memset(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&temp, i), 0, x0 * sizeof(uint16_t));
+                        hal_rvv_memset(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&temp, i), 0, x0 * sizeof(uint16_t));
                     }
                 }
 
@@ -162,14 +162,14 @@ void mjpeg_write(FIL *fp, int width, int height, uint32_t *frames, uint32_t *byt
                 if (temp.w - x1) {
                     for (int i = y0; i < y1; i++) {
                         // Zero right
-                        memset(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&temp, i) + x1,
+                        hal_rvv_memset(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&temp, i) + x1,
                                0, (temp.w - x1) * sizeof(uint16_t));
                     }
                 }
 
                 // Zero the bottom rows
                 if (temp.h - y1) {
-                    memset(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&temp, y1),
+                    hal_rvv_memset(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&temp, y1),
                            0, temp.w * (temp.h - y1) * sizeof(uint16_t));
                 }
             }

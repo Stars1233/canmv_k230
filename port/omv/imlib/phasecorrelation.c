@@ -256,8 +256,8 @@ void imlib_logpolar(image_t *img, bool linear, bool reverse) {
 
     size_t size = image_size(img);
     img_2.data = fb_alloc(size, FB_ALLOC_NO_HINT);
-    memcpy(img_2.data, img->data, size);
-    memset(img->data, 0, size);
+    hal_rvv_memcpy(img_2.data, img->data, size);
+    hal_rvv_memset(img->data, 0, size);
 
     imlib_logpolar_int(img, &img_2, &rect, linear, reverse);
 
@@ -465,15 +465,15 @@ void imlib_phasecorrelate(image_t *img0,
                 break;
             }
             default: {
-                memset(img0_fixed.data, 0, image_size(&img0_fixed));
+                hal_rvv_memset(img0_fixed.data, 0, image_size(&img0_fixed));
                 break;
             }
         }
 
         imlib_rotation_corr(&img0_fixed, 0, 0, *rotation, 0, 0, *scale, 60, NULL);
     } else {
-        memcpy(&img0_fixed, img0, sizeof(image_t));
-        memcpy(&roi0_fixed, roi0, sizeof(rectangle_t));
+        hal_rvv_memcpy(&img0_fixed, img0, sizeof(image_t));
+        hal_rvv_memcpy(&roi0_fixed, roi0, sizeof(rectangle_t));
     }
 
     // Step 3 - Get Translation Differences

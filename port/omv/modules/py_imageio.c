@@ -235,8 +235,8 @@ STATIC mp_obj_t py_imageio_write(mp_obj_t self, mp_obj_t img_obj) {
         }
 
         *((uint32_t *) (stream->buffer + (stream->offset * stream->size))) = elapsed_ms;
-        memcpy(stream->buffer + (stream->offset * stream->size) + sizeof(uint32_t), image, sizeof(image_t));
-        memcpy(stream->buffer + (stream->offset * stream->size) + IMAGE_T_SIZE_ALIGNED, image->data, size);
+        hal_rvv_memcpy(stream->buffer + (stream->offset * stream->size) + sizeof(uint32_t), image, sizeof(image_t));
+        hal_rvv_memcpy(stream->buffer + (stream->offset * stream->size) + IMAGE_T_SIZE_ALIGNED, image->data, size);
     }
 
     stream->offset += 1;
@@ -358,7 +358,7 @@ STATIC mp_obj_t py_imageio_read(size_t n_args, const mp_obj_t *args, mp_map_t *k
 
         int_py_imageio_pause(stream, pause);
 
-        memcpy(&image, stream->buffer + (stream->offset * stream->size) + sizeof(uint32_t), sizeof(image_t));
+        hal_rvv_memcpy(&image, stream->buffer + (stream->offset * stream->size) + sizeof(uint32_t), sizeof(image_t));
     }
 
     uint32_t size = image_size(&image);
@@ -409,7 +409,7 @@ STATIC mp_obj_t py_imageio_read(size_t n_args, const mp_obj_t *args, mp_map_t *k
         }
     #endif
     } else if (stream->type == IMAGE_IO_MEMORY_STREAM) {
-        memcpy(image.data, stream->buffer + (stream->offset * stream->size) + IMAGE_T_SIZE_ALIGNED, size);
+        hal_rvv_memcpy(image.data, stream->buffer + (stream->offset * stream->size) + IMAGE_T_SIZE_ALIGNED, size);
     }
 
     stream->offset += 1;
@@ -417,7 +417,7 @@ STATIC mp_obj_t py_imageio_read(size_t n_args, const mp_obj_t *args, mp_map_t *k
     py_helper_update_framebuffer(&image);
 
     if (arg_other) {
-        memcpy(arg_other, &image, sizeof(image_t));
+        hal_rvv_memcpy(arg_other, &image, sizeof(image_t));
     }
 
     if (copy_to_fb) {

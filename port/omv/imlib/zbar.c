@@ -1786,7 +1786,7 @@ static inline void cache_sym (zbar_image_scanner_t *iscn,
                                                   sym->datalen + 1);
             entry->configs = sym->configs;
             entry->modifiers = sym->modifiers;
-            memcpy(entry->data, sym->data, sym->datalen);
+            hal_rvv_memcpy(entry->data, sym->data, sym->datalen);
             entry->time = sym->time - CACHE_HYSTERESIS;
             entry->cache_count = 0;
             /* add to cache */
@@ -1937,7 +1937,7 @@ static void symbol_handler (zbar_decoder_t *dcode)
     sym->configs = zbar_decoder_get_configs(dcode, type);
     sym->modifiers = zbar_decoder_get_modifiers(dcode);
     /* FIXME grab decoder buffer */
-    memcpy(sym->data, data, datalen + 1);
+    hal_rvv_memcpy(sym->data, data, datalen + 1);
 
     /* initialize first point */
     if(TEST_CFG(iscn, ZBAR_CFG_POSITION)) {
@@ -2363,8 +2363,8 @@ int zbar_scan_image (zbar_image_scanner_t *iscn,
                 _zbar_image_scanner_alloc_sym(iscn, ZBAR_COMPOSITE, datalen);
             ean_sym->orient = ean->orient;
             ean_sym->syms = _zbar_symbol_set_create();
-            memcpy(ean_sym->data, ean->data, ean->datalen);
-            memcpy(ean_sym->data + ean->datalen,
+            hal_rvv_memcpy(ean_sym->data, ean->data, ean->datalen);
+            hal_rvv_memcpy(ean_sym->data + ean->datalen,
                    addon->data, addon->datalen + 1);
             ean_sym->syms->head = ean;
             ean->next = addon;
@@ -8002,7 +8002,7 @@ void zbar_decoder_destroy (zbar_decoder_t *dcode)
 
 void zbar_decoder_reset (zbar_decoder_t *dcode)
 {
-    memset(dcode, 0, (long)&dcode->buf_alloc - (long)dcode);
+    hal_rvv_memset(dcode, 0, (long)&dcode->buf_alloc - (long)dcode);
 #ifdef ENABLE_EAN
     ean_reset(&dcode->ean);
 #endif
@@ -8035,7 +8035,7 @@ void zbar_decoder_reset (zbar_decoder_t *dcode)
 void zbar_decoder_new_scan (zbar_decoder_t *dcode)
 {
     /* soft reset decoder */
-    memset(dcode->w, 0, sizeof(dcode->w));
+    hal_rvv_memset(dcode->w, 0, sizeof(dcode->w));
     dcode->lock = 0;
     dcode->idx = 0;
     dcode->s6 = 0;
@@ -8483,7 +8483,7 @@ void zbar_scanner_destroy (zbar_scanner_t *scn)
 
 zbar_symbol_type_t zbar_scanner_reset (zbar_scanner_t *scn)
 {
-    memset(&scn->x, 0, sizeof(zbar_scanner_t) - offsetof(zbar_scanner_t, x));
+    hal_rvv_memset(&scn->x, 0, sizeof(zbar_scanner_t) - offsetof(zbar_scanner_t, x));
     scn->y1_thresh = scn->y1_min_thresh;
     if(scn->decoder)
         zbar_decoder_reset(scn->decoder);
@@ -8597,7 +8597,7 @@ zbar_symbol_type_t zbar_scanner_new_scan (zbar_scanner_t *scn)
     }
 
     /* reset scanner and associated decoder */
-    memset(&scn->x, 0, sizeof(zbar_scanner_t) - offsetof(zbar_scanner_t, x));
+    hal_rvv_memset(&scn->x, 0, sizeof(zbar_scanner_t) - offsetof(zbar_scanner_t, x));
     scn->y1_thresh = scn->y1_min_thresh;
     if(scn->decoder)
         zbar_decoder_new_scan(scn->decoder);
@@ -8776,7 +8776,7 @@ void imlib_find_barcodes(list_t *out, image_t *ptr, rectangle_t *roi)
                 // Payload is already null terminated.
                 lnk_data.payload_len = zbar_symbol_get_data_length(symbol);
                 lnk_data.payload = xalloc(zbar_symbol_get_data_length(symbol));
-                memcpy(lnk_data.payload, zbar_symbol_get_data(symbol), zbar_symbol_get_data_length(symbol));
+                hal_rvv_memcpy(lnk_data.payload, zbar_symbol_get_data(symbol), zbar_symbol_get_data_length(symbol));
 
                 switch (zbar_symbol_get_type(symbol)) {
                     case ZBAR_EAN2: lnk_data.type = BARCODE_EAN2; break;

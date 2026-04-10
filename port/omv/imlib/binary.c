@@ -723,7 +723,7 @@ static void imlib_erode_dilate(image_t *img, int ksize, int threshold, int e_or_
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_BINARY_LINE_LEN_BYTES(img));
                 }
@@ -731,7 +731,7 @@ static void imlib_erode_dilate(image_t *img, int ksize, int threshold, int e_or_
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_BINARY_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_BINARY_LINE_LEN_BYTES(img));
             }
@@ -794,7 +794,7 @@ static void imlib_erode_dilate(image_t *img, int ksize, int threshold, int e_or_
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
                 }
@@ -802,7 +802,7 @@ static void imlib_erode_dilate(image_t *img, int ksize, int threshold, int e_or_
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(img));
             }
@@ -865,7 +865,7 @@ static void imlib_erode_dilate(image_t *img, int ksize, int threshold, int e_or_
 
                 if (y >= ksize) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
+                    hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, (y - ksize)),
                            IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, ((y - ksize) % brows)),
                            IMAGE_RGB565_LINE_LEN_BYTES(img));
                 }
@@ -873,7 +873,7 @@ static void imlib_erode_dilate(image_t *img, int ksize, int threshold, int e_or_
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(img->h - ksize, 0), yy = img->h; y < yy; y++) {
-                memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
+                hal_rvv_memcpy(IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(img, y),
                        IMAGE_COMPUTE_RGB565_PIXEL_ROW_PTR(&buf, (y % brows)),
                        IMAGE_RGB565_LINE_LEN_BYTES(img));
             }
@@ -921,7 +921,7 @@ void imlib_top_hat(image_t *img, int ksize, int threshold, image_t *mask) {
     temp.h = img->h;
     temp.pixfmt = img->pixfmt;
     temp.data = fb_alloc(image_size(img), FB_ALLOC_NO_HINT);
-    memcpy(temp.data, img->data, image_size(img));
+    hal_rvv_memcpy(temp.data, img->data, image_size(img));
     imlib_open(&temp, ksize, threshold, mask);
     imlib_difference(img, NULL, &temp, 0, mask);
     fb_free();
@@ -933,7 +933,7 @@ void imlib_black_hat(image_t *img, int ksize, int threshold, image_t *mask) {
     temp.h = img->h;
     temp.pixfmt = img->pixfmt;
     temp.data = fb_alloc(image_size(img), FB_ALLOC_NO_HINT);
-    memcpy(temp.data, img->data, image_size(img));
+    hal_rvv_memcpy(temp.data, img->data, image_size(img));
     imlib_close(&temp, ksize, threshold, mask);
     imlib_difference(img, NULL, &temp, 0, mask);
     fb_free();

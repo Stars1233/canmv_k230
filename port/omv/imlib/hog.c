@@ -84,7 +84,7 @@ void imlib_find_hog(image_t *src, rectangle_t *roi, int cell_size) {
         }
     }
 
-    memset(src->pixels, 0, src->w * src->h);
+    hal_rvv_memset(src->pixels, 0, src->w * src->h);
 
     array_t *gds;
     bin_t bins[9];

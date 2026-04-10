@@ -190,10 +190,10 @@ void imlib_find_blobs(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                             long long blob_c = 0;
 
                             if (x_hist_bins) {
-                                memset(x_hist_bins, 0, ptr->w * sizeof(uint16_t));
+                                hal_rvv_memset(x_hist_bins, 0, ptr->w * sizeof(uint16_t));
                             }
                             if (y_hist_bins) {
-                                memset(y_hist_bins, 0, ptr->h * sizeof(uint16_t));
+                                hal_rvv_memset(y_hist_bins, 0, ptr->h * sizeof(uint16_t));
                             }
 
                             // Scanline Flood Fill Algorithm //
@@ -395,8 +395,8 @@ void imlib_find_blobs(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                                 int small_blob_c = blob_c - ((my * blob_cy) + (my * blob_cy)) + (blob_pixels * my * my);
 
                                 find_blobs_list_lnk_data_t lnk_blob;
-                                memcpy(lnk_blob.corners, corners, FIND_BLOBS_CORNERS_RESOLUTION * sizeof(point_t));
-                                memcpy(&lnk_blob.rect, &rect, sizeof(rectangle_t));
+                                hal_rvv_memcpy(lnk_blob.corners, corners, FIND_BLOBS_CORNERS_RESOLUTION * sizeof(point_t));
+                                hal_rvv_memcpy(&lnk_blob.rect, &rect, sizeof(rectangle_t));
                                 lnk_blob.pixels = blob_pixels;
                                 lnk_blob.perimeter = blob_perimeter;
                                 lnk_blob.code = 1 << code;
@@ -496,10 +496,10 @@ void imlib_find_blobs(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                             long long blob_c = 0;
 
                             if (x_hist_bins) {
-                                memset(x_hist_bins, 0, ptr->w * sizeof(uint16_t));
+                                hal_rvv_memset(x_hist_bins, 0, ptr->w * sizeof(uint16_t));
                             }
                             if (y_hist_bins) {
-                                memset(y_hist_bins, 0, ptr->h * sizeof(uint16_t));
+                                hal_rvv_memset(y_hist_bins, 0, ptr->h * sizeof(uint16_t));
                             }
 
                             // Scanline Flood Fill Algorithm //
@@ -701,8 +701,8 @@ void imlib_find_blobs(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                                 int small_blob_c = blob_c - ((my * blob_cy) + (my * blob_cy)) + (blob_pixels * my * my);
 
                                 find_blobs_list_lnk_data_t lnk_blob;
-                                memcpy(lnk_blob.corners, corners, FIND_BLOBS_CORNERS_RESOLUTION * sizeof(point_t));
-                                memcpy(&lnk_blob.rect, &rect, sizeof(rectangle_t));
+                                hal_rvv_memcpy(lnk_blob.corners, corners, FIND_BLOBS_CORNERS_RESOLUTION * sizeof(point_t));
+                                hal_rvv_memcpy(&lnk_blob.rect, &rect, sizeof(rectangle_t));
                                 lnk_blob.pixels = blob_pixels;
                                 lnk_blob.perimeter = blob_perimeter;
                                 lnk_blob.code = 1 << code;
@@ -802,10 +802,10 @@ void imlib_find_blobs(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                             long long blob_c = 0;
 
                             if (x_hist_bins) {
-                                memset(x_hist_bins, 0, ptr->w * sizeof(uint16_t));
+                                hal_rvv_memset(x_hist_bins, 0, ptr->w * sizeof(uint16_t));
                             }
                             if (y_hist_bins) {
-                                memset(y_hist_bins, 0, ptr->h * sizeof(uint16_t));
+                                hal_rvv_memset(y_hist_bins, 0, ptr->h * sizeof(uint16_t));
                             }
 
                             // Scanline Flood Fill Algorithm //
@@ -1007,8 +1007,8 @@ void imlib_find_blobs(list_t *out, image_t *ptr, rectangle_t *roi, unsigned int 
                                 int small_blob_c = blob_c - ((my * blob_cy) + (my * blob_cy)) + (blob_pixels * my * my);
 
                                 find_blobs_list_lnk_data_t lnk_blob;
-                                memcpy(lnk_blob.corners, corners, FIND_BLOBS_CORNERS_RESOLUTION * sizeof(point_t));
-                                memcpy(&lnk_blob.rect, &rect, sizeof(rectangle_t));
+                                hal_rvv_memcpy(lnk_blob.corners, corners, FIND_BLOBS_CORNERS_RESOLUTION * sizeof(point_t));
+                                hal_rvv_memcpy(&lnk_blob.rect, &rect, sizeof(rectangle_t));
                                 lnk_blob.pixels = blob_pixels;
                                 lnk_blob.perimeter = blob_perimeter;
                                 lnk_blob.code = 1 << code;

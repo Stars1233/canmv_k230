@@ -44,7 +44,7 @@ void point_init(point_t *ptr, int x, int y) {
 }
 
 void point_copy(point_t *dst, point_t *src) {
-    memcpy(dst, src, sizeof(point_t));
+    hal_rvv_memcpy(dst, src, sizeof(point_t));
 }
 
 bool point_equal_fast(point_t *ptr0, point_t *ptr1) {
@@ -194,7 +194,7 @@ void rectangle_init(rectangle_t *ptr, int x, int y, int w, int h) {
 }
 
 void rectangle_copy(rectangle_t *dst, rectangle_t *src) {
-    memcpy(dst, src, sizeof(rectangle_t));
+    hal_rvv_memcpy(dst, src, sizeof(rectangle_t));
 }
 
 bool rectangle_equal_fast(rectangle_t *ptr0, rectangle_t *ptr1) {
@@ -248,7 +248,7 @@ void image_init(image_t *ptr, int w, int h, pixformat_t pixfmt, uint32_t size, v
 }
 
 void image_copy(image_t *dst, image_t *src) {
-    memcpy(dst, src, sizeof(image_t));
+    hal_rvv_memcpy(dst, src, sizeof(image_t));
 }
 
 size_t image_size(image_t *ptr) {
@@ -863,8 +863,8 @@ void imlib_lens_corr(image_t *img, float strength, float zoom, float x_corr, flo
     // Create a tmp copy of the image to pull pixels from.
     size_t size = image_size(img);
     void *data = fb_alloc(size, FB_ALLOC_NO_HINT);
-    memcpy(data, img->data, size);
-    memset(img->data, 0, size);
+    hal_rvv_memcpy(data, img->data, size);
+    hal_rvv_memset(img->data, 0, size);
 
     int maximum_radius = fast_ceilf(maximum_diameter / 2) + 1; // +1 inclusive of final value
     float *precalculated_table = fb_alloc(maximum_radius * sizeof(float), FB_ALLOC_NO_HINT);

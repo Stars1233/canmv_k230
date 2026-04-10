@@ -1033,7 +1033,7 @@ static uint8_t otsu(const struct quirc *q)
 
 	// Calculate histogram
 	unsigned int histogram[UINT8_MAX + 1];
-	(void)memset(histogram, 0, sizeof(histogram));
+	(void)hal_rvv_memset(histogram, 0, sizeof(histogram));
 	uint8_t* ptr = q->image;
 	unsigned int length = numPixels;
 	while (length--) {
@@ -1106,7 +1106,7 @@ static int region_code(struct quirc *q, int x, int y)
 	region = q->num_regions;
 	box = &q->regions[q->num_regions++];
 
-	memset(box, 0, sizeof(*box));
+	hal_rvv_memset(box, 0, sizeof(*box));
 
 	box->seed.x = x;
 	box->seed.y = y;
@@ -1175,10 +1175,10 @@ static void find_region_corners(struct quirc *q,
 	struct polygon_score_data psd;
 	int i;
 
-	memset(&psd, 0, sizeof(psd));
+	hal_rvv_memset(&psd, 0, sizeof(psd));
 	psd.corners = corners;
 
-	memcpy(&psd.ref, ref, sizeof(psd.ref));
+	hal_rvv_memcpy(&psd.ref, ref, sizeof(psd.ref));
 	psd.scores[0] = -1;
 	flood_fill_seed(q, region->seed.x, region->seed.y,
 			rcode, QUIRC_PIXEL_BLACK,
@@ -1188,7 +1188,7 @@ static void find_region_corners(struct quirc *q,
 	psd.ref.y = psd.corners[0].y - psd.ref.y;
 
 	for (i = 0; i < 4; i++)
-		memcpy(&psd.corners[i], &region->seed,
+		hal_rvv_memcpy(&psd.corners[i], &region->seed,
 		       sizeof(psd.corners[i]));
 
 	i = region->seed.x * psd.ref.x + region->seed.y * psd.ref.y;
@@ -1216,7 +1216,7 @@ static void record_capstone(struct quirc *q, int ring, int stone)
 	cs_index = q->num_capstones;
 	capstone = &q->capstones[q->num_capstones++];
 
-	memset(capstone, 0, sizeof(*capstone));
+	hal_rvv_memset(capstone, 0, sizeof(*capstone));
 
 	capstone->qr_grid = -1;
 	capstone->ring = ring;
@@ -1279,7 +1279,7 @@ static void finder_scan(struct quirc *q, unsigned int y)
 	unsigned int run_count = 0;
 	unsigned int pb[5];
 
-	memset(pb, 0, sizeof(pb));
+	hal_rvv_memset(pb, 0, sizeof(pb));
 	for (x = 0; x < q->w; x++) {
 		int color = row[x] ? 1 : 0;
 
@@ -1328,7 +1328,7 @@ static void find_alignment_pattern(struct quirc *q, int index)
 	quirc_float_t u, v;
 
 	/* Grab our previous estimate of the alignment pattern corner */
-	memcpy(&b, &qr->align, sizeof(b));
+	hal_rvv_memcpy(&b, &qr->align, sizeof(b));
 
 	/* Guess another two corners of the alignment pattern so that we
 	 * can estimate its size.
@@ -1593,12 +1593,12 @@ static void setup_qr_perspective(struct quirc *q, int index)
 	struct quirc_point rect[4];
 
 	/* Set up the perspective map for reading the grid */
-	memcpy(&rect[0], &q->capstones[qr->caps[1]].corners[0],
+	hal_rvv_memcpy(&rect[0], &q->capstones[qr->caps[1]].corners[0],
 	       sizeof(rect[0]));
-	memcpy(&rect[1], &q->capstones[qr->caps[2]].corners[0],
+	hal_rvv_memcpy(&rect[1], &q->capstones[qr->caps[2]].corners[0],
 	       sizeof(rect[0]));
-	memcpy(&rect[2], &qr->align, sizeof(rect[0]));
-	memcpy(&rect[3], &q->capstones[qr->caps[0]].corners[0],
+	hal_rvv_memcpy(&rect[2], &qr->align, sizeof(rect[0]));
+	hal_rvv_memcpy(&rect[3], &q->capstones[qr->caps[0]].corners[0],
 	       sizeof(rect[0]));
 	perspective_setup(qr->c, rect, qr->grid_size - 7, qr->grid_size - 7);
 
@@ -1630,9 +1630,9 @@ static void rotate_capstone(struct quirc_capstone *cap,
 
 	/* Rotate the capstone */
 	for (j = 0; j < 4; j++)
-		memcpy(&copy[j], &cap->corners[(j + best) % 4],
+		hal_rvv_memcpy(&copy[j], &cap->corners[(j + best) % 4],
 		       sizeof(copy[j]));
-	memcpy(cap->corners, copy, sizeof(cap->corners));
+	hal_rvv_memcpy(cap->corners, copy, sizeof(cap->corners));
 	perspective_setup(cap->c, cap->corners, 7.0, 7.0);
 }
 
@@ -1649,7 +1649,7 @@ static void record_qr_grid(struct quirc *q, int a, int b, int c)
 	/* Construct the hypotenuse line from A to C. B should be to
 	 * the left of this line.
 	 */
-	memcpy(&h0, &q->capstones[a].center, sizeof(h0));
+	hal_rvv_memcpy(&h0, &q->capstones[a].center, sizeof(h0));
 	hd.x = q->capstones[c].center.x - q->capstones[a].center.x;
 	hd.y = q->capstones[c].center.y - q->capstones[a].center.y;
 
@@ -1668,7 +1668,7 @@ static void record_qr_grid(struct quirc *q, int a, int b, int c)
 	qr_index = q->num_grids;
 	qr = &q->grids[q->num_grids++];
 
-	memset(qr, 0, sizeof(*qr));
+	hal_rvv_memset(qr, 0, sizeof(*qr));
 	qr->caps[0] = a;
 	qr->caps[1] = b;
 	qr->caps[2] = c;
@@ -1712,9 +1712,9 @@ static void record_qr_grid(struct quirc *q, int a, int b, int c)
 				&q->regions[qr->align_region];
 
 			/* Start from some point inside the alignment pattern */
-			memcpy(&qr->align, &reg->seed, sizeof(qr->align));
+			hal_rvv_memcpy(&qr->align, &reg->seed, sizeof(qr->align));
 
-			memcpy(&psd.ref, &hd, sizeof(psd.ref));
+			hal_rvv_memcpy(&psd.ref, &hd, sizeof(psd.ref));
 			psd.corners = &qr->align;
 			psd.scores[0] = -hd.y * qr->align.x +
 				hd.x * qr->align.y;
@@ -1862,7 +1862,7 @@ void quirc_extract(const struct quirc *q, int index,
 	int y;
 	int i = 0;
 
-	memset(code, 0, sizeof(*code));
+	hal_rvv_memset(code, 0, sizeof(*code));
 
 	if (index < 0 || index > q->num_grids)
 		return;
@@ -2079,8 +2079,8 @@ static void berlekamp_massey(const uint8_t *s, int N,
 	uint8_t b = 1;
 	int n;
 
-	memset(B, 0, sizeof(B));
-	memset(C, 0, sizeof(C));
+	hal_rvv_memset(B, 0, sizeof(B));
+	hal_rvv_memset(C, 0, sizeof(C));
 	B[0] = 1;
 	C[0] = 1;
 
@@ -2105,9 +2105,9 @@ static void berlekamp_massey(const uint8_t *s, int N,
 		} else if (L * 2 <= n) {
 			uint8_t T[MAX_POLY];
 
-			memcpy(T, C, sizeof(T));
+			hal_rvv_memcpy(T, C, sizeof(T));
 			poly_add(C, B, mult, m, gf);
-			memcpy(B, T, sizeof(B));
+			hal_rvv_memcpy(B, T, sizeof(B));
 			L = n + 1 - L;
 			b = d;
 			m = 1;
@@ -2117,7 +2117,7 @@ static void berlekamp_massey(const uint8_t *s, int N,
 		}
 	}
 
-	memcpy(sigma, C, MAX_POLY);
+	hal_rvv_memcpy(sigma, C, MAX_POLY);
 }
 
 /************************************************************************
@@ -2131,7 +2131,7 @@ static int block_syndromes(const uint8_t *data, int bs, int npar, uint8_t *s)
 	int nonzero = 0;
 	int i;
 
-	memset(s, 0, MAX_POLY);
+	hal_rvv_memset(s, 0, MAX_POLY);
 
 	for (i = 0; i < npar; i++) {
 		int j;
@@ -2159,7 +2159,7 @@ static void eloc_poly(uint8_t *omega,
 {
 	int i;
 
-	memset(omega, 0, MAX_POLY);
+	hal_rvv_memset(omega, 0, MAX_POLY);
 
 	for (i = 0; i < npar; i++) {
 		const uint8_t a = sigma[i];
@@ -2201,7 +2201,7 @@ static quirc_decode_error_t correct_block(uint8_t *data,
 	berlekamp_massey(s, npar, &gf256, sigma);
 
 	/* Compute derivative of sigma */
-	memset(sigma_deriv, 0, MAX_POLY);
+	hal_rvv_memset(sigma_deriv, 0, MAX_POLY);
 	for (i = 0; i + 1 < MAX_POLY; i += 2)
 		sigma_deriv[i] = sigma[i + 1];
 
@@ -2243,7 +2243,7 @@ static int format_syndromes(uint16_t u, uint8_t *s)
 	int i;
 	int nonzero = 0;
 
-	memset(s, 0, MAX_POLY);
+	hal_rvv_memset(s, 0, MAX_POLY);
 
 	for (i = 0; i < FORMAT_SYNDROMES; i++) {
 		int j;
@@ -2476,7 +2476,7 @@ static quirc_decode_error_t codestream_ecc(struct quirc_data *data,
 	int dst_offset = 0;
 	int i;
 
-	memcpy(&lb_ecc, sb_ecc, sizeof(lb_ecc));
+	hal_rvv_memcpy(&lb_ecc, sb_ecc, sizeof(lb_ecc));
 	lb_ecc.dw++;
 	lb_ecc.bs++;
 
@@ -2787,8 +2787,8 @@ quirc_decode_error_t quirc_decode(const struct quirc_code *code,
 	if ((code->size - 17) % 4)
 		return QUIRC_ERROR_INVALID_GRID_SIZE;
 
-	memset(data, 0, sizeof(*data));
-	memset(&ds, 0, sizeof(ds));
+	hal_rvv_memset(data, 0, sizeof(*data));
+	hal_rvv_memset(&ds, 0, sizeof(ds));
 
 	data->version = (code->size - 17) / 4;
 
@@ -2839,7 +2839,7 @@ void quirc_flip(struct quirc_code *code)
 			offset++;
 		}
 	}
-	memcpy(&code->cell_bitmap, &flipped.cell_bitmap, sizeof(flipped.cell_bitmap));
+	hal_rvv_memcpy(&code->cell_bitmap, &flipped.cell_bitmap, sizeof(flipped.cell_bitmap));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2875,7 +2875,7 @@ struct quirc *quirc_new(void)
 	if (!q)
 		return NULL;
 
-	memset(q, 0, sizeof(*q));
+	hal_rvv_memset(q, 0, sizeof(*q));
 	return q;
 }
 
@@ -2946,7 +2946,7 @@ int quirc_resize(struct quirc *q, int w, int h)
 	 * old buffer when the new size is greater and (b) to write beyond the
 	 * new buffer when the new size is smaller, hence the min computation.
 	 */
-	(void)memcpy(image, q->image, min);
+	(void)hal_rvv_memcpy(image, q->image, min);
 
 	/* alloc a new buffer for q->pixels if needed */
 	if (!QUIRC_PIXEL_ALIAS_IMAGE) {
@@ -3095,7 +3095,7 @@ void imlib_find_qrcodes(list_t *out, image_t *ptr, rectangle_t *roi)
             // Payload is already null terminated.
             lnk_data.payload_len = data->payload_len;
             lnk_data.payload = xalloc(data->payload_len);
-            memcpy(lnk_data.payload, data->payload, data->payload_len);
+            hal_rvv_memcpy(lnk_data.payload, data->payload, data->payload_len);
 
             lnk_data.version = data->version;
             lnk_data.ecc_level = data->ecc_level;

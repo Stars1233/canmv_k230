@@ -461,8 +461,8 @@ void ifft1d_run(fft1d_controller_t *controller) {
     prepare_complex_input(h_buffer, h_buffer,
                           controller->pow2 - 1, 1);
     do_ifft(h_buffer, controller->pow2 - 1, 1);
-    memset(controller->data, 0, (2 << controller->pow2) * sizeof(float));
-    memcpy(controller->data, h_buffer, (1 << controller->pow2) * sizeof(float));
+    hal_rvv_memset(controller->data, 0, (2 << controller->pow2) * sizeof(float));
+    hal_rvv_memcpy(controller->data, h_buffer, (1 << controller->pow2) * sizeof(float));
     fb_free();
 }
 
@@ -564,7 +564,7 @@ void fft2d_run(fft2d_controller_t *controller) {
         fft1d_controller_t fft1d_controller_i;
         fft1d_alloc(&fft1d_controller_i, tmp, controller->r.w);
         fft1d_run(&fft1d_controller_i);
-        memcpy(controller->data + (i * (2 << controller->w_pow2)),
+        hal_rvv_memcpy(controller->data + (i * (2 << controller->w_pow2)),
                fft1d_controller_i.data, (2 << fft1d_controller_i.pow2) * sizeof(float));
         fft1d_dealloc();
         // Free image data buffer.
@@ -663,8 +663,8 @@ void fft2d_linpolar(fft2d_controller_t *controller) {
     int h = 1 << controller->h_pow2;
     int s = h * w * 2 * sizeof(float);
     float *tmp = fb_alloc(s, FB_ALLOC_NO_HINT);
-    memcpy(tmp, controller->data, s);
-    memset(controller->data, 0, s);
+    hal_rvv_memcpy(tmp, controller->data, s);
+    hal_rvv_memset(controller->data, 0, s);
 
     float w_2 = w / 2.0f;
     float h_2 = h / 2.0f;
@@ -698,8 +698,8 @@ void fft2d_logpolar(fft2d_controller_t *controller) {
     int h = 1 << controller->h_pow2;
     int s = h * w * 2 * sizeof(float);
     float *tmp = fb_alloc(s, FB_ALLOC_NO_HINT);
-    memcpy(tmp, controller->data, s);
-    memset(controller->data, 0, s);
+    hal_rvv_memcpy(tmp, controller->data, s);
+    hal_rvv_memset(controller->data, 0, s);
 
     float w_2 = w / 2.0f;
     float h_2 = h / 2.0f;

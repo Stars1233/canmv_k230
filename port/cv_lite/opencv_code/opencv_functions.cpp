@@ -13,6 +13,8 @@
 
 #include <riscv_vector.h>
 
+#include "hal_rvv_ops.h"
+
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
@@ -1011,7 +1013,7 @@ void grayscale_find_edges(FrameCHWSize frame_shape, uint8_t* data,int threshold1
     cv::Canny(gray, edges, threshold1, threshold2);
 
     // 将 edges（单通道）拷贝回原图（覆盖原始内容）
-    std::memcpy(result, edges.data, width * height);
+    hal_rvv_memcpy(result, edges.data, width * height);
 }
 
 /**
@@ -1039,7 +1041,7 @@ void rgb888_find_edges(FrameCHWSize frame_shape, uint8_t* data, int threshold1, 
     cv::Canny(gray, edges, threshold1, threshold2);
 
     // 拷贝结果到输出缓冲区（单通道）
-    std::memcpy(result, edges.data, width * height);
+    hal_rvv_memcpy(result, edges.data, width * height);
 }
 
 /**
@@ -1063,7 +1065,7 @@ void grayscale_threshold_binary(FrameCHWSize frame_shape, uint8_t* data, int thr
     cv::threshold(gray, binary, thresh, maxval, cv::THRESH_BINARY);
 
     // 拷贝结果到输出缓冲区（单通道，0或maxval）
-    std::memcpy(result, binary.data, width * height);
+    hal_rvv_memcpy(result, binary.data, width * height);
 }
 
 
@@ -1092,7 +1094,7 @@ void rgb888_threshold_binary(FrameCHWSize frame_shape, uint8_t* data, int thresh
     cv::threshold(gray, binary, thresh, maxval, cv::THRESH_BINARY);
 
     // 拷贝结果到输出缓冲区（单通道，0或maxval）
-    std::memcpy(result, binary.data, width * height);
+    hal_rvv_memcpy(result, binary.data, width * height);
 }
 
 /**
@@ -1140,7 +1142,7 @@ void rgb888_white_balance_gray_world(FrameCHWSize frame_shape, uint8_t* data, ui
     balanced.convertTo(clipped, CV_8UC3);
 
     // 拷贝结果到输出缓冲区
-    std::memcpy(result, clipped.data, width * height * 3);
+    hal_rvv_memcpy(result, clipped.data, width * height * 3);
 }
 
 /**
@@ -1410,7 +1412,7 @@ void rgb888_white_balance_gray_world_adjustable(FrameCHWSize frame_shape, uint8_
     balanced.convertTo(clipped, CV_8UC3);
 
     // 拷贝结果
-    std::memcpy(result, clipped.data, width * height * 3);
+    hal_rvv_memcpy(result, clipped.data, width * height * 3);
 }
 
 /**
@@ -1440,7 +1442,7 @@ void rgb888_adjust_exposure(FrameCHWSize frame_shape, uint8_t* data, float expos
     rgb_float.convertTo(adjusted, CV_8UC3);
 
     // 拷贝结果数据
-    std::memcpy(result, adjusted.data, width * height * 3);
+    hal_rvv_memcpy(result, adjusted.data, width * height * 3);
 }
 
 /**
@@ -1511,7 +1513,7 @@ void rgb888_denoise(FrameCHWSize frame_shape, uint8_t* data, int method, int str
     }
 
     // 拷贝输出
-    std::memcpy(result, denoised.data, width * height * 3);
+    hal_rvv_memcpy(result, denoised.data, width * height * 3);
 }
 
 // 仅做均值滤波（Mean Blur）的函数
@@ -1530,7 +1532,7 @@ void rgb888_mean_blur(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, 
     cv::blur(rgb, blurred, cv::Size(ksize, ksize));
 
     // 拷贝结果到输出缓冲区
-    std::memcpy(result, blurred.data, width * height * 3);
+    hal_rvv_memcpy(result, blurred.data, width * height * 3);
 }
 
 void rgb888_mean_blur_fast(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, uint8_t* result)
@@ -1826,7 +1828,7 @@ void rgb888_erode(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, int 
     cv::erode(binary, eroded, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果（二值图，单通道）
-    std::memcpy(result, eroded.data, width * height);
+    hal_rvv_memcpy(result, eroded.data, width * height);
 }
 
 
@@ -1867,7 +1869,7 @@ void rgb888_dilate(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, int
     cv::dilate(binary, dilated, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果（二值图，单通道）
-    std::memcpy(result, dilated.data, width * height);
+    hal_rvv_memcpy(result, dilated.data, width * height);
 }
 
 
@@ -1908,7 +1910,7 @@ void rgb888_open(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, int i
     cv::morphologyEx(binary, opened, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果
-    std::memcpy(result, opened.data, width * height);
+    hal_rvv_memcpy(result, opened.data, width * height);
 }
 
 /**
@@ -1949,7 +1951,7 @@ void rgb888_close(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, int 
     cv::morphologyEx(binary, closed, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果
-    std::memcpy(result, closed.data, width * height);
+    hal_rvv_memcpy(result, closed.data, width * height);
 }
 
 /**
@@ -1990,7 +1992,7 @@ void rgb888_gradient(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, i
     cv::morphologyEx(binary, gradient, cv::MORPH_GRADIENT, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果
-    std::memcpy(result, gradient.data, width * height);
+    hal_rvv_memcpy(result, gradient.data, width * height);
 }
 
 /**
@@ -2031,7 +2033,7 @@ void rgb888_tophat(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, int
     cv::morphologyEx(binary, tophat, cv::MORPH_TOPHAT, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果
-    std::memcpy(result, tophat.data, width * height);
+    hal_rvv_memcpy(result, tophat.data, width * height);
 }
 
 /**
@@ -2073,7 +2075,7 @@ void rgb888_blackhat(FrameCHWSize frame_shape, uint8_t* data, int kernel_size, i
     cv::morphologyEx(binary, blackhat, cv::MORPH_BLACKHAT, kernel, cv::Point(-1, -1), iterations);
 
     // 拷贝输出结果
-    std::memcpy(result, blackhat.data, width * height);
+    hal_rvv_memcpy(result, blackhat.data, width * height);
 }
 
 /**
@@ -2101,9 +2103,9 @@ void rgb888_calc_histogram(FrameCHWSize frame_shape, uint8_t* data, uint32_t* re
     uint32_t* hist_g = result + 256;
     uint32_t* hist_r = result + 512;
 
-    memset(hist_b, 0, 256 * sizeof(uint32_t));
-    memset(hist_g, 0, 256 * sizeof(uint32_t));
-    memset(hist_r, 0, 256 * sizeof(uint32_t));
+    hal_rvv_memset(hist_b, 0, 256 * sizeof(uint32_t));
+    hal_rvv_memset(hist_g, 0, 256 * sizeof(uint32_t));
+    hal_rvv_memset(hist_r, 0, 256 * sizeof(uint32_t));
 
     for (int y = 0; y < height; ++y) {
         const uchar* ptr_b = channels[0].ptr<uchar>(y);
@@ -2417,15 +2419,15 @@ void rgb888_undistort(FrameCHWSize frame_shape, uint8_t* data,float* camera_matr
     cv::Mat rgb(height, width, CV_8UC3, data);
     // 构造相机内参矩阵 (3x3)
     cv::Mat cam_mat(3, 3, CV_32F);
-    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+    hal_rvv_memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
     // 构造畸变系数矩阵（1xN）
     cv::Mat dist_mat(1, dist_len, CV_32F);
-    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+    hal_rvv_memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
     // 去畸变图像
     cv::Mat undistorted;
     cv::undistort(rgb, undistorted, cam_mat, dist_mat);
     // 拷贝输出结果
-    std::memcpy(result, undistorted.data, width * height * 3);
+    hal_rvv_memcpy(result, undistorted.data, width * height * 3);
 }
 
 void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,float* camera_matrix, float* dist_coeffs,int dist_len, uint8_t* result) {
@@ -2437,11 +2439,11 @@ void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,float*
 
     // 相机矩阵
     cv::Mat cam_mat(3, 3, CV_32F);
-    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+    hal_rvv_memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
 
     // 畸变系数
     cv::Mat dist_mat(1, dist_len, CV_32F);
-    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+    hal_rvv_memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
 
     // 计算优化后的新相机矩阵（最大保留图像区域）
     cv::Mat new_cam_mat = cv::getOptimalNewCameraMatrix(
@@ -2452,7 +2454,7 @@ void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,float*
     cv::undistort(rgb, undistorted, cam_mat, dist_mat, new_cam_mat);
 
     // 拷贝输出数据
-    std::memcpy(result, undistorted.data, width * height * 3);
+    hal_rvv_memcpy(result, undistorted.data, width * height * 3);
 }
 
 
@@ -2497,7 +2499,7 @@ void rgb888_undistort_fast(FrameCHWSize frame_shape, uint8_t* data, float* camer
     cv::remap(rgb, undistorted, map1, map2, cv::INTER_LINEAR);
 
     // 拷贝结果
-    std::memcpy(result, undistorted.data, width * height * 3);
+    hal_rvv_memcpy(result, undistorted.data, width * height * 3);
 }
 
 
@@ -2510,11 +2512,11 @@ void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,int* r
 
     // 相机矩阵
     cv::Mat cam_mat(3, 3, CV_32F);
-    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+    hal_rvv_memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
 
     // 畸变系数
     cv::Mat dist_mat(1, dist_len, CV_32F);
-    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+    hal_rvv_memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
 
     // 计算优化后的新相机矩阵（最大保留图像区域）
     cv::Mat new_cam_mat = cv::getOptimalNewCameraMatrix(
@@ -2525,7 +2527,7 @@ void rgb888_undistort_new_cam_mat(FrameCHWSize frame_shape, uint8_t* data,int* r
     cv::undistort(rgb, undistorted, cam_mat, dist_mat, new_cam_mat);
 
     // 拷贝输出数据
-    std::memcpy(result, undistorted.data, width * height * 3);
+    hal_rvv_memcpy(result, undistorted.data, width * height * 3);
 }
 
 float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
@@ -2539,11 +2541,11 @@ float rgb888_pnp_distance(FrameCHWSize frame_shape, uint8_t* data, int* roi,
 
     // 相机内参矩阵
     cv::Mat cam_mat(3, 3, CV_32F);
-    std::memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
+    hal_rvv_memcpy(cam_mat.data, camera_matrix, 9 * sizeof(float));
 
     // 畸变系数
     cv::Mat dist_mat(1, dist_len, CV_32F);
-    std::memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
+    hal_rvv_memcpy(dist_mat.data, dist_coeffs, dist_len * sizeof(float));
 
     // ROI 图像坐标
     int x = roi[0];
@@ -2755,7 +2757,7 @@ void rgb888_perspective_transform(FrameCHWSize frame_shape, uint8_t* data,
     cv::warpPerspective(roi_img, warped, M, cv::Size(out_width, out_height));
 
     // 拷贝结果
-    std::memcpy(result, warped.data, out_width * out_height * 3);
+    hal_rvv_memcpy(result, warped.data, out_width * out_height * 3);
 }
 
 

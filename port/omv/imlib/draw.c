@@ -551,7 +551,7 @@ void imlib_draw_row_setup(imlib_draw_row_data_t *data) {
         data->dma2d_enabled = true;
         data->dma2d_initialized = true;
 
-        memset(&data->dma2d, 0, sizeof(data->dma2d));
+        hal_rvv_memset(&data->dma2d, 0, sizeof(data->dma2d));
 
         data->dma2d.Instance = DMA2D;
         data->dma2d.Init.Mode = DMA2D_M2M;
@@ -3097,7 +3097,7 @@ void imlib_draw_image(image_t *dst_img,
                 }
                 case PIXFORMAT_BAYER_ANY:
                 case PIXFORMAT_YUV_ANY: {
-                    memcpy(new_src_img.data, src_img->data, size);
+                    hal_rvv_memcpy(new_src_img.data, src_img->data, size);
                     break;
                 }
                 default: {
@@ -3111,7 +3111,7 @@ void imlib_draw_image(image_t *dst_img,
             new_src_img.pixfmt = src_img->pixfmt;
             size_t size = image_size(&new_src_img);
             new_src_img.data = fb_alloc(size, FB_ALLOC_NO_HINT);
-            memcpy(new_src_img.data, src_img->data, size);
+            hal_rvv_memcpy(new_src_img.data, src_img->data, size);
         }
 
         src_img = &new_src_img;

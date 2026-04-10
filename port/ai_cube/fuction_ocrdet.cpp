@@ -5,6 +5,8 @@
 #include <opencv2/opencv.hpp>
 #include "clipper.h"
 
+#include "hal_rvv_ops.h"
+
 
 typedef struct ocr_det_res
 {
@@ -283,7 +285,7 @@ ArrayWrapper* ocr_post_process(FrameSize frame_size,FrameSize kmodel_frame_size,
         arrayWrapper[num_result].dimensions=(int*)malloc(3*sizeof(int));
         
         uint8_t* matData = crop.ptr<uint8_t>(); // 获取cv::Mat的数据指针
-        std::memcpy(arrayWrapper[num_result].data, matData, crop.total()*3 * sizeof(uint8_t)); // 复制数据
+        hal_rvv_memcpy(arrayWrapper[num_result].data, matData, crop.total()*3 * sizeof(uint8_t)); // 复制数据
 
         
         arrayWrapper[num_result].dimensions[0] = crop.channels();

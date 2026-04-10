@@ -52,7 +52,7 @@ static void jpeg_get_mcu(image_t *src, int x_offset, int y_offset, int dx, int d
         case PIXFORMAT_BINARY: {
             if ((dx != MCU_W) || (dy != MCU_H)) {
                 // partial MCU, fill with 0's to start
-                memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
             }
 
             for (int y = y_offset, yy = y + dy; y < yy; y++) {
@@ -91,7 +91,7 @@ static void jpeg_get_mcu(image_t *src, int x_offset, int y_offset, int dx, int d
         case PIXFORMAT_GRAYSCALE: {
             if ((dx != MCU_W) || (dy != MCU_H)) {
                 // partial MCU, fill with 0's to start
-                memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
             }
 
             for (int y = y_offset, yy = y + dy; y < yy; y++) {
@@ -156,9 +156,9 @@ static void jpeg_get_mcu(image_t *src, int x_offset, int y_offset, int dx, int d
         case PIXFORMAT_RGB565: {
             if ((dx != MCU_W) || (dy != MCU_H)) {
                 // partial MCU, fill with 0's to start
-                memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
-                memset(CB, 0, JPEG_444_GS_MCU_SIZE);
-                memset(CR, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(CB, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(CR, 0, JPEG_444_GS_MCU_SIZE);
             }
 
             for (int y = y_offset, yy = y + dy, index = 0; y < yy; y++) {
@@ -233,9 +233,9 @@ static void jpeg_get_mcu(image_t *src, int x_offset, int y_offset, int dx, int d
         case PIXFORMAT_YUV_ANY: {
             if ((dx != MCU_W) || (dy != MCU_H)) {
                 // partial MCU, fill with 0's to start
-                memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
-                memset(CB, 0, JPEG_444_GS_MCU_SIZE);
-                memset(CR, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(CB, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(CR, 0, JPEG_444_GS_MCU_SIZE);
             }
 
             int shift = (src->pixfmt == PIXFORMAT_YUV422) ? 24 : 8;
@@ -302,9 +302,9 @@ static void jpeg_get_mcu(image_t *src, int x_offset, int y_offset, int dx, int d
         case PIXFORMAT_BAYER_ANY: {
             if ((dx != MCU_W) || (dy != MCU_H)) {
                 // partial MCU, fill with 0's to start
-                memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
-                memset(CB, 0, JPEG_444_GS_MCU_SIZE);
-                memset(CR, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(Y0, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(CB, 0, JPEG_444_GS_MCU_SIZE);
+                hal_rvv_memset(CR, 0, JPEG_444_GS_MCU_SIZE);
             }
 
             int src_w = src->w, w_limit = src_w - 1, w_limit_m_1 = w_limit - 1;
@@ -1077,7 +1077,7 @@ bool jpeg_compress(image_t *src, image_t *dst, int quality, bool realloc) {
 
     if (memcmp(&JPEG_Config, &JPEG_Info, sizeof(JPEG_ConfTypeDef))) {
         HAL_JPEG_ConfigEncoding(&JPEG_Handle, &JPEG_Info);
-        memcpy(&JPEG_Config, &JPEG_Info, sizeof(JPEG_ConfTypeDef));
+        hal_rvv_memcpy(&JPEG_Config, &JPEG_Info, sizeof(JPEG_ConfTypeDef));
     }
 
     int src_w_mcus = (src->w + MCU_W - 1) / MCU_W;
@@ -1165,7 +1165,7 @@ bool jpeg_compress(image_t *src, image_t *dst, int quality, bool realloc) {
                 __WFI();
 
                 if (JPEG_output_paused) {
-                    memset(&JPEG_Config, 0, sizeof(JPEG_ConfTypeDef));
+                    hal_rvv_memset(&JPEG_Config, 0, sizeof(JPEG_ConfTypeDef));
                     HAL_JPEG_Abort(&JPEG_Handle);
                     fb_free(); // mcu_row_buffer (after DMA is aborted)
                     return true; // overflow
@@ -1188,7 +1188,7 @@ bool jpeg_compress(image_t *src, image_t *dst, int quality, bool realloc) {
         __WFI();
 
         if (JPEG_output_paused) {
-            memset(&JPEG_Config, 0, sizeof(JPEG_ConfTypeDef));
+            hal_rvv_memset(&JPEG_Config, 0, sizeof(JPEG_ConfTypeDef));
             HAL_JPEG_Abort(&JPEG_Handle);
             fb_free(); // mcu_row_buffer (after DMA is aborted)
             return true; // overflow
@@ -1212,12 +1212,12 @@ bool jpeg_compress(image_t *src, image_t *dst, int quality, bool realloc) {
     // Update the JPEG image size by the new APP0 header and it's padding. However, we have to move
     // the SOI header to the front of the image first...
     dst->size += app0_total_size;
-    memcpy(dst->data, dma_buffer, sizeof(uint16_t)); // move SOI
-    memcpy(dst->data + sizeof(uint16_t), JPEG_APP0, sizeof(JPEG_APP0)); // inject APP0
+    hal_rvv_memcpy(dst->data, dma_buffer, sizeof(uint16_t)); // move SOI
+    hal_rvv_memcpy(dst->data + sizeof(uint16_t), JPEG_APP0, sizeof(JPEG_APP0)); // inject APP0
 
     // Add on a comment header with 0 padding to ensure cache alignment after the APP0 header.
     *((uint16_t *) (dst->data + sizeof(uint16_t) + sizeof(JPEG_APP0))) = __REV16(app0_padding_size); // size
-    memset(dst->data + sizeof(uint32_t) + sizeof(JPEG_APP0), 0, app0_padding_size - sizeof(uint16_t)); // data
+    hal_rvv_memset(dst->data + sizeof(uint32_t) + sizeof(JPEG_APP0), 0, app0_padding_size - sizeof(uint16_t)); // data
 
     // Clean trailing data after 0xFFD9 at the end of the jpeg byte stream.
     dst->size = jpeg_clean_trailing_bytes(dst->size, dst->data);
@@ -1279,7 +1279,7 @@ void imlib_jpeg_compress_init() {
 }
 
 void imlib_jpeg_compress_deinit() {
-    memset(&JPEG_Config, 0, sizeof(JPEG_ConfTypeDef));
+    hal_rvv_memset(&JPEG_Config, 0, sizeof(JPEG_ConfTypeDef));
     HAL_JPEG_Abort(&JPEG_Handle);
     HAL_MDMA_DeInit(&JPEG_MDMA_Handle_Out);
     HAL_MDMA_DeInit(&JPEG_MDMA_Handle_In);
@@ -1619,7 +1619,7 @@ static void jpeg_put_bytes(jpeg_buf_t *jpeg_buf, const void *data, int size) {
         jpeg_buf->buf = xrealloc(jpeg_buf->buf, jpeg_buf->length);
     }
 
-    memcpy(jpeg_buf->buf + jpeg_buf->idx, data, size);
+    hal_rvv_memcpy(jpeg_buf->buf + jpeg_buf->idx, data, size);
     jpeg_buf->idx += size;
 }
 
@@ -2036,9 +2036,9 @@ bool jpeg_compress(image_t *src, image_t *dst, int quality, bool realloc) {
                         if (dx > 0) {
                             jpeg_get_mcu(src, x_offset, y_offset, dx, dy, YDU + i, UDU + i, VDU + i);
                         } else {
-                            memset(YDU + i, 0, JPEG_444_GS_MCU_SIZE);
-                            memset(UDU + i, 0, JPEG_444_GS_MCU_SIZE);
-                            memset(VDU + i, 0, JPEG_444_GS_MCU_SIZE);
+                            hal_rvv_memset(YDU + i, 0, JPEG_444_GS_MCU_SIZE);
+                            hal_rvv_memset(UDU + i, 0, JPEG_444_GS_MCU_SIZE);
+                            hal_rvv_memset(VDU + i, 0, JPEG_444_GS_MCU_SIZE);
                         }
 
                         DCY = jpeg_processDU(&jpeg_buf, YDU + i, fdtbl_Y, DCY, YDC_HT, YAC_HT);
@@ -2097,9 +2097,9 @@ bool jpeg_compress(image_t *src, image_t *dst, int quality, bool realloc) {
                             if ((dx > 0) && (dy > 0)) {
                                 jpeg_get_mcu(src, x_offset, y_offset, dx, dy, YDU + i + j, UDU + i + j, VDU + i + j);
                             } else {
-                                memset(YDU + i + j, 0, JPEG_444_GS_MCU_SIZE);
-                                memset(UDU + i + j, 0, JPEG_444_GS_MCU_SIZE);
-                                memset(VDU + i + j, 0, JPEG_444_GS_MCU_SIZE);
+                                hal_rvv_memset(YDU + i + j, 0, JPEG_444_GS_MCU_SIZE);
+                                hal_rvv_memset(UDU + i + j, 0, JPEG_444_GS_MCU_SIZE);
+                                hal_rvv_memset(VDU + i + j, 0, JPEG_444_GS_MCU_SIZE);
                             }
 
                             DCY = jpeg_processDU(&jpeg_buf, YDU + i + j, fdtbl_Y, DCY, YDC_HT, YAC_HT);

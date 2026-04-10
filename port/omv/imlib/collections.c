@@ -29,7 +29,7 @@ void bitmap_free(bitmap_t *ptr) {
 }
 
 void bitmap_clear(bitmap_t *ptr) {
-    memset(ptr->data, 0, ((ptr->size + CHAR_MASK) >> CHAR_SHIFT) * sizeof(char));
+    hal_rvv_memset(ptr->data, 0, ((ptr->size + CHAR_MASK) >> CHAR_SHIFT) * sizeof(char));
 }
 
 void bitmap_bit_set(bitmap_t *ptr, size_t index) {
@@ -83,25 +83,25 @@ bool lifo_is_not_full(lifo_t *ptr) {
 }
 
 void lifo_enqueue(lifo_t *ptr, void *data) {
-    memcpy(ptr->data + (ptr->len * ptr->data_len), data, ptr->data_len);
+    hal_rvv_memcpy(ptr->data + (ptr->len * ptr->data_len), data, ptr->data_len);
 
     ptr->len += 1;
 }
 
 void lifo_dequeue(lifo_t *ptr, void *data) {
     if (data) {
-        memcpy(data, ptr->data + ((ptr->len - 1) * ptr->data_len), ptr->data_len);
+        hal_rvv_memcpy(data, ptr->data + ((ptr->len - 1) * ptr->data_len), ptr->data_len);
     }
 
     ptr->len -= 1;
 }
 
 void lifo_poke(lifo_t *ptr, void *data) {
-    memcpy(ptr->data + (ptr->len * ptr->data_len), data, ptr->data_len);
+    hal_rvv_memcpy(ptr->data + (ptr->len * ptr->data_len), data, ptr->data_len);
 }
 
 void lifo_peek(lifo_t *ptr, void *data) {
-    memcpy(data, ptr->data + ((ptr->len - 1) * ptr->data_len), ptr->data_len);
+    hal_rvv_memcpy(data, ptr->data + ((ptr->len - 1) * ptr->data_len), ptr->data_len);
 }
 
 //////////
@@ -153,7 +153,7 @@ bool fifo_is_not_full(fifo_t *ptr) {
 }
 
 void fifo_enqueue(fifo_t *ptr, void *data) {
-    memcpy(ptr->data + (ptr->head_ptr * ptr->data_len), data, ptr->data_len);
+    hal_rvv_memcpy(ptr->data + (ptr->head_ptr * ptr->data_len), data, ptr->data_len);
 
     size_t temp = ptr->head_ptr + 1;
 
@@ -167,7 +167,7 @@ void fifo_enqueue(fifo_t *ptr, void *data) {
 
 void fifo_dequeue(fifo_t *ptr, void *data) {
     if (data) {
-        memcpy(data, ptr->data + (ptr->tail_ptr * ptr->data_len), ptr->data_len);
+        hal_rvv_memcpy(data, ptr->data + (ptr->tail_ptr * ptr->data_len), ptr->data_len);
     }
 
     size_t temp = ptr->tail_ptr + 1;
@@ -181,11 +181,11 @@ void fifo_dequeue(fifo_t *ptr, void *data) {
 }
 
 void fifo_poke(fifo_t *ptr, void *data) {
-    memcpy(ptr->data + (ptr->head_ptr * ptr->data_len), data, ptr->data_len);
+    hal_rvv_memcpy(ptr->data + (ptr->head_ptr * ptr->data_len), data, ptr->data_len);
 }
 
 void fifo_peek(fifo_t *ptr, void *data) {
-    memcpy(data, ptr->data + (ptr->tail_ptr * ptr->data_len), ptr->data_len);
+    hal_rvv_memcpy(data, ptr->data + (ptr->tail_ptr * ptr->data_len), ptr->data_len);
 }
 
 //////////
@@ -200,7 +200,7 @@ void list_init(list_t *ptr, size_t data_len) {
 }
 
 void list_copy(list_t *dst, list_t *src) {
-    memcpy(dst, src, sizeof(list_t));
+    hal_rvv_memcpy(dst, src, sizeof(list_t));
 }
 
 void list_free(list_t *ptr) {
@@ -225,7 +225,7 @@ size_t list_size(list_t *ptr) {
 
 void list_push_front(list_t *ptr, void *data) {
     list_lnk_t *tmp = (list_lnk_t *) xalloc(sizeof(list_lnk_t) + ptr->data_len);
-    memcpy(tmp->data, data, ptr->data_len);
+    hal_rvv_memcpy(tmp->data, data, ptr->data_len);
 
     if (ptr->size++) {
         tmp->next_ptr = ptr->head_ptr;
@@ -242,7 +242,7 @@ void list_push_front(list_t *ptr, void *data) {
 
 void list_push_back(list_t *ptr, void *data) {
     list_lnk_t *tmp = (list_lnk_t *) xalloc(sizeof(list_lnk_t) + ptr->data_len);
-    memcpy(tmp->data, data, ptr->data_len);
+    hal_rvv_memcpy(tmp->data, data, ptr->data_len);
 
     if (ptr->size++) {
         tmp->next_ptr = NULL;
@@ -261,7 +261,7 @@ void list_pop_front(list_t *ptr, void *data) {
     list_lnk_t *tmp = ptr->head_ptr;
 
     if (data) {
-        memcpy(data, tmp->data, ptr->data_len);
+        hal_rvv_memcpy(data, tmp->data, ptr->data_len);
     }
 
     if (tmp->next_ptr) {
@@ -276,7 +276,7 @@ void list_pop_back(list_t *ptr, void *data) {
     list_lnk_t *tmp = ptr->tail_ptr;
 
     if (data) {
-        memcpy(data, tmp->data, ptr->data_len);
+        hal_rvv_memcpy(data, tmp->data, ptr->data_len);
     }
 
     tmp->prev_ptr->next_ptr = NULL;
@@ -286,19 +286,19 @@ void list_pop_back(list_t *ptr, void *data) {
 }
 
 void list_get_front(list_t *ptr, void *data) {
-    memcpy(data, ptr->head_ptr->data, ptr->data_len);
+    hal_rvv_memcpy(data, ptr->head_ptr->data, ptr->data_len);
 }
 
 void list_get_back(list_t *ptr, void *data) {
-    memcpy(data, ptr->tail_ptr->data, ptr->data_len);
+    hal_rvv_memcpy(data, ptr->tail_ptr->data, ptr->data_len);
 }
 
 void list_set_front(list_t *ptr, void *data) {
-    memcpy(ptr->head_ptr->data, data, ptr->data_len);
+    hal_rvv_memcpy(ptr->head_ptr->data, data, ptr->data_len);
 }
 
 void list_set_back(list_t *ptr, void *data) {
-    memcpy(ptr->tail_ptr->data, data, ptr->data_len);
+    hal_rvv_memcpy(ptr->tail_ptr->data, data, ptr->data_len);
 }
 
 void list_insert(list_t *ptr, void *data, size_t index) {
@@ -316,7 +316,7 @@ void list_insert(list_t *ptr, void *data, size_t index) {
         }
 
         list_lnk_t *tmp = (list_lnk_t *) xalloc(sizeof(list_lnk_t) + ptr->data_len);
-        memcpy(tmp->data, data, ptr->data_len);
+        hal_rvv_memcpy(tmp->data, data, ptr->data_len);
 
         tmp->next_ptr = i;
         tmp->prev_ptr = i->prev_ptr;
@@ -335,7 +335,7 @@ void list_insert(list_t *ptr, void *data, size_t index) {
         }
 
         list_lnk_t *tmp = (list_lnk_t *) xalloc(sizeof(list_lnk_t) + ptr->data_len);
-        memcpy(tmp->data, data, ptr->data_len);
+        hal_rvv_memcpy(tmp->data, data, ptr->data_len);
 
         tmp->next_ptr = i;
         tmp->prev_ptr = i->prev_ptr;
@@ -360,7 +360,7 @@ void list_remove(list_t *ptr, void *data, size_t index) {
         }
 
         if (data) {
-            memcpy(data, i->data, ptr->data_len);
+            hal_rvv_memcpy(data, i->data, ptr->data_len);
         }
 
         i->prev_ptr->next_ptr = i->next_ptr;
@@ -379,7 +379,7 @@ void list_remove(list_t *ptr, void *data, size_t index) {
         }
 
         if (data) {
-            memcpy(data, i->data, ptr->data_len);
+            hal_rvv_memcpy(data, i->data, ptr->data_len);
         }
 
         i->prev_ptr->next_ptr = i->next_ptr;
@@ -403,7 +403,7 @@ void list_get(list_t *ptr, void *data, size_t index) {
             index -= 1;
         }
 
-        memcpy(data, i->data, ptr->data_len);
+        hal_rvv_memcpy(data, i->data, ptr->data_len);
 
     } else {
 
@@ -415,7 +415,7 @@ void list_get(list_t *ptr, void *data, size_t index) {
             index -= 1;
         }
 
-        memcpy(data, i->data, ptr->data_len);
+        hal_rvv_memcpy(data, i->data, ptr->data_len);
     }
 }
 
@@ -433,7 +433,7 @@ void list_set(list_t *ptr, void *data, size_t index) {
             index -= 1;
         }
 
-        memcpy(i->data, data, ptr->data_len);
+        hal_rvv_memcpy(i->data, data, ptr->data_len);
 
     } else {
 
@@ -445,7 +445,7 @@ void list_set(list_t *ptr, void *data, size_t index) {
             index -= 1;
         }
 
-        memcpy(i->data, data, ptr->data_len);
+        hal_rvv_memcpy(i->data, data, ptr->data_len);
     }
 }
 
@@ -470,9 +470,9 @@ list_lnk_t *iterator_prev(list_lnk_t *lnk) {
 }
 
 void iterator_get(list_t *ptr, list_lnk_t *lnk, void *data) {
-    memcpy(data, lnk->data, ptr->data_len);
+    hal_rvv_memcpy(data, lnk->data, ptr->data_len);
 }
 
 void iterator_set(list_t *ptr, list_lnk_t *lnk, void *data) {
-    memcpy(lnk->data, data, ptr->data_len);
+    hal_rvv_memcpy(lnk->data, data, ptr->data_len);
 }

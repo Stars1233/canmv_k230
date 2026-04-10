@@ -13,6 +13,9 @@
 #include "ulab_tools.h"
 #include <stdlib.h>
 #include <sys/stat.h>
+
+#include "hal_rvv_ops.h"
+
 // 数据结构
 typedef int mpy_datatype_t;
 
@@ -292,7 +295,7 @@ STATIC mp_obj_t mp_to_numpy(mp_obj_t self_in) {
         mp_stride[ULAB_MAX_DIMS - 1-i] = (int32_t)info.strides_[info.ndim_ - 1 - i]*size_bytes;
     }
     ndarray_obj_t *result = ndarray_new_ndarray(info.ndim_, mp_shape, mp_stride, info.dtype_);
-    memcpy((void *)result->origin, (void *)info.data_, result->len * result->itemsize);
+    hal_rvv_memcpy((void *)result->origin, (void *)info.data_, result->len * result->itemsize);
     
     free(info.data_);
     info.data_ = NULL;

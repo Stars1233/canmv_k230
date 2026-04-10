@@ -207,7 +207,7 @@ void imlib_stereo_disparity(image_t *img, bool reversed, int max_disparity, int 
 
                 if (y >= BLOCK_H_U) {
                     // Transfer buffer lines...
-                    memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - BLOCK_H_U)) + xr_offset,
+                    hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, (y - BLOCK_H_U)) + xr_offset,
                            IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, ((y - BLOCK_H_U) % BLOCK_H_D)),
                            IMAGE_GRAYSCALE_LINE_LEN_BYTES(&buf));
                 }
@@ -215,7 +215,7 @@ void imlib_stereo_disparity(image_t *img, bool reversed, int max_disparity, int 
 
             // Copy any remaining lines from the buffer image...
             for (int y = IM_MAX(height_1 - BLOCK_H_U, 0); y < height_1; y++) {
-                memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y) + xr_offset,
+                hal_rvv_memcpy(IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(img, y) + xr_offset,
                        IMAGE_COMPUTE_GRAYSCALE_PIXEL_ROW_PTR(&buf, (y % BLOCK_H_D)),
                        IMAGE_GRAYSCALE_LINE_LEN_BYTES(&buf));
             }

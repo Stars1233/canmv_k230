@@ -38,7 +38,7 @@ static void fb_alloc_buffer_fail() {
 }
 
 void fb_alloc_init0() {
-    memset(&fb_alloc_mgt, 0, sizeof(fb_alloc_mgt));
+    hal_rvv_memset(&fb_alloc_mgt, 0, sizeof(fb_alloc_mgt));
 }
 
 uint32_t fb_avail() {
@@ -125,7 +125,7 @@ void *fb_alloc(uint32_t size, int hints) {
 // returns null pointer without error if passed size==0
 void *fb_alloc0(uint32_t size, int hints) {
     void *mem = fb_alloc(size, hints);
-    memset(mem, 0, size); // does nothing if size is zero.
+    hal_rvv_memset(mem, 0, size); // does nothing if size is zero.
     return mem;
 }
 
@@ -163,7 +163,7 @@ void *fb_alloc_all(uint32_t *size, int hints) {
 // returns null pointer without error if returned size==0
 void *fb_alloc0_all(uint32_t *size, int hints) {
     void *mem = fb_alloc_all(size, hints);
-    memset(mem, 0, *size); // does nothing if size is zero.
+    hal_rvv_memset(mem, 0, *size); // does nothing if size is zero.
     return mem;
 }
 

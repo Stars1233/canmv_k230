@@ -1287,11 +1287,11 @@ dmtxDecodeMosaicRegion(DmtxDecode *dec, DmtxRegion *reg, int fix)
    }
 
    offset = 0;
-   memcpy(oMsg->output + offset, rMsg->output, rMsg->outputIdx);
+   hal_rvv_memcpy(oMsg->output + offset, rMsg->output, rMsg->outputIdx);
    offset += rMsg->outputIdx;
-   memcpy(oMsg->output + offset, gMsg->output, gMsg->outputIdx);
+   hal_rvv_memcpy(oMsg->output + offset, gMsg->output, gMsg->outputIdx);
    offset += gMsg->outputIdx;
-   memcpy(oMsg->output + offset, bMsg->output, bMsg->outputIdx);
+   hal_rvv_memcpy(oMsg->output + offset, bMsg->output, bMsg->outputIdx);
    offset += bMsg->outputIdx;
 
    oMsg->outputIdx = offset;
@@ -1518,7 +1518,7 @@ PopulateArrayFromMatrix(DmtxDecode *dec, DmtxRegion *reg, DmtxMessage *msg)
    int colTmp, rowTmp, idx;
    int *tally_temp = malloc(sizeof(int) * 24 * 24); int (*tally)[24] = (int (*)[24]) tally_temp; // [24][24]; /* Large enough to map largest single region */
 
-/* memset(msg->array, 0x00, msg->arraySize); */
+/* hal_rvv_memset(msg->array, 0x00, msg->arraySize); */
 
    /* Capture number of regions present in barcode */
    xRegionTotal = dmtxGetSymbolAttribute(DmtxSymAttribHorizDataRegions, reg->sizeIdx);
@@ -1542,7 +1542,7 @@ PopulateArrayFromMatrix(DmtxDecode *dec, DmtxRegion *reg, DmtxMessage *msg)
          /* X location of mapping region origin in symbol coordinates */
          xOrigin = xRegionCount * (mapWidth + 2) + 1;
 
-         memset(tally, 0x00, 24 * 24 * sizeof(int));
+         hal_rvv_memset(tally, 0x00, 24 * 24 * sizeof(int));
          TallyModuleJumps(dec, reg, tally, xOrigin, yOrigin, mapWidth, mapHeight, DmtxDirUp);
          TallyModuleJumps(dec, reg, tally, xOrigin, yOrigin, mapWidth, mapHeight, DmtxDirLeft);
          TallyModuleJumps(dec, reg, tally, xOrigin, yOrigin, mapWidth, mapHeight, DmtxDirDown);
@@ -2214,7 +2214,7 @@ dmtxRegionCreate(DmtxRegion *reg)
    if(regCopy == NULL)
       return NULL;
 
-   memcpy(regCopy, reg, sizeof(DmtxRegion));
+   hal_rvv_memcpy(regCopy, reg, sizeof(DmtxRegion));
 
    return regCopy;
 }
@@ -2293,7 +2293,7 @@ dmtxRegionScanPixel(DmtxDecode *dec, int x, int y)
    if(flowBegin.mag < (int)(dec->edgeThresh * 7.65 + 0.5))
       return NULL;
 
-   memset(&reg, 0x00, sizeof(DmtxRegion));
+   hal_rvv_memset(&reg, 0x00, sizeof(DmtxRegion));
 
    /* Determine barcode orientation */
    if(MatrixRegionOrientation(dec, &reg, flowBegin) == DmtxFail)
@@ -3521,8 +3521,8 @@ FindBestSolidLine(DmtxDecode *dec, DmtxRegion *reg, int step0, int step1, int st
    DmtxBestLine line;
    DmtxPixelLoc rHp;
 
-   memset(&line, 0x00, sizeof(DmtxBestLine));
-   memset(&rH, 0x00, sizeof(DmtxRay2));
+   hal_rvv_memset(&line, 0x00, sizeof(DmtxBestLine));
+   hal_rvv_memset(&rH, 0x00, sizeof(DmtxRay2));
    angleBest = 0;
    hOffset = hOffsetBest = 0;
 
@@ -3640,8 +3640,8 @@ FindBestSolidLine2(DmtxDecode *dec, DmtxPixelLoc loc0, int tripSteps, int sign, 
    DmtxPixelLoc rHp;
    DmtxFollow follow;
 
-   memset(&line, 0x00, sizeof(DmtxBestLine));
-   memset(&rH, 0x00, sizeof(DmtxRay2));
+   hal_rvv_memset(&line, 0x00, sizeof(DmtxBestLine));
+   hal_rvv_memset(&rH, 0x00, sizeof(DmtxRay2));
    angleBest = 0;
    hOffset = hOffsetBest = 0;
 
@@ -5003,7 +5003,7 @@ InitScanGrid(DmtxDecode *dec)
    int extent;
    DmtxScanGrid grid;
 
-   memset(&grid, 0x00, sizeof(DmtxScanGrid));
+   hal_rvv_memset(&grid, 0x00, sizeof(DmtxScanGrid));
 
    scale = dmtxDecodeGetProp(dec, DmtxPropScale);
    smallestFeature = dmtxDecodeGetProp(dec, DmtxPropScanGap) / scale;
@@ -5633,7 +5633,7 @@ dmtxByteListInit(DmtxByteList *list, int length, DmtxByte value, DmtxPassFail *p
    else
    {
       list->length = length;
-      memset(list->b, value, sizeof(DmtxByte) * list->capacity);
+      hal_rvv_memset(list->b, value, sizeof(DmtxByte) * list->capacity);
       *passFail = DmtxPass;
    }
 }
@@ -5645,7 +5645,7 @@ dmtxByteListInit(DmtxByteList *list, int length, DmtxByte value, DmtxPassFail *p
 extern void
 dmtxByteListClear(DmtxByteList *list)
 {
-   memset(list->b, 0x00, sizeof(DmtxByte) * list->capacity);
+   hal_rvv_memset(list->b, 0x00, sizeof(DmtxByte) * list->capacity);
    list->length = 0;
 }
 
@@ -5678,7 +5678,7 @@ dmtxByteListCopy(DmtxByteList *dst, const DmtxByteList *src, DmtxPassFail *passF
       length = (dst->capacity < src->capacity) ? dst->capacity : src->capacity;
 
       dst->length = src->length;
-      memcpy(dst->b, src->b, sizeof(unsigned char) * length);
+      hal_rvv_memcpy(dst->b, src->b, sizeof(unsigned char) * length);
       *passFail = DmtxPass;
    }
 }
@@ -5970,7 +5970,7 @@ dmtxPointAlongRay2(DmtxVector2 *point, const DmtxRay2 *r, float t)
 extern void
 dmtxMatrix3Copy(DmtxMatrix3 m0, DmtxMatrix3 m1)
 {
-   memcpy(m0, m1, sizeof(DmtxMatrix3));
+   hal_rvv_memcpy(m0, m1, sizeof(DmtxMatrix3));
 }
 
 /**
@@ -6377,7 +6377,7 @@ void imlib_find_datamatrices(list_t *out, image_t *ptr, rectangle_t *roi, int ef
             // Payload is NOT already null terminated.
             lnk_data.payload_len = message->outputIdx;
             lnk_data.payload = xalloc(message->outputIdx);
-            memcpy(lnk_data.payload, message->output, message->outputIdx);
+            hal_rvv_memcpy(lnk_data.payload, message->output, message->outputIdx);
 
             int rotate = fast_roundf((((2 * M_PI) + fast_atan2f(p[1].Y - p[0].Y, p[1].X - p[0].X)) * 180) / M_PI);
             if(rotate >= 360) rotate -= 360;

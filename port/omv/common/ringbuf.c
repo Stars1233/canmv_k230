@@ -11,8 +11,10 @@
 #include <string.h>
 #include "ringbuf.h"
 
+#include "hal_rvv_ops.h"
+
 void ring_buf_init(ring_buf_t *buf) {
-    memset(buf, 0, sizeof(*buf));
+    hal_rvv_memset(buf, 0, sizeof(*buf));
 }
 
 int ring_buf_empty(ring_buf_t *buf) {

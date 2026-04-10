@@ -630,7 +630,7 @@ static const uint16_t usGrayTo565[] = {
 
 // Memory initialization
 int JPEG_openRAM(JPEGIMAGE *pJPEG, uint8_t *pData, int iDataSize, uint8_t *pImage) {
-    memset(pJPEG, 0, sizeof(JPEGIMAGE));
+    hal_rvv_memset(pJPEG, 0, sizeof(JPEGIMAGE));
     pJPEG->ucMemType = JPEG_MEM_RAM;
     pJPEG->pfnRead = readRAM;
     pJPEG->pfnSeek = seekMem;
@@ -713,7 +713,7 @@ static int32_t readRAM(JPEGFILE *pFile, uint8_t *pBuf, int32_t iLen) {
     if (iBytesRead <= 0) {
         return 0;
     }
-    memcpy(pBuf, &pFile->pData[pFile->iPos], iBytesRead);
+    hal_rvv_memcpy(pBuf, &pFile->pData[pFile->iPos], iBytesRead);
     pFile->iPos += iBytesRead;
     return iBytesRead;
 }
@@ -868,7 +868,7 @@ static int JPEGMakeHuffTables(JPEGIMAGE *pJPEG, int bThumbnail) {
                     if (count) {
                         // do it as dwords to save time
                         repeat = (1 << count);
-                        memset(pucTable, ucCode, repeat);
+                        hal_rvv_memset(pucTable, ucCode, repeat);
                     } else {
                         pucTable[0] = ucCode;
                     }
@@ -1139,7 +1139,7 @@ static void JPEGGetMoreData(JPEGIMAGE *pPage) {
         return; // buffer is already full; no need to read more data
     }
     if (pPage->iVLCOff != 0) {
-        memcpy(pPage->ucFileBuf, &pPage->ucFileBuf[pPage->iVLCOff], pPage->iVLCSize - pPage->iVLCOff);
+        hal_rvv_memcpy(pPage->ucFileBuf, &pPage->ucFileBuf[pPage->iVLCOff], pPage->iVLCSize - pPage->iVLCOff);
         pPage->iVLCSize -= pPage->iVLCOff;
         pPage->iVLCOff = 0;
         pPage->bb.pBuf = pPage->ucFileBuf;   // reset VLC source pointer too
@@ -1193,7 +1193,7 @@ static int JPEGParseInfo(JPEGIMAGE *pPage, int bExtractThumb) {
             }
             // move existing bytes down
             if (iOffset) {
-                memcpy(pPage->ucFileBuf, &pPage->ucFileBuf[iOffset], iBytesRead - iOffset);
+                hal_rvv_memcpy(pPage->ucFileBuf, &pPage->ucFileBuf[iOffset], iBytesRead - iOffset);
                 iBytesRead -= iOffset;
                 iOffset = 0;
             }
@@ -1351,7 +1351,7 @@ static void JPEGFixQuantD(JPEGIMAGE *pJPEG) {
         for (i = 0; i < DCTSIZE; i++) {
             sTemp[i] = p[cZigZag[i]];
         }
-        memcpy(&pJPEG->sQuantTable[iTableOffset], sTemp, DCTSIZE * sizeof(short)); // copy back to original spot
+        hal_rvv_memcpy(&pJPEG->sQuantTable[iTableOffset], sTemp, DCTSIZE * sizeof(short)); // copy back to original spot
 
         // Prescale for DCT multiplication
         p = (uint16_t *) &pJPEG->sQuantTable[iTableOffset];
@@ -1394,7 +1394,7 @@ static int JPEGDecodeMCU(JPEGIMAGE *pJPEG, int iMCU, int *iDCPredictor) {
         pMCU[1] = pMCU[8] = pMCU[9] = 0;
         pEnd2 = (uint8_t *) &cZigZag2[5];    // we only need to store the 4 elements we care about
     } else {
-        memset(pMCU, 0, 64 * sizeof(short)); // pre-fill with zero since we may skip coefficients
+        hal_rvv_memset(pMCU, 0, 64 * sizeof(short)); // pre-fill with zero since we may skip coefficients
         pEnd2 = (uint8_t *) &cZigZag2[64];
     }
     ucMaxACCol = ucMaxACRow = 0;
@@ -3166,7 +3166,7 @@ void jpeg_decompress(image_t *dst, image_t *src) {
     jpg.pUser = (void *) dst;
 
     // Fill buffer with 0's so we only need to write "set" bits
-    memset(dst->data, 0, image_size(dst));
+    hal_rvv_memset(dst->data, 0, image_size(dst));
 
     // Start decoding.
     if (JPEG_decode(&jpg, 0, 0, 0) == 0) {
