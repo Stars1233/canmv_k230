@@ -73,8 +73,8 @@
 #define LV_MALLOC       m_malloc
 #define LV_REALLOC      m_realloc
 #define LV_FREE         m_free
-#define LV_MEMSET       lv_memset_builtin
-#define LV_MEMCPY       lv_memcpy_builtin
+#define LV_MEMSET       hal_rvv_memset // lv_memset_builtin
+#define LV_MEMCPY       hal_rvv_memcpy // lv_memcpy_builtin
 #define LV_SNPRINTF     lv_snprintf_builtin
 #define LV_VSNPRINTF    lv_vsnprintf_builtin
 #define LV_STRLEN       lv_strlen_builtin

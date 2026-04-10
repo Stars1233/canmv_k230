@@ -38,6 +38,8 @@
 #include "py_imageio.h"
 #endif
 
+#include "mpi_vb_api.h"
+
 static const mp_obj_type_t py_cascade_type;
 static const mp_obj_type_t py_image_type;
 
@@ -7134,7 +7136,7 @@ void py_image_alloc(image_t *image, mp_map_t *kw_args)
     image->cache = cache;
     image->ref_obj = 0;
     image->phy_addr = 0;
-    image->pool_id = 0;
+    image->pool_id = VB_INVALID_POOLID;
 
     size_t size = image_size(image);
 
