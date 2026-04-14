@@ -260,21 +260,51 @@ STATIC mp_uint_t py_usb_serial_write(mp_obj_t self_in, const void* buf_in, mp_ui
     return bytes_written;
 }
 
+static size_t py_usb_serial_recv_available(mp_obj_t self_in)
+{
+    py_usb_seria_t* self = py_usb_serial_cobj(MP_OBJ_TO_PTR(self_in));
+    py_usb_serial_is_opened(self);
+
+    size_t bytes_available;
+    if (ioctl(self->fd, FIONREAD, &bytes_available) < 0) {
+        return 0;
+    }
+
+    return bytes_available;
+}
+
 STATIC mp_uint_t py_usb_serial_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int* errcode)
 {
-    mp_uint_t ret;
+    mp_uint_t ret = 0;
 
-    *errcode = MP_EINVAL;
-    ret      = MP_STREAM_ERROR;
+    *errcode      = 0;
 
-    return ret;
+    switch (request) {
+    case MP_STREAM_POLL: {
+        mp_uint_t flags = arg;
+        ret             = 0;
+        if ((flags & MP_STREAM_POLL_RD) && py_usb_serial_recv_available(self_in) > 0) {
+            ret |= MP_STREAM_POLL_RD;
+        }
+        if ((flags & MP_STREAM_POLL_WR)) { // assume always writable
+            ret |= MP_STREAM_POLL_WR;
+        }
+        return ret;
+    }
+    case MP_STREAM_FLUSH:
+        // Not implemented
+        return 0;
+    default:
+        *errcode = MP_EINVAL;
+        return MP_STREAM_ERROR;
+    }
 }
 
 STATIC const mp_stream_p_t py_usb_serial_protocol = {
     .read    = py_usb_serial_read,
     .write   = py_usb_serial_write,
     .ioctl   = py_usb_serial_ioctl,
-    .is_text = 1,
+    .is_text = false,
 };
 
 /* clang-format off */
