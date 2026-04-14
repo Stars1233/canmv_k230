@@ -102,17 +102,20 @@ MP_DEFINE_CONST_OBJ_TYPE(
 // 实现各个功能函数
 
 // init
-STATIC mp_obj_t mp_kpu_create() {
+STATIC mp_obj_t mp_kpu_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args) {
+    mp_arg_check_num(n_args, n_kw, 0, 0, false);
     kpu_obj_t *self = m_new_obj_with_finaliser(kpu_obj_t);
     self->interp = Kpu_create();
     self->base.type = &kpu_type;
     return MP_OBJ_FROM_PTR(self);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(kpu_create_obj, mp_kpu_create);
 
 STATIC mp_obj_t mp_kpu_destroy(mp_obj_t self_in) {
     kpu_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    Kpu_destroy(self->interp);
+    if (self->interp != NULL) {
+        Kpu_destroy(self->interp);
+        self->interp = NULL;
+    }
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(kpu_destroy_obj, mp_kpu_destroy);
@@ -251,7 +254,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(kpu_get_output_desc_obj, mp_kpu_get_output_desc
 // set dict
 STATIC const mp_rom_map_elem_t kpu_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_kpu) },
-    { MP_ROM_QSTR(MP_QSTR___init__), MP_ROM_PTR(&kpu_create_obj) },
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&kpu_destroy_obj) },
     { MP_ROM_QSTR(MP_QSTR_load_kmodel), MP_ROM_PTR(&kpu_load_kmodel_obj) },
     { MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&kpu_run_obj) },
@@ -277,7 +279,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     kpu_type,
     MP_QSTR_kpu,
     MP_TYPE_FLAG_NONE,
-    make_new, mp_kpu_create,
+    make_new, mp_kpu_make_new,
     locals_dict, &kpu_locals_dict
     );
 

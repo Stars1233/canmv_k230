@@ -76,11 +76,11 @@ class AIBase:
     # AIBase销毁函数
     def deinit(self):
         with ScopedTiming("deinit",self.debug_mode > 0):
-            del self.kpu
+            self.kpu.__del__()
             if hasattr(self,"ai2d"):
                 del self.ai2d
             self.tensors.clear()
             del self.tensors
-            gc.collect()
             nn.shrink_memory_pool()
+            gc.collect()
             time.sleep_ms(100)
