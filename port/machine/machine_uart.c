@@ -335,6 +335,13 @@ STATIC mp_uint_t machine_uart_write(mp_obj_t self_in, const void* buf, mp_uint_t
 {
     machine_uart_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
+    if (machine_uart_is_usb_gs(self->index)) {
+        if (0x01 != drv_uart_is_dtr_asserted(self->inst)) {
+            *errcode = MP_EAGAIN;
+            return MP_STREAM_ERROR;
+        }
+    }
+
     int w = drv_uart_write(self->inst, (uint8_t*)buf, size);
     if (w < 0) {
         *errcode = MP_EAGAIN;
@@ -358,8 +365,15 @@ STATIC mp_uint_t machine_uart_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr
         if ((flags & MP_STREAM_POLL_RD) && drv_uart_recv_available(self->inst) > 0) {
             ret |= MP_STREAM_POLL_RD;
         }
-        if ((flags & MP_STREAM_POLL_WR)) { // assume always writable
-            ret |= MP_STREAM_POLL_WR;
+        if ((flags & MP_STREAM_POLL_WR)) {
+            if (machine_uart_is_usb_gs(self->index)) {
+                if (0x01 == drv_uart_is_dtr_asserted(self->inst)) {
+                    ret |= MP_STREAM_POLL_WR;
+                }
+            } else {
+                // For non-USB-GS UARTs, we assume it's always writable
+                ret |= MP_STREAM_POLL_WR;
+            }
         }
         return ret;
     }
