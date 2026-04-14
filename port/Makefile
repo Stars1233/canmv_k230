@@ -248,6 +248,9 @@ $(LVGL_MPY): $(ALL_LVGL_SRC) $(LVGL_BINDING_DIR)/gen_mpy.py
 LVGL_SRC_C_ALL = $(subst $(TOP)/,,$(shell find $(LVGL_DIR)/src -type f -name "*.c") $(LVGL_MPY))
 LVGL_SRC_C_EXCLUDE = \
 	$(addprefix $(LVGL_DIR)/src/,\
+		core/lv_disp.c \
+		core/lv_obj_pos.c \
+		core/lv_obj_tree.c \
 		core/lv_obj.c \
 		core/lv_refr.c \
 		misc/lv_timer.c \
@@ -255,8 +258,12 @@ LVGL_SRC_C_EXCLUDE = \
 		libs/png/lodepng.c \
 		libs/png/lv_png.c \
 		libs/freetype/lv_freetype.c \
+		others/snapshot/lv_snapshot.c \
 	)
 LVGL_SRC_C := $(filter-out $(LVGL_SRC_C_EXCLUDE),$(LVGL_SRC_C_ALL))
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_disp.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj_pos.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj_tree.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_refr.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_color.c
@@ -264,6 +271,7 @@ LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_timer.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/freetype/lv_freetype.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/others/snapshot/lv_snapshot.c
 
 ifeq ($(CONFIG_BOARD_K230_CANMV_YAHBOOM),y)
 # add yb_config/lv_font_yb source file
