@@ -45,6 +45,8 @@ copy_micropython: build copy_sdcard
 
 else
 
+skip_copy_examples ?= n
+
 # Standard build logic
 gen_image: build copy_micropython copy_libs copy_sdcard copy_freetype_fonts copy_examples 
 
@@ -70,7 +72,7 @@ copy_micropython: build
 	done
 
 .PHONY: copy_libs
-copy_libs: build
+copy_libs: copy_micropython
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy libs"
@@ -80,7 +82,7 @@ copy_libs: build
 	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/libs/ ${SDK_BUILD_IMAGES_DIR}/sdcard/libs/
 
 .PHONY: copy_freetype_fonts
-copy_freetype_fonts: build
+copy_freetype_fonts: copy_libs
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy freetype resources"
@@ -90,7 +92,11 @@ copy_freetype_fonts: build
 	rsync -aq --delete $(SDK_CANMV_SRC_DIR)/resources/font/ ${SDK_BUILD_IMAGES_DIR}/sdcard/res/font/
 
 .PHONY: copy_examples
-copy_examples: build
+copy_examples: copy_freetype_fonts
+ifeq ($(skip_copy_examples),y)
+	@echo "Skipping copy examples"
+	@echo "Set skip_copy_examples to n to enable copying examples."
+else
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
 	@echo "Copy examples"
@@ -144,9 +150,10 @@ copy_examples: build
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/fruit_*.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/face_liveness_rgb.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
 	@cp -r ${SDK_RTSMART_SRC_DIR}/libs/kmodel/ai_poc/kmodel/yolo_license_plate_det.kmodel ${SDK_BUILD_IMAGES_DIR}/sdcard/examples/kmodel/
+endif
 
 .PHONY: copy_sdcard
-copy_sdcard: build
+copy_sdcard: copy_examples
 	@echo "Copy user-customized sdcard resources"
 
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/
