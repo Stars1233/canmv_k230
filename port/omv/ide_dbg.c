@@ -155,24 +155,30 @@ static void tx_buf_write(const char* data, size_t len) {
     tx_buf_w = (tx_buf_w + len) % TX_BUF_SIZE;
 }
 
+static uint8_t tx_tmp_buf[TX_BUF_SIZE];
+
 static void tx_buf_drain(uint32_t len) {
     uint32_t tail = TX_BUF_SIZE - tx_buf_r;
+    uint8_t *tmp_buf = tx_tmp_buf;
     if (len <= tail) {
-        mp_hal_uart_tx(tx_buf + tx_buf_r, len);
+        hal_rvv_memcpy(tmp_buf, tx_buf + tx_buf_r, len);
         tx_buf_r += len;
     } else {
-        mp_hal_uart_tx(tx_buf + tx_buf_r, tail);
-        mp_hal_uart_tx(tx_buf, len - tail);
+        hal_rvv_memcpy(tmp_buf, tx_buf + tx_buf_r, tail);
+        hal_rvv_memcpy(tmp_buf + tail, tx_buf, len - tail);
         tx_buf_r = len - tail;
     }
+    pthread_mutex_unlock(&tx_buf_mutex);
+    mp_hal_uart_tx(tmp_buf, len);
+    pthread_mutex_lock(&tx_buf_mutex);
 }
 
-void ide_dbg_stdout_tx(const char* data, size_t size) {
+void ide_dbg_stdout_tx(const char* data, size_t size) {    
     pthread_mutex_lock(&tx_buf_mutex);
-    while (size > tx_buf_writable()) {
+    if (size > tx_buf_writable()) {
+        // buffer full, drop to prevent UI stutter/locking
         pthread_mutex_unlock(&tx_buf_mutex);
-        usleep(1000);
-        pthread_mutex_lock(&tx_buf_mutex);
+        return;
     }
     tx_buf_write(data, size);
     pthread_mutex_unlock(&tx_buf_mutex);

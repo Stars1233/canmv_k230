@@ -112,10 +112,17 @@ int mp_hal_uart_tx(const void* buffer, size_t size) {
         size_t chunk = size - sent;
         if (chunk > MP_HAL_UART_TX_BLOCK_SIZE)
             chunk = MP_HAL_UART_TX_BLOCK_SIZE;
+        // Check DTR again in loop to abort if host detaches mid-transfer
+        if (drv_uart_is_dtr_asserted(inst) <= 0)
+            break;
+
         ssize_t n = drv_uart_write(inst, (const uint8_t*)buffer + sent, chunk);
         if (n == (ssize_t)chunk) {
             sent += chunk;
+        } else if (n > 0) {
+            sent += n;
         } else {
+            // Drop remainder if UART blocks/fails to avoid infinite lockup
             break;
         }
     }

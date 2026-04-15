@@ -178,6 +178,8 @@ void mp_thread_deinit(void) {
 // the global root pointers (in mp_state_ctx) while another thread is doing a
 // garbage collection and tracing these pointers.
 void mp_thread_gc_others(void) {
+    int threads_signaled = 0;
+
     mp_thread_unix_begin_atomic_section();
     for (mp_thread_t *th = thread; th != NULL; th = th->next) {
         gc_collect_root(&th->arg, 1);
@@ -188,6 +190,14 @@ void mp_thread_gc_others(void) {
             continue;
         }
         pthread_kill(th->id, MP_THREAD_GC_SIGNAL);
+        threads_signaled++;
+    }
+
+    if (threads_signaled) {
+        syscall(165); // sys_sched_yeild
+    }
+
+    for (int i = 0; i < threads_signaled; i++) {
         #if defined(__APPLE__)
         sem_wait(thread_signal_done_p);
         #else
