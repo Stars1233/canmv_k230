@@ -180,7 +180,7 @@ class Sensor:
     # force
     def __init__(self, **kwargs):
         self._dft_input_buff_num = 4
-        self._dft_output_buff_num = 6
+        self._dft_output_buff_num = 4
 
         def_mirror = 0
         dft_sensor_id = get_default_sensor()
@@ -192,6 +192,11 @@ class Sensor:
         force = kwargs.get('force', False)
         if not force and Sensor._csis[self._csi_bus]:
             raise OSError(f"sensor({self._csi_bus}) is already inited.")
+
+        brd = os.uname()[-1]
+        if brd.startswith("k230d"):
+            self._dft_output_buff_num = 3
+        del brd
 
         arg_type = kwargs.get('type', None)
         if arg_type is not None:

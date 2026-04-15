@@ -737,7 +737,7 @@ static int py_display_init_inst(int rotated, int osd_num, int enable_wbc, int wb
     buffer_size = VB_ALIGN_UP((panel_width * panel_height * 4), 4096);
 
     if (osd_num) {
-        k_s32 osd_layer_vb_pool_id = kd_mpi_vb_create_pool_ex(buffer_size, osd_num + 2, VB_REMAP_MODE_CACHED);
+        k_s32 osd_layer_vb_pool_id = kd_mpi_vb_create_pool_ex(buffer_size, osd_num + 1, VB_REMAP_MODE_CACHED);
 
         if (VB_INVALID_POOLID == osd_layer_vb_pool_id) {
             printf("create vb pool for osd layer failed\n");
