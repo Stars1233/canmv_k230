@@ -35,8 +35,8 @@ LIB_LDFLAGS :=
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libmpp.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libopencv.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libnncase.mk
-include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart_hal.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/lib3rdparty.mk
+include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart_hal.mk
 
 -include $(BUILD)/CANMV_VER
 CANMV_VER = $(shell git describe --tags --always `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
