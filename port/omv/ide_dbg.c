@@ -19,21 +19,34 @@
 #include <sys/time.h>
 
 /* MicroPython core */
-#include "mpconfig.h"
-#include "mpstate.h"
-#include "mpthread.h"
-#include "obj.h"
-#include "objstr.h"
-#include "readline.h"
+#include "py/mpconfig.h"
+#include "py/mpstate.h"
+#include "py/mpthread.h"
+#include "py/obj.h"
+#include "py/objstr.h"
 #include "py/runtime.h"
+#include "shared/readline/readline.h"
 
 /* Project / driver headers */
-#include <sha256.h>
+#include "mbedtls/version.h"
+
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#include "mbedtls/compat-2.x.h"
+#endif
+
+#include "mbedtls/sha256.h"
+
 #include "ide_dbg.h"
 #include "version.h"
 #include "canmv_drivers.h"
 #include "drv_uart.h"
 #include "hal_rvv_ops.h"
+
+#if MBEDTLS_VERSION_NUMBER < 0x02070000 || MBEDTLS_VERSION_NUMBER >= 0x03000000
+#define mbedtls_sha256_starts_ret mbedtls_sha256_starts
+#define mbedtls_sha256_update_ret mbedtls_sha256_update
+#define mbedtls_sha256_finish_ret mbedtls_sha256_finish
+#endif
 
 #if CONFIG_CANMV_IDE_SUPPORT
 
@@ -462,20 +475,22 @@ static void cmd_verifyfile(void) {
     }
 
     unsigned char buffer[256];
-    CRYAL_SHA256_CTX sha256;
-    sha256_init(&sha256);
+    mbedtls_sha256_context sha256;
+    mbedtls_sha256_init(&sha256);
+    mbedtls_sha256_starts_ret(&sha256, 0);
 
     size_t nbytes;
     do {
         nbytes = fread(buffer, 1, sizeof(buffer), f);
-        sha256_update(&sha256, buffer, nbytes);
+        mbedtls_sha256_update_ret(&sha256, buffer, nbytes);
     } while (nbytes == sizeof(buffer));
 
     fclose(f);
 
     uint8_t sha256_result[32];
-    sha256_final(&sha256, sha256_result);
-    if (strncmp((const char *)sha256_result, (const char *)ide_dbg_sv_file.info.sha256, sizeof(sha256_result)) != 0) {
+    mbedtls_sha256_finish_ret(&sha256, sha256_result);
+    mbedtls_sha256_free(&sha256);
+    if (memcmp(sha256_result, ide_dbg_sv_file.info.sha256, sizeof(sha256_result)) != 0) {
         resp = USBDBG_SVFILE_VERIFY_SHA2_ERR;
         pr_verb("file sha256 unmatched");
         print_sha256(sha256_result);
