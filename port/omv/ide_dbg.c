@@ -60,7 +60,15 @@
 #define GREEN "\033[1;32;40m"
 #define YELLOW "\033[1;33;40m"
 
+#define IDE_DBG_LOG 0
+
+#if IDE_DBG_LOG
+#define pr_verb(fmt,...) fprintf(stderr,BLUE "[ide] " fmt "\n" COLOR_NONE,##__VA_ARGS__)
+#define pr_dbg(fmt,...) fprintf(stderr,YELLOW "[ide-dbg] " fmt "\n" COLOR_NONE,##__VA_ARGS__)
+#else
 #define pr_verb(fmt,...)
+#define pr_dbg(fmt,...)
+#endif
 #define pr_info(fmt,...) fprintf(stderr,GREEN fmt "\n"COLOR_NONE,##__VA_ARGS__)
 #define pr_warn(fmt,...) fprintf(stderr,YELLOW fmt "\n"COLOR_NONE,##__VA_ARGS__)
 #define pr_err(fmt,...) fprintf(stderr,RED fmt " at line %d\n"COLOR_NONE,##__VA_ARGS__, __LINE__)
@@ -190,6 +198,7 @@ void ide_dbg_stdout_tx(const char* data, size_t size) {
     pthread_mutex_lock(&tx_buf_mutex);
     if (size > tx_buf_writable()) {
         // buffer full, drop to prevent UI stutter/locking
+        pr_dbg("tx_buf FULL, dropping %zu bytes (readable=%u)", size, tx_buf_readable());
         pthread_mutex_unlock(&tx_buf_mutex);
         return;
     }
@@ -261,6 +270,10 @@ static inline void ide_dbg_set_repl_script_running(bool running) {
 
 static inline uint32_t ide_dbg_script_running(void) {
     return __atomic_load_n(&ide_script_running, __ATOMIC_ACQUIRE);
+}
+
+bool ide_dbg_is_script_running(void) {
+    return ide_dbg_script_running() != 0;
 }
 
 static inline void ide_dbg_set_script_running(uint32_t running) {
@@ -608,17 +621,22 @@ static void cmd_frame_dump(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* data, size_t length) {
+    pr_dbg("update: len=%zu script_running=%u", length, ide_dbg_script_running());
+    print_raw(data, length > 32 ? 32 : length);
     for (size_t i = 0; i < length;) {
         switch (state->state) {
             case FRAME_HEAD:
                 if (data[i] == 0x30) {
                     state->state = FRAME_CMD;
+                } else {
+                    pr_dbg("FRAME_HEAD: skip byte 0x%02X at pos %zu", data[i], i);
                 }
                 i += 1;
                 break;
             case FRAME_CMD:
                 state->cmd = data[i];
                 state->state = FRAME_DATA_LENGTH;
+                pr_dbg("FRAME_CMD: cmd=0x%02X", state->cmd);
                 i += 1;
                 break;
             case FRAME_DATA_LENGTH:
@@ -629,21 +647,13 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                 state->recv_data = &state->data_length;
                 break;
             case FRAME_DISPATCH:
-                #if !PRINT_ALL
-                if ((state->cmd != USBDBG_SCRIPT_RUNNING) &&
-                    (state->cmd != USBDBG_FRAME_SIZE) &&
-                    (state->cmd != USBDBG_TX_BUF_LEN) &&
-                    (state->cmd != USBDBG_FRAME_DUMP))
-                #endif
-                {
-                    print_raw(data, length);
-                    pr_verb("cmd: %x", state->cmd);
-                }
+                pr_dbg("DISPATCH cmd=0x%02X data_length=%u script_running=%u",
+                       state->cmd, state->data_length, ide_dbg_script_running());
                 switch (state->cmd) {
                     case USBDBG_NONE:
                         break;
                     case USBDBG_QUERY_STATUS: {
-                        pr_verb("cmd: USBDBG_QUERY_STATUS");
+                        pr_dbg("cmd: USBDBG_QUERY_STATUS -> 0xFFEEBBAA");
                         uint32_t resp = 0xFFEEBBAA;
                         mp_hal_uart_tx(&resp, sizeof(resp));
                         break;
@@ -694,22 +704,15 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         cmd_createfile(state);
                         break;
                     case USBDBG_SCRIPT_RUNNING: {
-                        // DO NOT PRINT
-                        #if PRINT_ALL
-                        pr_verb("cmd: USBDBG_SCRIPT_RUNNING");
-                        #endif
                         uint32_t running = ide_dbg_script_running();
+                        pr_dbg("cmd: USBDBG_SCRIPT_RUNNING -> %u", running);
                         mp_hal_uart_tx(&running, sizeof(running));
                         break;
                     }
                     case USBDBG_TX_BUF_LEN: {
                         pthread_mutex_lock(&tx_buf_mutex);
                         uint32_t len = tx_buf_readable();
-                        #if !PRINT_ALL
-                        if (len > 0) {
-                            pr_verb("cmd: USBDBG_TX_BUF_LEN %u", len);
-                        }
-                        #endif
+                        pr_dbg("cmd: USBDBG_TX_BUF_LEN -> %u", len);
                         mp_hal_uart_tx((void*)&len, sizeof(len));
                         pthread_mutex_unlock(&tx_buf_mutex);
                         break;
@@ -720,14 +723,17 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         if (len > state->data_length) {
                             len = state->data_length;
                         }
+                        pr_dbg("cmd: USBDBG_TX_BUF drain %u (requested %u)", len, state->data_length);
                         tx_buf_drain(len);
                         pthread_mutex_unlock(&tx_buf_mutex);
                         break;
                     }
                     case USBDBG_FRAME_SIZE:
+                        pr_dbg("cmd: USBDBG_FRAME_SIZE");
                         cmd_frame_size();
                         break;
                     case USBDBG_FRAME_DUMP:
+                        pr_dbg("cmd: USBDBG_FRAME_DUMP");
                         cmd_frame_dump();
                         break;
                     case USBDBG_SYS_RESET: {
@@ -859,13 +865,16 @@ static void* ide_dbg_task(void* args) {
                 (strncmp((const char*)read_buf, IDE_TOKEN3, size) == 0)
                 )) {
                 // switch to ide mode
-                pr_verb("[uart] switch to IDE mode");
+                pr_dbg("[uart] IDE token detected, script_running=%u repl_running=%d",
+                       ide_dbg_script_running(), ide_dbg_repl_script_running());
                 if (!ide_dbg_attach()) {
                     interrupt_repl();
                 }
                 ide_dbg_set_attached(true);
-                if (ide_dbg_script_running() != 0)
+                if (ide_dbg_script_running() != 0) {
+                    pr_dbg("[uart] script running, raising IDE exception");
                     mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
+                }
                 ide_dbg_update(&state, read_buf, size);
             } else {
                 // FIXME: mock machine.UART, restore this when UART library finish

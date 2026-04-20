@@ -103,8 +103,9 @@ int mp_hal_uart_tx(const void* buffer, size_t size) {
 
     if (inst == NULL)
         return -1;
-    if (drv_uart_is_dtr_asserted(inst) <= 0)
+    if (drv_uart_is_dtr_asserted(inst) <= 0) {
         return 0;
+    }
 
     pthread_mutex_lock(&mp_hal_uart_tx_mutex);
     size_t sent = 0;
@@ -299,7 +300,10 @@ void mp_hal_stdout_tx_str(const char *str) {
 }
 
 void mp_hal_stdout_tx_strn(const char *str, size_t len) {
-    if (ide_dbg_attach()) {
+    if (ide_dbg_attach() || ide_dbg_is_script_running()) {
+        // When IDE is attached or a script is running at boot,
+        // buffer output so raw text never leaks onto the UART.
+        // The IDE will drain it via the USBDBG_TX_BUF protocol.
         ide_dbg_stdout_tx(str, len);
     } else {
         mp_hal_uart_tx(str, len);

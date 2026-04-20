@@ -121,6 +121,7 @@ typedef struct {
 
 void ide_dbg_start(void);
 bool ide_dbg_attach(void);
+bool ide_dbg_is_script_running(void);
 char *ide_dbg_get_script(void);
 void ide_dbg_on_script_start(void);
 void ide_dbg_on_script_end(void);
@@ -136,6 +137,7 @@ void ide_dbg_enable_vo_wbc(void);
 
 static inline void ide_dbg_start(void) {}
 static inline bool ide_dbg_attach(void) { return false; }
+static inline bool ide_dbg_is_script_running(void) { return false; }
 static inline char *ide_dbg_get_script(void) { return NULL; }
 static inline void ide_dbg_on_script_start(void) {}
 static inline void ide_dbg_on_script_end(void) {}
