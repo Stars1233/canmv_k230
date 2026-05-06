@@ -1,5 +1,6 @@
 #include <string>
 #include <algorithm>
+#include <new>
 #include <sstream>
 #include "postprocess.h"
 #include <opencv2/opencv.hpp>
@@ -85,6 +86,20 @@ float boxScore(cv::Mat src,std::vector<cv::Point> contours, ocr_det_res& b, int 
     cv::Mat img = cv::Mat::zeros(ymax - ymin + 1, xmax - xmin + 1, CV_8UC1);
     cv::fillPoly(img, vec, cv::Scalar(1));
     return (float)cv::mean(src(cv::Rect(xmin, ymin, xmax-xmin+1, ymax-ymin+1)), img)[0];  
+}
+
+static void free_array_wrappers(ArrayWrapper *wrappers, int count)
+{
+    if (wrappers == nullptr) {
+        return;
+    }
+
+    for (int i = 0; i < count; ++i) {
+        free(wrappers[i].data);
+        free(wrappers[i].dimensions);
+    }
+
+    free(wrappers);
 }
 
 std::vector<size_t> sort_indices(const std::vector<cv::Point2f>& vec) 
@@ -226,6 +241,13 @@ ArrayWrapper* ocr_post_process(FrameSize frame_size,FrameSize kmodel_frame_size,
     int unpad_w = (int)round(col * ratio);
     int unpad_h = (int)round(row * ratio);
 
+    if (results_size != nullptr) {
+        *results_size = 0;
+    }
+
+    w = std::max(0, (input_width - unpad_w) / 2);
+    h = std::max(0, (input_height - unpad_h) / 2);
+
 
 
     cv::Mat img_src = cv::Mat(row , col, CV_8UC3, data_1);
@@ -240,7 +262,11 @@ ArrayWrapper* ocr_post_process(FrameSize frame_size,FrameSize kmodel_frame_size,
     int num_result=0;
     std::vector<int> list_num;
     
-    ocr_det_res* b=new ocr_det_res[num];
+    ocr_det_res* b = new (std::nothrow) ocr_det_res[num];
+    if (b == nullptr) {
+        return nullptr;
+    }
+
     for(int i = 0; i < num; i++)
     {   
         std::vector<cv::Point> con;
@@ -270,9 +296,16 @@ ArrayWrapper* ocr_post_process(FrameSize frame_size,FrameSize kmodel_frame_size,
         l+=1;
         list_num.push_back(i);
     }
-    ArrayWrapper* arrayWrapper = (ArrayWrapper*)malloc(l*sizeof(ArrayWrapper));
-    
+    if (l == 0) {
+        delete[] b;
+        return nullptr;
+    }
 
+    ArrayWrapper* arrayWrapper = (ArrayWrapper*)calloc((size_t)l, sizeof(ArrayWrapper));
+    if (arrayWrapper == nullptr) {
+        delete[] b;
+        return nullptr;
+    }
 
      for (auto &i: list_num) 
     {   
@@ -281,11 +314,17 @@ ArrayWrapper* ocr_post_process(FrameSize frame_size,FrameSize kmodel_frame_size,
         std::vector<cv::Point2f> ver(4),vtd(4);
         cv::Mat crop;
         warppersp(img_src, crop, b[i], sort_vtd);
-        arrayWrapper[num_result].data = (uint8_t*)malloc(crop.total()*3*sizeof(uint8_t));
+        size_t crop_size = crop.total() * crop.channels() * sizeof(uint8_t);
+        arrayWrapper[num_result].data = (uint8_t*)malloc(crop_size);
         arrayWrapper[num_result].dimensions=(int*)malloc(3*sizeof(int));
+        if ((arrayWrapper[num_result].data == nullptr) || (arrayWrapper[num_result].dimensions == nullptr)) {
+            delete[] b;
+            free_array_wrappers(arrayWrapper, l);
+            return nullptr;
+        }
         
         uint8_t* matData = crop.ptr<uint8_t>(); // 获取cv::Mat的数据指针
-        hal_rvv_memcpy(arrayWrapper[num_result].data, matData, crop.total()*3 * sizeof(uint8_t)); // 复制数据
+        hal_rvv_memcpy(arrayWrapper[num_result].data, matData, crop_size); // 复制数据
 
         
         arrayWrapper[num_result].dimensions[0] = crop.channels();
@@ -317,9 +356,10 @@ ArrayWrapper* ocr_post_process(FrameSize frame_size,FrameSize kmodel_frame_size,
         num_result+=1;
     }
     delete[] b; 
-    *results_size=l;
+    if (results_size != nullptr) {
+        *results_size = num_result;
+    }
     return arrayWrapper;
 }
-
 
 

@@ -57,17 +57,20 @@ vector<string> _split(string text,string lang="zh")
 
 
 string _post_replace(string sentence) {
-    int i=0;
-    for (auto c : sentence)
-    {
-        if(c=='/')
-            sentence.replace(i, 1, "每");
-        else if(c=='~')
-            sentence.replace(i, 1,"至");
-        i++;
+    string result;
+    result.reserve(sentence.size());
 
+    for (unsigned char c : sentence) {
+        if (c == '/') {
+            result += "每";
+        } else if (c == '~') {
+            result += "至";
+        } else {
+            result.push_back((char)c);
+        }
     }
-    return sentence;
+
+    return result;
 }
 
 std::wstring _translate(std::wstring sentence) {

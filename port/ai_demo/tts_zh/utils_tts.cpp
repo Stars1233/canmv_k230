@@ -128,11 +128,10 @@ int GetSysMemInfo() {  //获取系统当前可用内存
             return -1;
         }
         fclose(fp);
-        sscanf(buf1, "%s%d", name, &mem_total);
-        sscanf(buf2, "%s%d", name, &mem_free);
-        sscanf(buf4, "%s%d", name, &mem_buffers);
-        sscanf(buf5, "%s%d", name, &mem_cached);
+        sscanf(buf1, "%19s%d", name, &mem_total);
+        sscanf(buf2, "%19s%d", name, &mem_free);
+        sscanf(buf4, "%19s%d", name, &mem_buffers);
+        sscanf(buf5, "%19s%d", name, &mem_cached);
         int memLeft = mem_free + mem_buffers + mem_cached;
         return memLeft;
 }
-

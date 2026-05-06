@@ -71,10 +71,18 @@ vector<string> ToneSanhi::_split_word(string word) {
    
     vector<string> word_list;
     // jieba.CutForSearch(word, word_list);
+
+    if (word.empty()) {
+        return {};
+    }
     
     sort(word_list.begin(), word_list.end(), [](string a, string b) {
         return a.size() < b.size();
     });
+
+    if (word_list.empty()) {
+        return {word};
+    }
     
     string first_subword = word_list[0];
     int first_begin_idx = word.find(first_subword);
@@ -473,6 +481,5 @@ vector<string> ToneSanhi::modified_tone(string word, string pos,vector<string> f
     
     return finals;
 }
-
 
 

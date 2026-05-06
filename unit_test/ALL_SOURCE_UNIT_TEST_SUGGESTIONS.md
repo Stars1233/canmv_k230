@@ -1,6 +1,6 @@
 # CANMV Source-Wide Unit Test Suggestions
 
-Auto-generated on 2026-03-10 23:07:49 UTC.
+Auto-generated on 2026-04-30 23:08:44 UTC.
 
 | Source File | Suggested Unit Test Focus | Priority |
 | --- | --- | --- |
@@ -12,13 +12,17 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `fuzz_test/src/micropython_host_stubs.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `fuzz_test/src/xalloc_host.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/gen_mpy.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/3rd-party/lv_bindings/src/core/lv_disp.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/core/lv_obj.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/src/core/lv_obj_pos.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/src/core/lv_obj_tree.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/core/lv_refr.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/libs/freetype/lv_freetype.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/libs/png/lodepng.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/libs/png/lv_png.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/misc/lv_color.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/misc/lv_timer.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/src/others/snapshot/lv_snapshot.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/yb_config/lv_font_yb_cn_16.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/yb_config/lv_font_yb_cn_22.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/ulab/code/ndarray.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
@@ -95,6 +99,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `port/ai_demo/yolo_det.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_demo/yolo_license_plate_det.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_demo/yolo_obb.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
+| `port/ai_demo/yolo_pose.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_demo/yolo_seg.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_demo/yunet_postprocess.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/boards/k230_canmv_01studio/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -103,6 +108,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `port/boards/k230_canmv_hiwonder/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_canmv_lckfb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_canmv/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_mrt/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_canmv_rtt_evb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_canmv_v3p0/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_canmv_wondermk/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -113,6 +119,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `port/boards/k230d_canmv_mini/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230d_evb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230d_labplus_ai_camera/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_labplus_ai_camera_v2/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_evb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/k230_labplus_1956/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -229,6 +236,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `port/modules/modnonai2d.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/modules/modnonai2d.csc.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/modules/modusb.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
+| `port/modules/modusb.hid.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/modules/modusb.serial.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/modules/modvbmgmt.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/mp_modules/modos.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
@@ -323,6 +331,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/01-Micropython-Basics/demo_json.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_logging.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_sha256.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/01-Micropython-Basics/demo_stdin.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_sys_info.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_thread.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_time.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -349,6 +358,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/03-Machine/dht.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/display_and_touch.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/ds18b20.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/03-Machine/fft_display.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/fft.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/fpioa.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/i2c_24c32.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -371,7 +381,11 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/03-Machine/touch_user.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/uart1.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/uart2.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/03-Machine/uart_gs.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/uart.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/03-Machine/usb_hid_keyboard.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/03-Machine/usb_hid_mouse.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/03-Machine/usb_hid_touch.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/wdt.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/03-Machine/ws2812.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/04-Cipher/ucryptolib_aes128_cbc.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -423,6 +437,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/05-AI-Demo/space_resize.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/05-AI-Demo/tts_zh.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/05-AI-Demo/yolo11n_obb.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/05-AI-Demo/yolo26_person_kp.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/05-AI-Demo/yolov8n_obb.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/06-Display/display_debugger.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/06-Display/display_hdmi.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -516,6 +531,7 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/16-AI-Cube/SelfLearningApp.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/17-Sensor/camera_auto_focus_lcd.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/17-Sensor/camera_dual_bind_hdmi.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/17-Sensor/camera_manual_again_lcd.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/17-Sensor/camera_manual_exposure_lcd.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/17-Sensor/camera_mirror_flip.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/17-Sensor/camera_single_bind_hdmi.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -548,8 +564,20 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/20-YOLO-Module-Examples/yolo11_det_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolo11_obb_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolo11_obb_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo11_pose_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo11_pose_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolo11_seg_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolo11_seg_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_cls_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_cls_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_det_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_det_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_obb_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_obb_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_pose_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_pose_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_seg_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolo26_seg_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov5_cls_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov5_cls_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov5_det_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -562,11 +590,14 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `resources/examples/20-YOLO-Module-Examples/yolov8_det_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov8_obb_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov8_obb_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolov8_pose_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/20-YOLO-Module-Examples/yolov8_pose_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov8_seg_image.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/20-YOLO-Module-Examples/yolov8_seg_video.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/21-AI-With-Others/ai_lvgl.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/21-AI-With-Others/ai_multi_thread.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/21-AI-With-Others/ai_save_mp4.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/21-AI-With-Others/ai_two_camera.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/21-AI-With-Others/ai_uart.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/21-AI-With-Others/ai_uvc_hard_decode.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/21-AI-With-Others/ai_uvc_soft_decode.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -626,8 +657,8 @@ Auto-generated on 2026-03-10 23:07:49 UTC.
 | `tools/generate_ide_resource.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `tools/get_git_version.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 
-Total source files covered: 621
-Language breakdown: C=178, C++=52, Python=391
+Total source files covered: 652
+Language breakdown: C=183, C++=53, Python=416
 
 ## Implemented gtests in this unit_test scaffold
 - port/omv/common/array.c

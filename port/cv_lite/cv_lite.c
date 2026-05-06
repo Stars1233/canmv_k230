@@ -1964,19 +1964,34 @@ STATIC mp_obj_t cv_lite_rgb888_perspective_transform(size_t n_args, const mp_obj
 
     int out_width = mp_obj_get_int(args[4]);
     int out_height = mp_obj_get_int(args[5]);
+    size_t out_image_size;
 
-    uint8_t *result = malloc(out_width * out_height * frame_shape.channel);
+    if ((out_width <= 0) || (out_height <= 0)) {
+        mp_raise_ValueError(MP_ERROR_TEXT("output shape must be positive"));
+    }
+
+    if (((size_t)out_width > (SIZE_MAX / (size_t)out_height)) ||
+        (((size_t)out_width * (size_t)out_height) > (SIZE_MAX / frame_shape.channel))) {
+        mp_raise_msg(&mp_type_OverflowError, MP_ERROR_TEXT("output image too large"));
+    }
+
+    out_image_size = (size_t)out_width * (size_t)out_height * frame_shape.channel;
+
+    uint8_t *result = malloc(out_image_size);
+    if (result == NULL) {
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("malloc result failed"));
+    }
 
     rgb888_perspective_transform(frame_shape, img_data, roi, dst_pts, out_width, out_height, result);
     // 构造返回的 numpy 对象（共享内存，不复制）
     size_t ndarray_shape[4];
     ndarray_shape[0] = 1;
-    ndarray_shape[1] = frame_shape.height;
-    ndarray_shape[2] = frame_shape.width;
+    ndarray_shape[1] = out_height;
+    ndarray_shape[2] = out_width;
     ndarray_shape[3] = frame_shape.channel;
     ndarray_obj_t *out = ndarray_new_ndarray(4, ndarray_shape, NULL, NDARRAY_UINT8);
     uint8_t *out_data = (uint8_t *)out->array;
-    hal_rvv_memcpy(out_data, result, frame_shape.width * frame_shape.height * frame_shape.channel); // 独立返回一份数据
+    hal_rvv_memcpy(out_data, result, out_image_size); // 独立返回一份数据
     free(result);
     return MP_OBJ_FROM_PTR(out);
 }

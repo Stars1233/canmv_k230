@@ -649,11 +649,19 @@ STATIC mp_obj_t kws_feature_pipeline_destroy(mp_obj_t fp) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(aidemo_kws_feature_pipeline_destroy_obj, kws_feature_pipeline_destroy);
 
 STATIC mp_obj_t kws_preprocess(mp_obj_t fp,mp_obj_t wav_obj) {
-    mp_obj_list_t *wav_list = MP_OBJ_TO_PTR(wav_obj);
-    size_t wav_length = wav_list->len;
+    mp_obj_list_t *wav_list;
+    size_t wav_length;
     size_t feats_length = 1 * 30 * 40;
+
+    if (!mp_obj_is_type(wav_obj, &mp_type_list)) {
+        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("Invalid input"));
+    }
+
+    wav_list = MP_OBJ_TO_PTR(wav_obj);
+    wav_length = wav_list->len;
+
     // 检查输入参数是否合法
-    if (wav_list == NULL || wav_length <= 0) {
+    if (wav_length <= 0) {
         mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("Invalid input"));
         return mp_const_none;
     }
@@ -670,6 +678,11 @@ STATIC mp_obj_t kws_preprocess(mp_obj_t fp,mp_obj_t wav_obj) {
     // 调用 C++ 函数
     feature_pipeline *fp_ = MP_OBJ_TO_PTR(fp);
     float *final_feats = (float *)malloc(feats_length * sizeof(float));
+    if (final_feats == NULL) {
+        free(wav);
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("Memory allocation failed"));
+        return mp_const_none;
+    }
     wav_preprocess(fp_, wav, wav_length, final_feats);
     // 释放 wav 数组内存
     free(wav);

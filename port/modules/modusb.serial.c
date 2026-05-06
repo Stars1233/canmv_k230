@@ -57,6 +57,21 @@ typedef struct _py_usb_serial_obj {
     py_usb_seria_t _cobj;
 } py_usb_serial_obj_t;
 
+static void py_usb_serial_set_path(char *dst, size_t dst_size, const char *src)
+{
+    if ((dst_size == 0) || (dst == NULL)) {
+        return;
+    }
+
+    if (src == NULL) {
+        dst[0] = '\0';
+        return;
+    }
+
+    strncpy(dst, src, dst_size - 1);
+    dst[dst_size - 1] = '\0';
+}
+
 static __inline __attribute__((__always_inline__)) void py_usb_serial_is_opened(py_usb_seria_t* serial)
 {
     if (0 > serial->fd) {
@@ -111,7 +126,7 @@ STATIC mp_obj_t py_usb_serial_make_new(const mp_obj_type_t* type, size_t n_args,
     if (mp_const_none != parsed_args[ARG_path].u_obj) {
         dev_path = mp_obj_str_get_str(parsed_args[ARG_path].u_obj);
     }
-    strncpy(serial.path, dev_path, sizeof(serial.path));
+    py_usb_serial_set_path(serial.path, sizeof(serial.path), dev_path);
 
     return py_usb_serial_from_struct(&serial);
 }
@@ -147,8 +162,8 @@ STATIC void py_usb_serial_attr(mp_obj_t self_in, qstr attr, mp_obj_t* dest)
         switch (attr) {
         case MP_QSTR_path: {
             const char* path = mp_obj_str_get_str(dest[1]);
-            if (0x00 != strncmp(path, self->path, sizeof(self->path))) {
-                strncpy(self->path, path, sizeof(self->path));
+            if (strcmp(path, self->path) != 0) {
+                py_usb_serial_set_path(self->path, sizeof(self->path), path);
             }
 
             dest[0] = MP_OBJ_NULL;
@@ -171,8 +186,8 @@ STATIC mp_obj_t py_usb_serial_open(size_t n_args, const mp_obj_t* args)
     if (0x02 == n_args) {
         const char* path = mp_obj_str_get_str(args[1]);
 
-        if (0x00 != strncmp(path, self->path, sizeof(self->path))) {
-            strncpy(self->path, path, sizeof(self->path));
+        if (strcmp(path, self->path) != 0) {
+            py_usb_serial_set_path(self->path, sizeof(self->path), path);
         }
     }
 
@@ -221,16 +236,30 @@ STATIC MP_DEFINE_CONST_DICT(py_usb_serial_locals_dict, py_usb_serial_locals_dict
 /** stream protocol **********************************************************/
 STATIC mp_uint_t py_usb_serial_read(mp_obj_t self_in, void* buf_in, mp_uint_t size, int* errcode)
 {
-    int       bytes_read = 0;
+    mp_uint_t bytes_read = 0;
     mp_uint_t curr_time_ms, time_out_ms;
+    uint8_t*  buf = buf_in;
 
     py_usb_seria_t* self = py_usb_serial_cobj(MP_OBJ_TO_PTR(self_in));
     py_usb_serial_is_opened(self);
 
+    if (size == 0) {
+        return 0;
+    }
+
     time_out_ms = mp_hal_ticks_ms() + self->timeout_ms;
 
     do {
-        bytes_read += read(self->fd, buf_in + bytes_read, size - bytes_read);
+        ssize_t rv = read(self->fd, buf + bytes_read, size - bytes_read);
+
+        if (rv > 0) {
+            bytes_read += (mp_uint_t)rv;
+        } else if (rv == 0) {
+            break;
+        } else if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != EINTR)) {
+            *errcode = MP_EIO;
+            return MP_STREAM_ERROR;
+        }
 
         MICROPY_EVENT_POLL_HOOK
 
