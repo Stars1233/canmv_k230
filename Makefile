@@ -45,7 +45,7 @@ copy_micropython: build copy_sdcard
 
 else
 
-skip_copy_examples ?= n
+do_copy_examples ?= $(CONFIG_SDK_CANMV_COPY_EXAMPLES)
 
 # Standard build logic
 gen_image: build copy_micropython copy_libs copy_sdcard copy_freetype_fonts copy_examples 
@@ -93,9 +93,9 @@ copy_freetype_fonts: copy_libs
 
 .PHONY: copy_examples
 copy_examples: copy_freetype_fonts
-ifeq ($(skip_copy_examples),y)
+ifneq ($(do_copy_examples),y)
 	@echo "Skipping copy examples"
-	@echo "Set skip_copy_examples to n to enable copying examples."
+	@echo "Set SDK_CANMV_COPY_EXAMPLES to y to enable copying examples."
 else
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard
 
