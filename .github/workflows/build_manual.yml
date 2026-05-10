@@ -24,6 +24,7 @@ on:
           k230d_canmv_junroc_ai_cam_defconfig
           k230d_canmv_labplus_ai_camera_v2_defconfig
           k230_canmv_mrt_defconfig
+          k230d_canmv_lushanpi_lite_defconfig
 
 jobs:
   build:
