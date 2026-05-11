@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 
 #include <cctype>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <stdexcept>
 #include <vector>
@@ -106,6 +108,19 @@ std::set<std::string> list_python_sources() {
     return out;
 }
 
+std::string shell_quote(const std::string &input) {
+    std::string out = "'";
+    for (char ch : input) {
+        if (ch == '\'') {
+            out += "'\\''";
+        } else {
+            out += ch;
+        }
+    }
+    out += "'";
+    return out;
+}
+
 }  // namespace
 
 TEST(PythonSourceTest, CatalogCoversAllPythonFiles) {
@@ -171,4 +186,41 @@ TEST(PythonSourceTest, CatalogProvidesPythonSpecificGuidance) {
     }
 
     EXPECT_TRUE(saw_python_entry);
+}
+
+TEST(PythonSourceTest, PythonFilesParseAsPythonSyntax) {
+    if (std::system("command -v python3 >/dev/null 2>&1") != 0) {
+        GTEST_SKIP() << "python3 is not available for syntax validation";
+    }
+
+    std::ostringstream cmd;
+    cmd << "python3 -c "
+        << shell_quote(
+               "import ast,pathlib,sys\n"
+               "root=pathlib.Path(sys.argv[1])\n"
+               "syntax_exempt={\n"
+               "    'resources/examples/14-Socket/udp_multicast_receiver_pc.py',\n"
+               "    'resources/examples/14-Socket/udp_multicast_sender_pc.py',\n"
+               "}\n"
+               "bad=[]\n"
+               "for p in root.rglob('*.py'):\n"
+               "    rel=p.relative_to(root).as_posix()\n"
+               "    if rel.startswith('unit_test/'):\n"
+               "        continue\n"
+               "    if rel in syntax_exempt:\n"
+               "        text=p.read_text(encoding='utf-8')\n"
+               "        if 'Note:\\nThis is a test script intended to run on a PC.' in text:\n"
+               "            continue\n"
+               "    try:\n"
+               "        ast.parse(p.read_text(encoding='utf-8'))\n"
+               "    except Exception as exc:\n"
+               "        bad.append(f'{rel}: {exc}')\n"
+               "if bad:\n"
+               "    print('\\n'.join(bad[:40]))\n"
+               "    if len(bad) > 40:\n"
+               "        print(f'... {len(bad) - 40} more')\n"
+               "    sys.exit(1)\n")
+        << " " << shell_quote(source_root().string());
+
+    EXPECT_EQ(std::system(cmd.str().c_str()), 0) << "Python syntax validation failed";
 }

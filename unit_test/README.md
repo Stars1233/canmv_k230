@@ -9,10 +9,15 @@ This directory contains a host-side GoogleTest scaffold for CANMV source validat
   - `port/omv/alloc/unaligned_memcpy.c`
   - `port/omv/common/mutex.c`
   - `port/omv/common/ff_wrapper.c`
-- Source-wide catalog-driven tests for all `*.c`, `*.cpp`, and `*.py` files under the CANMV root:
+- Source-wide catalog-driven tests for all `*.c`, `*.cc`, `*.cpp`, `*.h`, `*.hpp`, and `*.py` files under the CANMV root:
   - catalog completeness and metadata validation
   - file readability/non-empty checks
   - Python file catalog coverage checks
+- Static source contract tests for upgraded high-risk areas:
+  - MPP binding module dictionary/object coverage
+  - `modmpp.c` API module references
+  - MicroPython binding include-shape checks
+  - board `mpconfigboard.h` / `manifest.py` pairing
 - Auto-generated catalog:
   - `ALL_SOURCE_UNIT_TEST_SUGGESTIONS.md`
 

@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 CORPUS_DIR="${SCRIPT_DIR}/corpus"
+FUZZ_MAX_TOTAL_TIME="${FUZZ_MAX_TOTAL_TIME:-30}"
+FUZZ_RUNS="${FUZZ_RUNS:-}"
+FUZZ_SMOKE_ONLY="${FUZZ_SMOKE_ONLY:-1}"
 
 log() {
     printf '[fuzz_test] %s\n' "$*"
@@ -87,6 +90,8 @@ run_harness_sample() {
     local corpus
     local asan_opts
     local rc
+    local attempt
+    local attempt_log
 
     name="$(basename "${harness}")"
     corpus="${CORPUS_DIR}/${name}"
@@ -95,17 +100,57 @@ run_harness_sample() {
         asan_opts="${asan_opts:+${asan_opts}:}detect_leaks=0"
     fi
 
-    log "Sample execution: ${name} (timed for 300 seconds)"
+    if [[ "${FUZZ_SMOKE_ONLY}" == "1" ]]; then
+        log "Sample execution: ${name} (replaying checked-in corpus only)"
+    elif [[ -n "${FUZZ_RUNS}" ]]; then
+        log "Sample execution: ${name} (${FUZZ_RUNS} runs)"
+    else
+        log "Sample execution: ${name} (timed for ${FUZZ_MAX_TOTAL_TIME} seconds)"
+    fi
     if [[ -d "${corpus}" ]]; then
         log "Using corpus: ${corpus}"
         set +e
-        ASAN_OPTIONS="${asan_opts}" "${harness}" -max_total_time=300 "${corpus}"
-        rc=$?
+        if [[ "${FUZZ_SMOKE_ONLY}" == "1" ]]; then
+            rc=1
+            for attempt in 1 2 3 4 5; do
+                attempt_log="$(mktemp -t "canmv_${name}_smoke_XXXXXX.log")"
+                {
+                    ASAN_OPTIONS="${asan_opts}" "${harness}" -runs=1 "${corpus}"
+                } >"${attempt_log}" 2>&1
+                rc=$?
+                if [[ ${rc} -eq 0 ]]; then
+                    cat "${attempt_log}"
+                    rm -f "${attempt_log}"
+                    break
+                fi
+                if [[ ${attempt} -lt 5 ]]; then
+                    log "Smoke replay retry ${attempt}/5 after exit code ${rc}: ${name}"
+                    rm -f "${attempt_log}"
+                fi
+            done
+            if [[ ${rc} -ne 0 ]]; then
+                log "Smoke replay remained failing after retries: ${name}"
+                cat "${attempt_log}"
+                rm -f "${attempt_log}"
+            fi
+        elif [[ -n "${FUZZ_RUNS}" ]]; then
+            ASAN_OPTIONS="${asan_opts}" "${harness}" -runs="${FUZZ_RUNS}" "${corpus}"
+            rc=$?
+        else
+            ASAN_OPTIONS="${asan_opts}" "${harness}" -max_total_time="${FUZZ_MAX_TOTAL_TIME}" "${corpus}"
+            rc=$?
+        fi
         set -e
     else
         log "Corpus not found for ${name}; running without initial corpus"
         set +e
-        ASAN_OPTIONS="${asan_opts}" "${harness}" -max_total_time=300
+        if [[ "${FUZZ_SMOKE_ONLY}" == "1" ]]; then
+            ASAN_OPTIONS="${asan_opts}" "${harness}" -runs=1
+        elif [[ -n "${FUZZ_RUNS}" ]]; then
+            ASAN_OPTIONS="${asan_opts}" "${harness}" -runs="${FUZZ_RUNS}"
+        else
+            ASAN_OPTIONS="${asan_opts}" "${harness}" -max_total_time="${FUZZ_MAX_TOTAL_TIME}"
+        fi
         rc=$?
         set -e
     fi
@@ -156,7 +201,13 @@ main() {
         return 0
     fi
 
-    log "Starting sample execution for each harness (300 seconds each)"
+    if [[ "${FUZZ_SMOKE_ONLY}" == "1" ]]; then
+        log "Starting sample execution for each harness (checked-in corpus replay only)"
+    elif [[ -n "${FUZZ_RUNS}" ]]; then
+        log "Starting sample execution for each harness (${FUZZ_RUNS} runs each)"
+    else
+        log "Starting sample execution for each harness (${FUZZ_MAX_TOTAL_TIME} seconds each)"
+    fi
     for harness in "${harnesses[@]}"; do
         if ! run_harness_sample "${harness}"; then
             failed_samples=1

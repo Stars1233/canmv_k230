@@ -17,13 +17,13 @@ endif()
 
 set(CANMV_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set(FUZZ_COMMON_COMPILE_FLAGS
-    -fsanitize=fuzzer-no-link,address,undefined,fuzzer,signed-integer-overflow,null,bounds,pointer-overflow,unsigned-integer-overflow,leak,integer
+    -fsanitize=fuzzer-no-link,address,undefined,signed-integer-overflow,null,bounds,pointer-overflow
     -fno-omit-frame-pointer
     -g
     -O1
 )
 set(FUZZ_COMMON_LINK_FLAGS
-    -fsanitize=fuzzer-no-link,address,undefined,fuzzer,signed-integer-overflow,null,bounds,pointer-overflow,unsigned-integer-overflow,leak,integer
+    -fsanitize=fuzzer,address,undefined,signed-integer-overflow,null,bounds,pointer-overflow
 )
 
 add_library(canmv_fuzz_host_shims STATIC

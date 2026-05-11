@@ -102,7 +102,7 @@ std::set<std::string> enumerate_actual_sources() {
 
         const fs::path p = item.path();
         const std::string ext = p.extension().string();
-        if (ext != ".c" && ext != ".cpp" && ext != ".py") {
+        if (ext != ".c" && ext != ".cc" && ext != ".cpp" && ext != ".h" && ext != ".hpp" && ext != ".py") {
             continue;
         }
 
@@ -204,7 +204,8 @@ TEST(AllSourceCatalogTest, EveryCatalogEntryPointsToReadableSourceFile) {
         EXPECT_GT(file_size, 0U) << "Source file is empty";
 
         const std::string ext = full_path.extension().string();
-        EXPECT_TRUE(ext == ".c" || ext == ".cpp" || ext == ".py") << "Unexpected source extension: " << ext;
+        EXPECT_TRUE(ext == ".c" || ext == ".cc" || ext == ".cpp" || ext == ".h" || ext == ".hpp" || ext == ".py")
+            << "Unexpected source extension: " << ext;
 
         std::ifstream in(full_path);
         ASSERT_TRUE(in.is_open()) << "Unable to open source file";

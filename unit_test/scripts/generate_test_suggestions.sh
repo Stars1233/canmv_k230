@@ -11,6 +11,8 @@ suggestion_for() {
     case "$rel" in
         *.py)
             echo "Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling." ;;
+        *.h|*.hpp)
+            echo "Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks." ;;
         port/core/*)
             echo "Boot/runtime state transitions, init/deinit order, and error-path tests with mocked RTOS/HAL." ;;
         port/machine/*)
@@ -31,6 +33,14 @@ suggestion_for() {
             echo "Protocol and socket tests with fake transport: connect/reconnect paths, timeouts, and partial-read handling." ;;
         port/mp_modules/*|port/modules/*)
             echo "Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency." ;;
+        port/builtin_py/mpp_binding/*)
+            echo "MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation." ;;
+        resources/examples/*)
+            echo "Example validation: syntax checks, board/API availability annotations, and smoke execution where dependencies can be stubbed." ;;
+        resources/libs/*)
+            echo "Library validation: importability, public API behavior, edge cases, and compatibility with MicroPython constraints." ;;
+        tools/*)
+            echo "Tooling tests: CLI argument handling, generated-output stability, and malformed-input behavior." ;;
         *)
             echo "Compile/smoke test plus API contract tests for normal, boundary, and failure paths." ;;
     esac
@@ -41,7 +51,9 @@ priority_for() {
     case "$rel" in
         *.py)
             echo "Medium" ;;
-        port/machine/*|port/core/*|port/omv/alloc/*|port/omv/common/*)
+        *.h|*.hpp)
+            echo "Medium" ;;
+        port/machine/*|port/core/*|port/omv/alloc/*|port/omv/common/*|port/builtin_py/mpp_binding/*)
             echo "High" ;;
         port/omv/imlib/*|port/network/*|port/multi_media/*|port/kpu/*|port/cv_lite/*|port/ai_demo/*|port/ai_cube/*)
             echo "Medium" ;;
@@ -53,16 +65,22 @@ priority_for() {
 mapfile -t sources < <(
     find "${SOURCE_ROOT}" \
         -path "${UNIT_TEST_DIR}" -prune -o \
-        -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.py' \) -print | sort
+        -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.py' \) -print | sort
 )
 
 count_c=0
+count_cc=0
 count_cpp=0
+count_h=0
+count_hpp=0
 count_py=0
 for src in "${sources[@]}"; do
     case "$src" in
         *.c) ((++count_c)) ;;
+        *.cc) ((++count_cc)) ;;
         *.cpp) ((++count_cpp)) ;;
+        *.h) ((++count_h)) ;;
+        *.hpp) ((++count_hpp)) ;;
         *.py) ((++count_py)) ;;
     esac
 done
@@ -84,7 +102,7 @@ done
 
     echo
     echo "Total source files covered: ${#sources[@]}"
-    echo "Language breakdown: C=${count_c}, C++=${count_cpp}, Python=${count_py}"
+    echo "Language breakdown: C=${count_c}, CC=${count_cc}, C++=${count_cpp}, H=${count_h}, HPP=${count_hpp}, Python=${count_py}"
     echo
     echo "## Implemented gtests in this unit_test scaffold"
     echo "- port/omv/common/array.c"
@@ -92,11 +110,12 @@ done
     echo "- port/omv/alloc/unaligned_memcpy.c"
     echo "- port/omv/common/mutex.c"
     echo "- port/omv/common/ff_wrapper.c"
-    echo "- All-source catalog validation for C/C++/Python inventory"
+    echo "- All-source catalog validation for C/C++/headers/Python inventory"
     echo
     echo "## Next implementation order"
     echo "1. port/omv/common/* and port/omv/alloc/* remaining files"
     echo "2. port/machine/* with HAL mocks"
-    echo "3. port/omv/imlib/* algorithm vectors"
-    echo "4. resources/**/*.py behavior tests on-device"
+    echo "3. port/modules/*, port/mp_modules/*, and port/builtin_py/mpp_binding/* MicroPython binding tests"
+    echo "4. port/omv/imlib/* algorithm vectors"
+    echo "5. resources/**/*.py syntax/import behavior tests with dependency stubs or on-device execution"
 } > "${OUT_FILE}"

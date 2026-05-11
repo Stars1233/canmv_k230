@@ -1,6 +1,6 @@
 # CANMV Source-Wide Unit Test Suggestions
 
-Auto-generated on 2026-04-30 23:08:44 UTC.
+Auto-generated on 2026-05-11 06:43:58 UTC.
 
 | Source File | Suggested Unit Test Focus | Priority |
 | --- | --- | --- |
@@ -11,51 +11,93 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `fuzz_test/harnesses/fuzz_unaligned_memcpy.cpp` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `fuzz_test/src/micropython_host_stubs.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `fuzz_test/src/xalloc_host.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `fuzz_test/stubs/imlib_config.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `fuzz_test/stubs/py/obj.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `fuzz_test/stubs/py/runtime.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `fuzz_test/stubs/py/stackctrl.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/lv_bindings/gen_mpy.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/3rd-party/lv_bindings/lv_conf.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/3rd-party/lv_bindings/lv_mp_mem_custom_include.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/3rd-party/lv_bindings/lv_mp_root_pointers.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/lv_bindings/src/core/lv_disp.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/core/lv_obj.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/core/lv_obj_pos.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/core/lv_obj_tree.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/core/lv_refr.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/libs/freetype/lv_freetype.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/src/libs/freetype/lv_freetype.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/lv_bindings/src/libs/png/lodepng.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/src/libs/png/lodepng.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/lv_bindings/src/libs/png/lv_png.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/src/libs/png/lv_png.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/lv_bindings/src/misc/lv_color.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/misc/lv_timer.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/src/others/snapshot/lv_snapshot.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/lv_bindings/yb_config/lv_conf_yb.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/lv_bindings/yb_config/lv_font_yb_cn_16.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/lv_bindings/yb_config/lv_font_yb_cn_22.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/3rd-party/ulab/code/ndarray.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/ndarray.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/ndarray_operators.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/ndarray_operators.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/ndarray_properties.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/ndarray_properties.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/approx.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/approx.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/bitwise.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/bitwise.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/carray/carray.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/carray/carray.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/carray/carray_tools.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/carray/carray_tools.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/compare.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/compare.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/create.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/create.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/fft/fft.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/fft/fft.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/fft/fft_tools.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/fft/fft_tools.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/filter.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/filter.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/io/io.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/io/io.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/linalg/linalg.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/linalg/linalg.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/linalg/linalg_tools.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/linalg/linalg_tools.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/ndarray/ndarray_iter.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/ndarray/ndarray_iter.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/numerical.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/numerical.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/numpy.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/numpy.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/poly.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/poly.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/stats.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/stats.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/transform.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/transform.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/numpy/vector.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/numpy/vector.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/scipy/linalg/linalg.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/scipy/linalg/linalg.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/scipy/optimize/optimize.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/scipy/optimize/optimize.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/scipy/scipy.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/scipy/scipy.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/scipy/signal/signal.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/scipy/signal/signal.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/scipy/special/special.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/scipy/special/special.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/ulab.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/ulab.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/ulab_tools.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/ulab_tools.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/user/user.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/user/user.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/3rd-party/ulab/code/utils/utils.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/3rd-party/ulab/code/utils/utils.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/ai_cube/ai_cube.c` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_cube/clipper.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_cube/fuction_ocrdet.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
@@ -103,25 +145,47 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/ai_demo/yolo_seg.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/ai_demo/yunet_postprocess.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/boards/k230_canmv_01studio/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_01studio/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_dongshanpi/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_dongshanpi/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_gt6700/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_gt6700/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_hiwonder/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_hiwonder/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_lckfb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_lckfb/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_mrt/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_mrt/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_rtt_evb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_rtt_evb/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_v3p0/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_v3p0/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_wondermk/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_wondermk/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_canmv_yahboom/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_canmv_yahboom/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_canmv_atk_dnk230d/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_canmv_atk_dnk230d/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_canmv_bpi_zero/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_canmv_bpi_zero/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_canmv_junroc_ai_cam/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_canmv_junroc_ai_cam/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/boards/k230d_canmv_lushanpi_lite/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_canmv_lushanpi_lite/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_canmv_mini/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_canmv_mini/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_evb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_evb/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_labplus_ai_camera/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_labplus_ai_camera/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230d_labplus_ai_camera_v2/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230d_labplus_ai_camera_v2/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_evb/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_evb/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/k230_labplus_1956/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `port/boards/k230_labplus_1956/mpconfigboard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/boards/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/modules/ds18x20_overlay/ds18x20.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/boards/modules/ds18x20_overlay/manifest.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -155,19 +219,32 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/builtin_py/mpp/ao_struct.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/builtin_py/mpp/audio_def.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/builtin_py/mpp/audio_struct.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
-| `port/builtin_py/mpp_binding/adec_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/aenc_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/ai_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/ao_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/libogg_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/modmpp.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/mp4_format_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/pm_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/sys_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/vb_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/vdec_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/venc_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
-| `port/builtin_py/mpp_binding/vicap_api.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/builtin_py/mpp_binding/adec_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/adec_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/aenc_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/aenc_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/ai_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/ai_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/ao_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/ao_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/libogg_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/libogg_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/modmpp.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/mp4_format_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/mp4_format_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/pm_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/pm_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/sys_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/sys_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/vb_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/vb_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/vdec_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/vdec_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/venc_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/venc_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/builtin_py/mpp_binding/vicap_api.c` | MPP binding tests: module table coverage, wrapper argument validation, and fake-MPP failure propagation. | High |
+| `port/builtin_py/mpp_binding/vicap_func_def.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/builtin_py/mpp/common_struct.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/builtin_py/mpp/__init__.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `port/builtin_py/mpp/libogg_def.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -206,6 +283,74 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/cv_lite/cv_lite.c` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/cv_lite/opencv_code/image_core.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/cv_lite/opencv_code/opencv_functions.cpp` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
+| `port/include/ai_cube/clipper.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_cube/postprocess.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/ai_demo.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/aidemo_type.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/aidemo_wrap.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/kws/blocking_queue.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/kws/fbank.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/kws/feature_pipeline.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/kws/fft.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/kws/log.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/AudioFile.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/char_convert.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/chronology.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/constants.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/DictTrie.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/finals.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/FullSegment.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/HMMModel.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/HMMSegment.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/Jieba.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/jieba_utils.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/KeywordExtractor.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/LocalVector.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/Logging.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/MixSegment.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/MPSegment.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/num.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/phonecode.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/phonetic_symbol.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/pinyin_dict.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/pinyin_utils.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/PosTagger.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/PreFilter.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/pypinyin.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/quantifier.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/QuerySegment.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/SegmentBase.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/SegmentTagged.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/standard.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/StdExtension.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/StringUtil.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/text_normalization.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/TextRankExtractor.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/tone.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/tone_sanhi.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/Trie.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/Unicode.hpp` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/_utils.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/utils_tts.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/VoxCommon.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/ai_demo/tts_zh/zh_frontend.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/canmv_drivers.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/core/mphalport.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/core/mpp_vb_mgmt.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/core/mpthreadport.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/cv_lite/cv_lite.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/cv_lite/cv_lite_type.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/cv_lite/cv_lite_wrap.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/drivers/drv_canmv_misc_dev.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/kpu/ai2d.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/kpu/kpu.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/kpu/nncase_type.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/kpu/nncase_wrap.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/modmachine.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/multi_media/multimedia_type.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/multi_media/multimedia_wrap.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/multi_media/RtspServer.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/include/py_modules.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/kpu/ai2d.c` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/kpu/kpu.c` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
 | `port/kpu/modnncase_runtime.c` | Inference wrapper contract tests with fake backend: tensor shape/type validation and deterministic output mapping. | Medium |
@@ -239,6 +384,7 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/modules/modusb.hid.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/modules/modusb.serial.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/modules/modvbmgmt.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
+| `port/mpconfigport.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/mp_modules/modos.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/mp_modules/modtermios.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
 | `port/mp_modules/modtime.c` | Micropython module surface tests: import/init behavior, parameter checking, and return/error consistency. | Low |
@@ -255,40 +401,61 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/multi_media/RtspServer.c` | Stream/session state-machine tests: start-stop sequencing, buffer ownership, and timeout/retry behavior. | Medium |
 | `port/network/network_rt_smart.c` | Protocol and socket tests with fake transport: connect/reconnect paths, timeouts, and partial-read handling. | Medium |
 | `port/omv/alloc/fb_alloc.c` | Memory behavior tests: alignment, zero-length, resize semantics, and stress/fuzz safety checks. | High |
+| `port/omv/alloc/fb_alloc.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/alloc/umm_malloc.c` | Memory behavior tests: alignment, zero-length, resize semantics, and stress/fuzz safety checks. | High |
+| `port/omv/alloc/umm_malloc.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/alloc/unaligned_memcpy.c` | Memory behavior tests: alignment, zero-length, resize semantics, and stress/fuzz safety checks. | High |
+| `port/omv/alloc/unaligned_memcpy.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/alloc/xalloc.c` | Memory behavior tests: alignment, zero-length, resize semantics, and stress/fuzz safety checks. | High |
+| `port/omv/alloc/xalloc.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/omv/boards/canmv/imlib_config.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/omv/boards/canmv/omv_boardconfig.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/common/array.c` | Data-structure and utility API tests: ordering, edge conditions, ownership/lifetime, and concurrency assumptions. | High |
+| `port/omv/common/array.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/common/ff_wrapper.c` | Data-structure and utility API tests: ordering, edge conditions, ownership/lifetime, and concurrency assumptions. | High |
+| `port/omv/common/ff_wrapper.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/common/mutex.c` | Data-structure and utility API tests: ordering, edge conditions, ownership/lifetime, and concurrency assumptions. | High |
+| `port/omv/common/mutex.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/omv/common/omv_common.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/common/ringbuf.c` | Data-structure and utility API tests: ordering, edge conditions, ownership/lifetime, and concurrency assumptions. | High |
+| `port/omv/common/ringbuf.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/ide_dbg.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
+| `port/omv/ide_dbg.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/ide_dbg_vo_wbc.c` | Compile/smoke test plus API contract tests for normal, boundary, and failure paths. | Low |
 | `port/omv/imlib/agast.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/apriltag.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/arm_math.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/bayer.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/binary.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/blob.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/bmp.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/cascade.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/clahe.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/collections.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/collections.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/dmtx.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/draw.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/edge.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/eye.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/fast.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/fft.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/fft.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/filter.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/fmath.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/fmath.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/font.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/font.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/framebuffer.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/framebuffer.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/freetype_wrap.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/fsort.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/fsort.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/gif.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/haar.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/hog.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/hough.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/imlib.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/imlib.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/integral.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/integral_mw.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/isp.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
@@ -299,6 +466,7 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/omv/imlib/lbp.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/line.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/lodepng.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/imlib/lodepng.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/imlib/lsd.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/mathop.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/mjpeg.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
@@ -320,13 +488,20 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `port/omv/imlib/xyz_tab.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/yuv.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
 | `port/omv/imlib/zbar.c` | Golden-vector algorithm tests plus malformed input and size-boundary regression cases. | Medium |
+| `port/omv/modules/py_assert.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/modules/py_clock.c` | Micropython binding tests for argument parsing, exception mapping, and object lifecycle. | Low |
+| `port/omv/modules/py_clock.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/modules/py_helper.c` | Micropython binding tests for argument parsing, exception mapping, and object lifecycle. | Low |
+| `port/omv/modules/py_helper.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/modules/py_image.c` | Micropython binding tests for argument parsing, exception mapping, and object lifecycle. | Low |
+| `port/omv/modules/py_image.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `port/omv/modules/py_imageio.c` | Micropython binding tests for argument parsing, exception mapping, and object lifecycle. | Low |
+| `port/omv/modules/py_imageio.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
+| `port/omv/version.h` | Header/API contract tests: compile inclusion, macro/type consistency, and source/header declaration drift checks. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_crc16.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_files.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_fs_info.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
+| `resources/examples/01-Micropython-Basics/demo_fs_speed_test.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_globals.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_json.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `resources/examples/01-Micropython-Basics/demo_logging.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
@@ -657,8 +832,8 @@ Auto-generated on 2026-04-30 23:08:44 UTC.
 | `tools/generate_ide_resource.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 | `tools/get_git_version.py` | Python/MicroPython module tests: importability, syntax validity, API behavior, and boundary/error handling. | Medium |
 
-Total source files covered: 652
-Language breakdown: C=183, C++=53, Python=416
+Total source files covered: 827
+Language breakdown: C=183, CC=0, C++=53, H=153, HPP=20, Python=418
 
 ## Implemented gtests in this unit_test scaffold
 - port/omv/common/array.c
@@ -666,10 +841,11 @@ Language breakdown: C=183, C++=53, Python=416
 - port/omv/alloc/unaligned_memcpy.c
 - port/omv/common/mutex.c
 - port/omv/common/ff_wrapper.c
-- All-source catalog validation for C/C++/Python inventory
+- All-source catalog validation for C/C++/headers/Python inventory
 
 ## Next implementation order
 1. port/omv/common/* and port/omv/alloc/* remaining files
 2. port/machine/* with HAL mocks
-3. port/omv/imlib/* algorithm vectors
-4. resources/**/*.py behavior tests on-device
+3. port/modules/*, port/mp_modules/*, and port/builtin_py/mpp_binding/* MicroPython binding tests
+4. port/omv/imlib/* algorithm vectors
+5. resources/**/*.py syntax/import behavior tests with dependency stubs or on-device execution
