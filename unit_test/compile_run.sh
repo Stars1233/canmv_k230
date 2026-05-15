@@ -112,7 +112,7 @@ main() {
     cmake --build "${BUILD_DIR}" --clean-first -j"$(nproc)"
 
     log "Running tests"
-    ctest --test-dir "${BUILD_DIR}" --output-on-failure
+    (cd "${BUILD_DIR}" && ctest --output-on-failure)
 }
 
 main "$@"

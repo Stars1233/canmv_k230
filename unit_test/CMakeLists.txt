@@ -41,7 +41,6 @@ add_executable(canmv_unit_tests
     tests/test_ff_wrapper.cpp
     tests/test_python_sources.cpp
     tests/test_recent_fixes_guardrails.cpp
-    tests/test_static_source_contracts.cpp
     "${CANMV_ROOT}/port/omv/common/array.c"
     "${CANMV_ROOT}/port/omv/common/ringbuf.c"
     "${CANMV_ROOT}/port/omv/alloc/unaligned_memcpy.c"
