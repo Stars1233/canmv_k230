@@ -12,6 +12,33 @@ log() {
     printf '[fuzz_test] %s\n' "$*"
 }
 
+run_privileged() {
+    if [[ "${EUID}" -eq 0 ]]; then
+        "$@"
+        return
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+        return
+    fi
+
+    log "Command requires elevated privilege, but sudo is unavailable: $*"
+    exit 1
+}
+
+install_clang() {
+    if command -v apt-get >/dev/null 2>&1; then
+        log "clang not found. Installing clang with apt-get"
+        run_privileged apt-get update
+        run_privileged apt-get install -y clang
+        return
+    fi
+
+    log "clang not found, and apt-get is unavailable. Please install clang and clang++."
+    exit 1
+}
+
 detect_clang() {
     local c_var="$1"
     local cxx_var="$2"
@@ -21,12 +48,30 @@ detect_clang() {
     fi
 
     local suffix=""
+    local found=0
     for candidate in "" -18 -17 -16 -15 -14 -13 -12; do
         if command -v "clang${candidate}" >/dev/null 2>&1 && command -v "clang++${candidate}" >/dev/null 2>&1; then
             suffix="${candidate}"
+            found=1
             break
         fi
     done
+
+    if [[ ${found} -eq 0 ]]; then
+        install_clang
+        for candidate in "" -18 -17 -16 -15 -14 -13 -12; do
+            if command -v "clang${candidate}" >/dev/null 2>&1 && command -v "clang++${candidate}" >/dev/null 2>&1; then
+                suffix="${candidate}"
+                found=1
+                break
+            fi
+        done
+    fi
+
+    if [[ ${found} -eq 0 ]]; then
+        log "clang installation did not provide both clang and clang++"
+        exit 1
+    fi
 
     if [[ -z "${!c_var:-}" ]]; then
         export "${c_var}=clang${suffix}"
