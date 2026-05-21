@@ -70,7 +70,9 @@ INC += -Iomv/common
 INC += -Iomv/imlib
 INC += -Iomv/modules
 INC += -I3rd-party/ulab
+INC += -I3rd-party/ulab/code
 INC += -I3rd-party/lv_bindings
+INC += -I3rd-party/opencv/code
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_server/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/mp4_format/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/ogg/include
@@ -196,6 +198,9 @@ $(info Enable CV_Lite)
 CANMV_SRC_C += $(wildcard cv_lite/*.c)
 endif
 
+# opencv micropython wrapper
+CANMV_SRC_C += $(wildcard 3rd-party/opencv/code/*.c)
+
 # extmod
 CANMV_SRC_C += \
 	mp_modules/modtermios.c \
@@ -302,6 +307,9 @@ CANMV_SRC_CXX += $(wildcard multi_media/*.cpp)
 ifeq ($(CONFIG_ENABLE_MODULE_CV_LITE),y)
 CANMV_SRC_CXX += $(wildcard cv_lite/opencv_code/*.cpp)
 endif
+
+# opencv micropython wrapper
+CANMV_SRC_CXX += $(wildcard 3rd-party/opencv/code/*.cpp)
 
 # 
 OBJ = $(PY_O)

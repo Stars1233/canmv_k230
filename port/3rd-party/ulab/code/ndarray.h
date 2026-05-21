@@ -14,6 +14,7 @@
 #define _NDARRAY_
 
 #include "py/objarray.h"
+#include "py/objtuple.h"
 #include "py/binary.h"
 #include "py/objstr.h"
 #include "py/objlist.h"
