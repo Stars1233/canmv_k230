@@ -23,52 +23,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #include "py/obj.h"
 #include "py/runtime.h"
 
 #include "modmachine.h"
 
-#define CTRL_WDT_GET_TIMEOUT    _IOW('W', 1, int) /* get timeout(in seconds) */
-#define CTRL_WDT_SET_TIMEOUT    _IOW('W', 2, int) /* set timeout(in seconds) */
-#define CTRL_WDT_GET_TIMELEFT   _IOW('W', 3, int) /* get the left time before reboot(in seconds) */
-#define CTRL_WDT_KEEPALIVE      _IOW('W', 4, int) /* refresh watchdog */
-#define CTRL_WDT_START          _IOW('W', 5, int) /* start watchdog */
-#define CTRL_WDT_STOP           _IOW('W', 6, int) /* stop watchdog */
-#define CTRL_WDT_SET_PRETIMEOUT _IOW('W', 7, int) /* set pretimeout(in seconds) */
-
-typedef enum _wdt_device_number {
-    WDT_DEVICE_0,
-    WDT_DEVICE_1,
-    WDT_DEVICE_MAX,
-} wdt_device_number_t;
+#include "drv_wdt.h"
 
 typedef struct _machine_wdt_obj_t {
-    mp_obj_base_t       base;
-    wdt_device_number_t id;
-    uint32_t            timeout;
-    int                 wdt_fd;
-    int                 auto_close;
+    mp_obj_base_t base;
+    uint32_t      timeout;
+    int volatile active;
 } machine_wdt_obj_t;
 
-STATIC uint8_t used[WDT_DEVICE_MAX];
+static bool volatile machine_wdt_in_use = false;
 
-STATIC void mp_machine_wdt_print(const mp_print_t* print, mp_obj_t self_in, mp_print_kind_t kind)
+static void machine_wdt_release(machine_wdt_obj_t* self)
 {
-    machine_wdt_obj_t* self = self_in;
-    mp_printf(print, "WDT %u: timeout=%ds", self->id, self->timeout);
+    if (!self->active) {
+        return;
+    }
+
+    wdt_close();
+    self->active       = 0;
+    machine_wdt_in_use = false;
 }
 
-STATIC mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_args, size_t n_kw,
-                                        const mp_obj_t* all_args)
+static void machine_wdt_ensure_active(machine_wdt_obj_t* self)
+{
+    if (!self->active) {
+        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("watchdog is closed"));
+    }
+}
+
+static void mp_machine_wdt_print(const mp_print_t* print, mp_obj_t self_in, mp_print_kind_t kind)
+{
+    machine_wdt_obj_t* self = self_in;
+    mp_printf(print, "WDT: timeout=%ds", self->timeout);
+}
+
+static mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_args, size_t n_kw, const mp_obj_t* all_args)
 {
     enum { ARG_id, ARG_timeout, ARG_auto_close };
     const mp_arg_t allowed_args[] = {
@@ -80,96 +77,84 @@ STATIC mp_obj_t mp_machine_wdt_make_new(const mp_obj_type_t* type_in, size_t n_a
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    // if ((args[ARG_id].u_int < WDT_DEVICE_0) || (args[ARG_id].u_int >= WDT_DEVICE_MAX)) {
-    if (args[ARG_id].u_int != WDT_DEVICE_1) {
-        mp_raise_ValueError(MP_ERROR_TEXT("invalid wdt id"));
-    }
+    (void)args[ARG_auto_close];
 
     if (args[ARG_timeout].u_int <= 0) {
         mp_raise_ValueError(MP_ERROR_TEXT("WDT timeout too short"));
     }
 
-    if (used[args[ARG_id].u_int]) {
-        mp_raise_ValueError(MP_ERROR_TEXT("WDT id is used"));
+    if (machine_wdt_in_use) {
+        mp_raise_ValueError(MP_ERROR_TEXT("WDT is already in use"));
     }
 
     machine_wdt_obj_t* self = m_new_obj_with_finaliser(machine_wdt_obj_t);
 
-    self->base.type  = &machine_wdt_type;
-    self->wdt_fd     = -1;
-    self->id         = args[ARG_id].u_int;
-    self->timeout    = args[ARG_timeout].u_int;
-    self->auto_close = args[ARG_auto_close].u_bool;
+    self->base.type = &machine_wdt_type;
+    self->timeout   = args[ARG_timeout].u_int;
+    self->active    = 0;
 
-    char device_name[32];
-    sprintf(device_name, "/dev/watchdog%u", self->id);
-
-    int fd = open(device_name, O_RDWR);
-    if (fd < 0) {
-        mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("open wdt%d error"), self->id);
-    }
-
-    if (ioctl(fd, CTRL_WDT_SET_TIMEOUT, &self->timeout)) {
+    if (wdt_set_timeout(self->timeout) != 0) {
         goto err;
     }
 
-    if (ioctl(fd, CTRL_WDT_START, NULL)) {
+    if (wdt_start() != 0) {
         goto err;
     }
 
-    self->wdt_fd   = fd;
-    used[self->id] = 1;
+    {
+        uint32_t actual_timeout = wdt_get_timeout();
+
+        if (actual_timeout != (uint32_t)-1) {
+            self->timeout = actual_timeout;
+        }
+    }
+
+    self->active       = 1;
+    machine_wdt_in_use = true;
 
     return self;
 
 err:
-    close(fd);
+    machine_wdt_in_use = false;
+    wdt_close();
+
     mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("wdt init error"));
+
     return mp_const_none;
 }
 
-STATIC mp_obj_t machine_wdt_feed(mp_obj_t self_in)
+static mp_obj_t machine_wdt_feed(mp_obj_t self_in)
 {
     machine_wdt_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
-    if (ioctl(self->wdt_fd, CTRL_WDT_KEEPALIVE, NULL)) {
+    machine_wdt_ensure_active(self);
+
+    if (wdt_feed() != 0) {
         mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("feed watchdog error"));
     }
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_wdt_feed_obj, machine_wdt_feed);
+static MP_DEFINE_CONST_FUN_OBJ_1(machine_wdt_feed_obj, machine_wdt_feed);
 
-STATIC mp_obj_t machine_wdt_stop(mp_obj_t self_in)
+static mp_obj_t machine_wdt_close(mp_obj_t self_in)
 {
-    int fd = -1, id = -1;
-
     machine_wdt_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
-    if ((0 <= (fd = self->wdt_fd)) && (self->auto_close)) {
-        if (ioctl(self->wdt_fd, CTRL_WDT_STOP, NULL)) {
-            mp_printf(&mp_plat_print, "reset dwt failed.\n");
-        }
-
-        close(fd);
-        self->wdt_fd = -1;
-    }
-
-    id = self->id;
-    if ((WDT_DEVICE_0 <= id) && (WDT_DEVICE_MAX > id)) {
-        used[id] = 0;
-        self->id = -1;
-    }
+    machine_wdt_release(self);
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_wdt_stop_obj, machine_wdt_stop);
+static MP_DEFINE_CONST_FUN_OBJ_1(machine_wdt_close_obj, machine_wdt_close);
 
-STATIC const mp_rom_map_elem_t machine_wdt_locals_dict_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_wdt_stop_obj) },
+static const mp_rom_map_elem_t machine_wdt_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_feed), MP_ROM_PTR(&machine_wdt_feed_obj) },
+
+    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_wdt_close_obj) },
+    { MP_ROM_QSTR(MP_QSTR_close), MP_ROM_PTR(&machine_wdt_close_obj) },
+    { MP_ROM_QSTR(MP_QSTR_stop), MP_ROM_PTR(&machine_wdt_close_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(machine_wdt_locals_dict, machine_wdt_locals_dict_table);
+static MP_DEFINE_CONST_DICT(machine_wdt_locals_dict, machine_wdt_locals_dict_table);
 
 /* clang-format off */
 MP_DEFINE_CONST_OBJ_TYPE(
