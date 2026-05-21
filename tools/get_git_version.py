@@ -5,6 +5,16 @@ import subprocess
 import sys
 import os
 
+
+def _get_output(command, repo_path):
+    return subprocess.check_output(
+        command,
+        cwd=repo_path,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+    ).strip()
+
+
 def get_git_info(repo_path):
     # Python 2.6 doesn't have check_output, so check for that
     try:
@@ -13,33 +23,44 @@ def get_git_info(repo_path):
     except AttributeError:
         return None
 
-    # Note: git describe doesn't work if no tag is available
     try:
-        git_tag = subprocess.check_output(
-            ["git", "describe", "--tags", "--dirty", "--always", "--match", "v[1-9].*"],
-            cwd=repo_path,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-        ).strip()
+        git_hash = _get_output(["git", "rev-parse", "--short", "HEAD"], repo_path)
     except subprocess.CalledProcessError as er:
         if er.returncode == 128:
             # git exit code of 128 means no repository found
             return None
-        git_tag = ""
+        git_hash = "unknown"
     except OSError:
         return None
 
     try:
-        git_hash = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=repo_path,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-        ).strip()
+        with open(os.devnull, "wb") as devnull:
+            subprocess.check_call(
+                ["git", "describe", "--tags", "--exact-match"],
+                cwd=repo_path,
+                stdout=devnull,
+                stderr=devnull,
+            )
+        git_tag = _get_output(
+            ["git", "describe", "--long", "--tags", "--dirty", "--always"],
+            repo_path,
+        )
     except subprocess.CalledProcessError:
-        git_hash = "unknown"
-    except OSError:
-        return None
+        try:
+            tag_list = _get_output(["git", "tag", "--sort=-v:refname"], repo_path)
+            latest_tag = tag_list.splitlines()[0] if tag_list else ""
+            if latest_tag:
+                commit_count = _get_output(
+                    ["git", "rev-list", "--count", "%s..HEAD" % latest_tag],
+                    repo_path,
+                )
+                git_tag = "%s-%s-g%s" % (latest_tag, commit_count, git_hash)
+            else:
+                git_tag = git_hash
+        except subprocess.CalledProcessError:
+            git_tag = git_hash
+        except OSError:
+            return None
 
     try:
         # Check if there are any modified files.
@@ -64,7 +85,10 @@ def get_git_info(repo_path):
 
 def main():
     repo_path = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else "."
-    tag, commit = get_git_info(repo_path)
+    info = get_git_info(repo_path)
+    if info is None:
+        info = ("", "unknown")
+    tag, commit = info
     print("MICROPY_GIT_TAG=" + tag)
     print("MICROPY_GIT_HASH=" + commit)
 
