@@ -3,7 +3,9 @@ from mpp.vicap import *
 from media.media import *
 from _media import py_video_frame_info
 import image
+import machine
 import os
+import time
 
 CAM_CHN0_OUT_WIDTH_MAX = const(3072)
 CAM_CHN0_OUT_HEIGHT_MAX = const(2160)
@@ -66,6 +68,10 @@ class Sensor:
     WQXGA2      = const(30)   #: 2592x1944
 
     FRAME_SIZE_INVAILD = const(31)
+    # Reboot only after this many snapshot failures land inside the rolling window.
+    SNAPSHOT_FAILURE_LIMIT = const(3)
+    # Rolling failure window in milliseconds for auto_reboot snapshot calls.
+    SNAPSHOT_FAILURE_WINDOW_MS = const(10000)
 
     _devs = [None for i in range(0, CAM_DEV_ID_MAX)]
     _csis = [False for i in range(0, CAM_DEV_ID_MAX)]
@@ -251,6 +257,9 @@ class Sensor:
 
         self._framesize = [None for i in range(0, VICAP_CHN_ID_MAX)]
         self._pixel_format = [None for i in range(0, VICAP_CHN_ID_MAX)]
+        self._snapshot_failure_ticks = [0] * Sensor.SNAPSHOT_FAILURE_LIMIT
+        self._snapshot_failure_count = 0
+        self._snapshot_failure_index = 0
 
         Sensor._csis[self._csi_bus] = True
         Sensor._devs[self._dev_id] = self
@@ -428,7 +437,30 @@ class Sensor:
             return self._imgs[chn]
         return None
 
-    def snapshot(self, chn = CAM_CHN_ID_0, timeout = 1000, dump_frame = False):
+    def _reset_snapshot_failure_state(self):
+        self._snapshot_failure_count = 0
+        self._snapshot_failure_index = 0
+
+    def _record_snapshot_failure(self, chn, ret):
+        now = time.ticks_ms()
+
+        self._snapshot_failure_ticks[self._snapshot_failure_index] = now
+        if self._snapshot_failure_count < Sensor.SNAPSHOT_FAILURE_LIMIT:
+            self._snapshot_failure_count += 1
+
+        self._snapshot_failure_index += 1
+        if self._snapshot_failure_index >= Sensor.SNAPSHOT_FAILURE_LIMIT:
+            self._snapshot_failure_index = 0
+
+        if self._snapshot_failure_count >= Sensor.SNAPSHOT_FAILURE_LIMIT:
+            oldest_tick = self._snapshot_failure_ticks[self._snapshot_failure_index]
+            if time.ticks_diff(now, oldest_tick) <= Sensor.SNAPSHOT_FAILURE_WINDOW_MS:
+                print(
+                    f"sensor({self._dev_id}) snapshot chn({chn}) failed {Sensor.SNAPSHOT_FAILURE_LIMIT} times in {Sensor.SNAPSHOT_FAILURE_WINDOW_MS // 1000}s, rebooting..."
+                )
+                machine.reset()
+
+    def snapshot(self, chn = CAM_CHN_ID_0, timeout = 1000, dump_frame = False, auto_reboot = False):
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -452,7 +484,12 @@ class Sensor:
 
         ret = vb_mgmt_dump_vicap_frame(cfg, dumped_img)
         if ret != 0:
+            if auto_reboot:
+                self._record_snapshot_failure(chn, ret)
             raise RuntimeError(f"sensor({self._dev_id}) snapshot chn({chn}) failed({ret})")
+
+        if auto_reboot:
+            self._reset_snapshot_failure_state()
 
         self._imgs[chn] = dumped_img
 
