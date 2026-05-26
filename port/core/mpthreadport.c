@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "mphal.h"
 #include "py/runtime.h"
 #include "py/mpthread.h"
 #include "py/gc.h"
@@ -443,5 +444,7 @@ void mp_thread_exitpoint(int flag)
         MP_STATE_THREAD(mp_pending_exception) = th->exception;
         th->exception = 0;
         mp_handle_pending(true);
+    } else {
+        mp_hal_delay_ms(1);
     }
 }
