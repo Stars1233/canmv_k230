@@ -444,7 +444,7 @@ void mp_thread_exitpoint(int flag)
         MP_STATE_THREAD(mp_pending_exception) = th->exception;
         th->exception = 0;
         mp_handle_pending(true);
-    } else {
+    } else if (flag == EXITPOINT_ANY || flag == EXITPOINT_DISABLE || flag == EXITPOINT_ENABLE) {
         mp_hal_delay_ms(1);
     }
 }

@@ -122,7 +122,7 @@ CXXFLAGS += $(filter-out -Wmissing-prototypes -Wold-style-definition -std=gnu99,
 
 # Use gcc syntax for map file
 LDFLAGS_ARCH = -Wl,-Map=$@.map,--cref -Wl,--gc-sections
-LDFLAGS += -T core/link.lds --static
+LDFLAGS += -T $(SDK_RTSMART_SRC_DIR)/libs/mk/link.lds --static
 
 # # rtsp server
 # RTSP_SERVER_LIBS := -L$(SDK_RTSMART_SRC_DIR)/mpp/middleware/lib -lrtsp_server -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment

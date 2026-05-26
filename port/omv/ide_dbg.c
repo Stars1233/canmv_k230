@@ -230,6 +230,20 @@ static void read_until(void* buffer, size_t size) {
     } while (idx < size);
 }
 
+static void read_discard(size_t size) {
+    uint8_t discard_buf[256];
+    size_t remaining = size;
+
+    while (remaining > 0) {
+        size_t chunk = remaining;
+        if (chunk > sizeof(discard_buf)) {
+            chunk = sizeof(discard_buf);
+        }
+        read_until(discard_buf, chunk);
+        remaining -= chunk;
+    }
+}
+
 static void print_sha256(const uint8_t sha256[32]) {
     #if IDE_DEBUG_PRINT
     fprintf(stderr, "SHA256: ");
@@ -438,6 +452,12 @@ static void cmd_script_exec(ide_dbg_state_t* state) {
     if (ide_dbg_script_running() != 0)
         return;
     script_string = malloc(state->data_length + 1);
+    if (script_string == NULL) {
+        pr_err("cmd: USBDBG_SCRIPT_EXEC alloc failed, size %u", state->data_length + 1);
+        read_discard(state->data_length);
+        sem_post(&script_sem);
+        return;
+    }
     read_until(script_string, state->data_length);
     script_string[state->data_length] = '\0';
     ide_dbg_set_script_running(1);
