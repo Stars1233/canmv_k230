@@ -11,6 +11,8 @@ extern "C" {
 
 extern const mp_obj_fun_builtin_var_t cv2_imgcodecs_imread_obj;
 extern const mp_obj_fun_builtin_var_t cv2_imgcodecs_imwrite_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgcodecs_imdecode_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgcodecs_imencode_obj;
 
 // imread flags
 #define OPENCV_IMGCODECS_CONSTANTS \
@@ -22,7 +24,9 @@ extern const mp_obj_fun_builtin_var_t cv2_imgcodecs_imwrite_obj;
     { MP_ROM_QSTR(MP_QSTR_IMREAD_IGNORE_ORIENTATION), MP_ROM_INT(128) },
 
 #define OPENCV_IMGCODECS_GLOBALS \
-    { MP_ROM_QSTR(MP_QSTR_imread),  MP_ROM_PTR(&cv2_imgcodecs_imread_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR_imwrite), MP_ROM_PTR(&cv2_imgcodecs_imwrite_obj) },
+    { MP_ROM_QSTR(MP_QSTR_imread),   MP_ROM_PTR(&cv2_imgcodecs_imread_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_imwrite),  MP_ROM_PTR(&cv2_imgcodecs_imwrite_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_imdecode), MP_ROM_PTR(&cv2_imgcodecs_imdecode_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_imencode), MP_ROM_PTR(&cv2_imgcodecs_imencode_obj) },
 
 #endif // CV_UPY_IMGCODECS_H

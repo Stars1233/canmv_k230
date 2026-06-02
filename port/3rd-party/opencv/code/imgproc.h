@@ -53,6 +53,30 @@ extern const mp_obj_fun_builtin_var_t cv2_imgproc_HoughLines_obj;
 extern const mp_obj_fun_builtin_var_t cv2_imgproc_HoughLinesP_obj;
 extern const mp_obj_fun_builtin_var_t cv2_imgproc_HoughCircles_obj;
 extern const mp_obj_fun_builtin_var_t cv2_imgproc_equalizeHist_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_pyrDown_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_pyrUp_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_remap_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_getAffineTransform_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_getPerspectiveTransform_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_cornerHarris_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_goodFeaturesToTrack_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_cornerSubPix_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_calcHist_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_calcBackProject_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_compareHist_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_polylines_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_getTextSize_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_pointPolygonTest_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_fitEllipse_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_fitLine_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_convexityDefects_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_matchShapes_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_isContourConvex_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_watershed_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_distanceTransform_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_floodFill_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_grabCut_obj;
+extern const mp_obj_fun_builtin_var_t cv2_imgproc_connectedComponents_obj;
 
 // Constants
 #define OPENCV_IMGPROC_CONSTANTS \
@@ -137,7 +161,23 @@ extern const mp_obj_fun_builtin_var_t cv2_imgproc_equalizeHist_obj;
     { MP_ROM_QSTR(MP_QSTR_MARKER_DIAMOND),MP_ROM_INT(3) }, \
     { MP_ROM_QSTR(MP_QSTR_MARKER_SQUARE), MP_ROM_INT(4) }, \
     { MP_ROM_QSTR(MP_QSTR_MARKER_TRIANGLE_UP), MP_ROM_INT(5) }, \
-    { MP_ROM_QSTR(MP_QSTR_MARKER_TRIANGLE_DOWN), MP_ROM_INT(6) },
+    { MP_ROM_QSTR(MP_QSTR_MARKER_TRIANGLE_DOWN), MP_ROM_INT(6) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_NEAREST),  MP_ROM_INT(0) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_LINEAR),   MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_CUBIC),    MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_AREA),     MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_LANCZOS4), MP_ROM_INT(4) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_LINEAR_EXACT), MP_ROM_INT(5) }, \
+    { MP_ROM_QSTR(MP_QSTR_INTER_MAX),      MP_ROM_INT(7) }, \
+    { MP_ROM_QSTR(MP_QSTR_WARP_FILL_OUTLIERS), MP_ROM_INT(8) }, \
+    { MP_ROM_QSTR(MP_QSTR_WARP_INVERSE_MAP),   MP_ROM_INT(16) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_CORREL),     MP_ROM_INT(0) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_CHISQR),     MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_INTERSECT),  MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_BHATTACHARYYA), MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_HELLINGER),  MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_CHISQR_ALT), MP_ROM_INT(4) }, \
+    { MP_ROM_QSTR(MP_QSTR_HISTCMP_KL_DIV),     MP_ROM_INT(5) },
 
 // Color conversion constants
 #define OPENCV_COLOR_CONVERSION_CONSTANTS \
@@ -170,7 +210,35 @@ extern const mp_obj_fun_builtin_var_t cv2_imgproc_equalizeHist_obj;
 #define OPENCV_CORE_CONSTANTS \
     { MP_ROM_QSTR(MP_QSTR_ROTATE_90_CLOCKWISE),         MP_ROM_INT(0) }, \
     { MP_ROM_QSTR(MP_QSTR_ROTATE_180),                  MP_ROM_INT(1) }, \
-    { MP_ROM_QSTR(MP_QSTR_ROTATE_90_COUNTERCLOCKWISE),  MP_ROM_INT(2) },
+    { MP_ROM_QSTR(MP_QSTR_ROTATE_90_COUNTERCLOCKWISE),  MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_CMP_EQ),    MP_ROM_INT(0) }, \
+    { MP_ROM_QSTR(MP_QSTR_CMP_GT),    MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_CMP_GE),    MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_CMP_LT),    MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_CMP_LE),    MP_ROM_INT(4) }, \
+    { MP_ROM_QSTR(MP_QSTR_CMP_NE),    MP_ROM_INT(5) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_INF),       MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_L1),        MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_L2),        MP_ROM_INT(4) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_L2SQR),     MP_ROM_INT(5) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_HAMMING),   MP_ROM_INT(6) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_HAMMING2),  MP_ROM_INT(7) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_TYPE_MASK), MP_ROM_INT(7) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_RELATIVE),  MP_ROM_INT(8) }, \
+    { MP_ROM_QSTR(MP_QSTR_NORM_MINMAX),    MP_ROM_INT(32) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_BGD),    MP_ROM_INT(0) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_FGD),    MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_PR_BGD), MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_PR_FGD), MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_INIT_WITH_RECT),  MP_ROM_INT(0) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_INIT_WITH_MASK),  MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_EVAL),            MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_GC_EVAL_FREEZE_MODEL), MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_TERM_CRITERIA_COUNT),  MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_TERM_CRITERIA_EPS),    MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_TERM_CRITERIA_MAX_ITER), MP_ROM_INT(1) }, \
+    { MP_ROM_QSTR(MP_QSTR_DIST_LABEL_CCOMP),  MP_ROM_INT(0) }, \
+    { MP_ROM_QSTR(MP_QSTR_DIST_LABEL_PIXEL),  MP_ROM_INT(1) },
 
 #define OPENCV_IMGPROC_GLOBALS \
     { MP_ROM_QSTR(MP_QSTR_Canny),              MP_ROM_PTR(&cv2_imgproc_Canny_obj) }, \
@@ -217,6 +285,30 @@ extern const mp_obj_fun_builtin_var_t cv2_imgproc_equalizeHist_obj;
     { MP_ROM_QSTR(MP_QSTR_HoughLinesP),        MP_ROM_PTR(&cv2_imgproc_HoughLinesP_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_HoughCircles),       MP_ROM_PTR(&cv2_imgproc_HoughCircles_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_equalizeHist),       MP_ROM_PTR(&cv2_imgproc_equalizeHist_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_pyrDown),            MP_ROM_PTR(&cv2_imgproc_pyrDown_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_pyrUp),              MP_ROM_PTR(&cv2_imgproc_pyrUp_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_remap),              MP_ROM_PTR(&cv2_imgproc_remap_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_getAffineTransform), MP_ROM_PTR(&cv2_imgproc_getAffineTransform_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_getPerspectiveTransform), MP_ROM_PTR(&cv2_imgproc_getPerspectiveTransform_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_cornerHarris),       MP_ROM_PTR(&cv2_imgproc_cornerHarris_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_goodFeaturesToTrack),MP_ROM_PTR(&cv2_imgproc_goodFeaturesToTrack_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_cornerSubPix),       MP_ROM_PTR(&cv2_imgproc_cornerSubPix_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_calcHist),           MP_ROM_PTR(&cv2_imgproc_calcHist_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_calcBackProject),    MP_ROM_PTR(&cv2_imgproc_calcBackProject_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_compareHist),        MP_ROM_PTR(&cv2_imgproc_compareHist_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_polylines),          MP_ROM_PTR(&cv2_imgproc_polylines_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_getTextSize),        MP_ROM_PTR(&cv2_imgproc_getTextSize_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_pointPolygonTest),   MP_ROM_PTR(&cv2_imgproc_pointPolygonTest_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_fitEllipse),         MP_ROM_PTR(&cv2_imgproc_fitEllipse_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_fitLine),            MP_ROM_PTR(&cv2_imgproc_fitLine_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_convexityDefects),   MP_ROM_PTR(&cv2_imgproc_convexityDefects_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_matchShapes),        MP_ROM_PTR(&cv2_imgproc_matchShapes_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_isContourConvex),    MP_ROM_PTR(&cv2_imgproc_isContourConvex_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_watershed),          MP_ROM_PTR(&cv2_imgproc_watershed_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_distanceTransform),  MP_ROM_PTR(&cv2_imgproc_distanceTransform_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_floodFill),          MP_ROM_PTR(&cv2_imgproc_floodFill_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_grabCut),            MP_ROM_PTR(&cv2_imgproc_grabCut_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_connectedComponents),MP_ROM_PTR(&cv2_imgproc_connectedComponents_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_CV_8U),              MP_ROM_INT(0) }, \
 
 #endif // CV_UPY_IMGPROC_H

@@ -1286,6 +1286,25 @@ STATIC mp_obj_t cv2_imgproc_convexHull_fun(size_t n_args, const mp_obj_t *pos_ar
     bool clockwise = args[ARG_clockwise].u_bool;
     bool returnPoints = args[ARG_returnPoints].u_bool;
 
+    if(!returnPoints)
+    {
+        std::vector<int> hull_idx;
+        try {
+            convexHull(pts, hull_idx, clockwise, returnPoints);
+        } catch(Exception &e) {
+            mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+        }
+        size_t hull_shape[ULAB_MAX_DIMS];
+        for(int i = 0; i < ULAB_MAX_DIMS - 1; i++)
+            hull_shape[i] = 0;
+        hull_shape[ULAB_MAX_DIMS - 1] = hull_idx.size();
+        ndarray_obj_t *result_arr = ndarray_new_dense_ndarray(1, hull_shape, NDARRAY_FLOAT);
+        mp_float_t *data = (mp_float_t *)result_arr->array;
+        for(size_t i = 0; i < hull_idx.size(); i++)
+            data[i] = (float)hull_idx[i];
+        return MP_OBJ_FROM_PTR(result_arr);
+    }
+
     std::vector<Point> hull;
     try {
         convexHull(pts, hull, clockwise, returnPoints);
@@ -1634,3 +1653,958 @@ STATIC mp_obj_t cv2_imgproc_equalizeHist_fun(size_t n_args, const mp_obj_t *pos_
     return mat_to_mp_obj(dst);
 }
 MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_equalizeHist_obj, 1, cv2_imgproc_equalizeHist_fun);
+
+// ---- Pyramid ----
+
+STATIC mp_obj_t cv2_imgproc_pyrDown_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_dst, ARG_dstsize, ARG_borderType };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src,        MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_dst,        MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_dstsize,    MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_borderType, MP_ARG_INT, {.u_int = BORDER_DEFAULT} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+    Size dstsize = args[ARG_dstsize].u_obj == mp_const_none ? Size() : mp_obj_to_size(args[ARG_dstsize].u_obj);
+    int borderType = args[ARG_borderType].u_int;
+
+    try {
+        pyrDown(src, dst, dstsize, borderType);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(dst);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_pyrDown_obj, 1, cv2_imgproc_pyrDown_fun);
+
+STATIC mp_obj_t cv2_imgproc_pyrUp_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_dst, ARG_dstsize, ARG_borderType };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src,        MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_dst,        MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_dstsize,    MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_borderType, MP_ARG_INT, {.u_int = BORDER_DEFAULT} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+    Size dstsize = args[ARG_dstsize].u_obj == mp_const_none ? Size() : mp_obj_to_size(args[ARG_dstsize].u_obj);
+    int borderType = args[ARG_borderType].u_int;
+
+    try {
+        pyrUp(src, dst, dstsize, borderType);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(dst);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_pyrUp_obj, 1, cv2_imgproc_pyrUp_fun);
+
+STATIC mp_obj_t cv2_imgproc_remap_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_map1, ARG_map2, ARG_interpolation, ARG_dst, ARG_borderMode, ARG_borderValue };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src,           MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_map1,          MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_map2,          MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_interpolation, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = INTER_LINEAR} },
+        { MP_QSTR_dst,           MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_borderMode,    MP_ARG_INT, {.u_int = BORDER_CONSTANT} },
+        { MP_QSTR_borderValue,   MP_ARG_OBJ, {.u_obj = mp_const_none} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    Mat map1 = mp_obj_to_mat(args[ARG_map1].u_obj);
+    Mat map2 = mp_obj_to_mat(args[ARG_map2].u_obj);
+    int interpolation = args[ARG_interpolation].u_int;
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+    int borderMode = args[ARG_borderMode].u_int;
+    Scalar borderValue = args[ARG_borderValue].u_obj == mp_const_none ? Scalar() : mp_obj_to_scalar(args[ARG_borderValue].u_obj);
+
+    try {
+        remap(src, dst, map1, map2, interpolation, borderMode, borderValue);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(dst);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_remap_obj, 1, cv2_imgproc_remap_fun);
+
+// ---- Affine/Perspective Transform ----
+
+STATIC mp_obj_t cv2_imgproc_getAffineTransform_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_dst };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_dst, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+
+    Mat retval;
+    try {
+        retval = getAffineTransform(src, dst);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(retval);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_getAffineTransform_obj, 1, cv2_imgproc_getAffineTransform_fun);
+
+STATIC mp_obj_t cv2_imgproc_getPerspectiveTransform_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_dst, ARG_solveMethod };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src,         MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_dst,         MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_solveMethod, MP_ARG_INT, {.u_int = cv::DECOMP_LU} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+    int solveMethod = args[ARG_solveMethod].u_int;
+
+    Mat retval;
+    try {
+        retval = getPerspectiveTransform(src, dst, solveMethod);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(retval);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_getPerspectiveTransform_obj, 1, cv2_imgproc_getPerspectiveTransform_fun);
+
+// ---- Corner Detection ----
+
+STATIC mp_obj_t cv2_imgproc_cornerHarris_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_blockSize, ARG_ksize, ARG_k, ARG_dst, ARG_borderType };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src,        MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_blockSize,  MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+        { MP_QSTR_ksize,      MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 3} },
+        { MP_QSTR_k,          MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_dst,        MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_borderType, MP_ARG_INT, {.u_int = BORDER_DEFAULT} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    int blockSize = args[ARG_blockSize].u_int;
+    int ksize = args[ARG_ksize].u_int;
+    double k = mp_obj_get_float(args[ARG_k].u_obj);
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+    int borderType = args[ARG_borderType].u_int;
+
+    try {
+        cornerHarris(src, dst, blockSize, ksize, k, borderType);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(dst);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_cornerHarris_obj, 1, cv2_imgproc_cornerHarris_fun);
+
+STATIC mp_obj_t cv2_imgproc_goodFeaturesToTrack_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_image, ARG_maxCorners, ARG_qualityLevel, ARG_minDistance, ARG_mask, ARG_blockSize, ARG_useHarrisDetector, ARG_k, ARG_corners };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_image,             MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_maxCorners,        MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+        { MP_QSTR_qualityLevel,      MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_minDistance,       MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_mask,              MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_blockSize,         MP_ARG_INT, {.u_int = 3} },
+        { MP_QSTR_useHarrisDetector, MP_ARG_BOOL, {.u_bool = false} },
+        { MP_QSTR_k,                 MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_corners,           MP_ARG_OBJ, {.u_obj = mp_const_none} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat image = mp_obj_to_mat(args[ARG_image].u_obj);
+    int maxCorners = args[ARG_maxCorners].u_int;
+    double qualityLevel = mp_obj_get_float(args[ARG_qualityLevel].u_obj);
+    double minDistance = mp_obj_get_float(args[ARG_minDistance].u_obj);
+    Mat mask = mp_obj_to_mat(args[ARG_mask].u_obj);
+    int blockSize = args[ARG_blockSize].u_int;
+    bool useHarrisDetector = args[ARG_useHarrisDetector].u_bool;
+    double k = args[ARG_k].u_obj == mp_const_none ? 0.04 : mp_obj_get_float(args[ARG_k].u_obj);
+
+    std::vector<Point2f> corners;
+    try {
+        goodFeaturesToTrack(image, corners, maxCorners, qualityLevel, minDistance,
+                            mask.empty() ? noArray() : (InputArray)mask, blockSize, useHarrisDetector, k);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    size_t shape[ULAB_MAX_DIMS];
+    for(int i = 0; i < ULAB_MAX_DIMS - 2; i++)
+        shape[i] = 0;
+    shape[ULAB_MAX_DIMS - 2] = corners.size();
+    shape[ULAB_MAX_DIMS - 1] = 2;
+
+    ndarray_obj_t *result_arr = ndarray_new_dense_ndarray(2, shape, NDARRAY_FLOAT);
+    mp_float_t *data = (mp_float_t *)result_arr->array;
+    for(size_t i = 0; i < corners.size(); i++)
+    {
+        data[i * 2] = corners[i].x;
+        data[i * 2 + 1] = corners[i].y;
+    }
+    return MP_OBJ_FROM_PTR(result_arr);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_goodFeaturesToTrack_obj, 1, cv2_imgproc_goodFeaturesToTrack_fun);
+
+STATIC mp_obj_t cv2_imgproc_cornerSubPix_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_image, ARG_corners, ARG_winSize, ARG_zeroZone, ARG_criteria };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_image,    MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_corners,  MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_winSize,  MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_zeroZone, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_criteria, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat image = mp_obj_to_mat(args[ARG_image].u_obj);
+    Size winSize = mp_obj_to_size(args[ARG_winSize].u_obj);
+    Size zeroZone = mp_obj_to_size(args[ARG_zeroZone].u_obj);
+
+    ndarray_obj_t *corners_arr = ndarray_from_mp_obj(args[ARG_corners].u_obj, 0);
+    if(!corners_arr || corners_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("corners must be Nx2 ndarray"));
+
+    size_t rows = corners_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point2f> corners(rows);
+    for(size_t r = 0; r < rows; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(corners_arr->array, corners_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(corners_arr->array, corners_arr->dtype, r * 2 + 1);
+        corners[r] = Point2f(x, y);
+    }
+
+    // criteria: tuple of (type, maxCount, epsilon)
+    mp_obj_t criteria_obj = args[ARG_criteria].u_obj;
+    size_t clen;
+    mp_obj_t *citems;
+    mp_obj_get_array(criteria_obj, &clen, &citems);
+    if(clen < 3)
+        mp_raise_ValueError(MP_ERROR_TEXT("criteria must be (type, maxCount, epsilon)"));
+
+    int termType = mp_obj_get_int(citems[0]);
+    int maxCount = mp_obj_get_int(citems[1]);
+    double epsilon = mp_obj_get_float(citems[2]);
+    TermCriteria criteria(termType, maxCount, epsilon);
+
+    try {
+        cornerSubPix(image, corners, winSize, zeroZone, criteria);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    ndarray_obj_t *result_arr = ndarray_new_dense_ndarray(2, corners_arr->shape, NDARRAY_FLOAT);
+    mp_float_t *data = (mp_float_t *)result_arr->array;
+    for(size_t i = 0; i < corners.size(); i++)
+    {
+        data[i * 2] = corners[i].x;
+        data[i * 2 + 1] = corners[i].y;
+    }
+    return MP_OBJ_FROM_PTR(result_arr);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_cornerSubPix_obj, 1, cv2_imgproc_cornerSubPix_fun);
+
+// ---- Histogram ----
+
+STATIC mp_obj_t cv2_imgproc_calcHist_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_images, ARG_channels, ARG_mask, ARG_histSize, ARG_ranges };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_images,    MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_channels,  MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_mask,      MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_histSize,  MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_ranges,    MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_obj_t images_obj = args[ARG_images].u_obj;
+    if(!mp_obj_is_type(images_obj, &mp_type_list) && !mp_obj_is_type(images_obj, &mp_type_tuple))
+        mp_raise_TypeError(MP_ERROR_TEXT("images must be a list"));
+
+    size_t nimgs;
+    mp_obj_t *img_items;
+    mp_obj_get_array(images_obj, &nimgs, &img_items);
+    std::vector<Mat> images(nimgs);
+    for(size_t i = 0; i < nimgs; i++)
+        images[i] = mp_obj_to_mat(img_items[i]);
+
+    mp_obj_t channels_obj = args[ARG_channels].u_obj;
+    size_t nch;
+    mp_obj_t *ch_items;
+    mp_obj_get_array(channels_obj, &nch, &ch_items);
+    std::vector<int> channels;
+    for(size_t i = 0; i < nch; i++)
+        channels.push_back(mp_obj_get_int(ch_items[i]));
+
+    Mat mask = mp_obj_to_mat(args[ARG_mask].u_obj);
+
+    mp_obj_t histSize_obj = args[ARG_histSize].u_obj;
+    size_t nh;
+    mp_obj_t *hs_items;
+    mp_obj_get_array(histSize_obj, &nh, &hs_items);
+    std::vector<int> histSize;
+    for(size_t i = 0; i < nh; i++)
+        histSize.push_back(mp_obj_get_int(hs_items[i]));
+
+    mp_obj_t ranges_obj = args[ARG_ranges].u_obj;
+    size_t nr;
+    mp_obj_t *r_items;
+    mp_obj_get_array(ranges_obj, &nr, &r_items);
+    std::vector<float> ranges;
+    for(size_t i = 0; i < nr; i++)
+        ranges.push_back((float)mp_obj_get_float(r_items[i]));
+
+    Mat hist;
+    try {
+        calcHist(images, channels, mask, hist, histSize, ranges);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(hist);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_calcHist_obj, 1, cv2_imgproc_calcHist_fun);
+
+STATIC mp_obj_t cv2_imgproc_calcBackProject_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_images, ARG_channels, ARG_hist, ARG_dst, ARG_ranges, ARG_scale };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_images,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_channels, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_hist,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_dst,      MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_ranges,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_scale,    MP_ARG_OBJ, {.u_obj = mp_const_none} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_obj_t images_obj = args[ARG_images].u_obj;
+    if(!mp_obj_is_type(images_obj, &mp_type_list) && !mp_obj_is_type(images_obj, &mp_type_tuple))
+        mp_raise_TypeError(MP_ERROR_TEXT("images must be a list"));
+
+    size_t nimgs;
+    mp_obj_t *img_items;
+    mp_obj_get_array(images_obj, &nimgs, &img_items);
+    std::vector<Mat> images(nimgs);
+    for(size_t i = 0; i < nimgs; i++)
+        images[i] = mp_obj_to_mat(img_items[i]);
+
+    mp_obj_t channels_obj = args[ARG_channels].u_obj;
+    size_t nch;
+    mp_obj_t *ch_items;
+    mp_obj_get_array(channels_obj, &nch, &ch_items);
+    std::vector<int> channels;
+    for(size_t i = 0; i < nch; i++)
+        channels.push_back(mp_obj_get_int(ch_items[i]));
+
+    Mat hist = mp_obj_to_mat(args[ARG_hist].u_obj);
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+
+    mp_obj_t ranges_obj = args[ARG_ranges].u_obj;
+    size_t nr;
+    mp_obj_t *r_items;
+    mp_obj_get_array(ranges_obj, &nr, &r_items);
+    std::vector<float> ranges;
+    for(size_t i = 0; i < nr; i++)
+        ranges.push_back((float)mp_obj_get_float(r_items[i]));
+
+    double scale = args[ARG_scale].u_obj == mp_const_none ? 1.0 : mp_obj_get_float(args[ARG_scale].u_obj);
+
+    try {
+        calcBackProject(images, channels, hist, dst, ranges, scale);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(dst);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_calcBackProject_obj, 1, cv2_imgproc_calcBackProject_fun);
+
+STATIC mp_obj_t cv2_imgproc_compareHist_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_H1, ARG_H2, ARG_method };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_H1,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_H2,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_method, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat H1 = mp_obj_to_mat(args[ARG_H1].u_obj);
+    Mat H2 = mp_obj_to_mat(args[ARG_H2].u_obj);
+    int method = args[ARG_method].u_int;
+
+    double result;
+    try {
+        result = compareHist(H1, H2, method);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mp_obj_new_float(result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_compareHist_obj, 1, cv2_imgproc_compareHist_fun);
+
+// ---- Contour Additions ----
+
+STATIC mp_obj_t cv2_imgproc_polylines_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_img, ARG_pts, ARG_isClosed, ARG_color, ARG_thickness, ARG_lineType, ARG_shift };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_img,       MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_pts,       MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_isClosed,  MP_ARG_REQUIRED | MP_ARG_BOOL, {.u_bool = false} },
+        { MP_QSTR_color,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_thickness, MP_ARG_INT, {.u_int = 1} },
+        { MP_QSTR_lineType,  MP_ARG_INT, {.u_int = LINE_8} },
+        { MP_QSTR_shift,     MP_ARG_INT, {.u_int = 0} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat img = mp_obj_to_mat(args[ARG_img].u_obj);
+    Scalar color = mp_obj_to_scalar(args[ARG_color].u_obj);
+    int thickness = args[ARG_thickness].u_int;
+    int lineType = args[ARG_lineType].u_int;
+    int shift = args[ARG_shift].u_int;
+    bool isClosed = args[ARG_isClosed].u_bool;
+
+    mp_obj_t pts_obj = args[ARG_pts].u_obj;
+    if(!mp_obj_is_type(pts_obj, &mp_type_list) && !mp_obj_is_type(pts_obj, &mp_type_tuple))
+        mp_raise_TypeError(MP_ERROR_TEXT("pts must be a list of contours"));
+
+    size_t ncontours;
+    mp_obj_t *contours_items;
+    mp_obj_get_array(pts_obj, &ncontours, &contours_items);
+
+    std::vector<std::vector<Point>> pts;
+    for(size_t c = 0; c < ncontours; c++)
+    {
+        ndarray_obj_t *contour = ndarray_from_mp_obj(contours_items[c], 0);
+        if(!contour || contour->ndim != 2)
+            mp_raise_ValueError(MP_ERROR_TEXT("pts elements must be Nx2 ndarrays"));
+
+        size_t rows = contour->shape[ULAB_MAX_DIMS - 2];
+        std::vector<Point> poly(rows);
+        for(size_t r = 0; r < rows; r++)
+        {
+            mp_float_t x = ndarray_get_float_index(contour->array, contour->dtype, r * 2);
+            mp_float_t y = ndarray_get_float_index(contour->array, contour->dtype, r * 2 + 1);
+            poly[r] = Point((int)x, (int)y);
+        }
+        pts.push_back(poly);
+    }
+
+    try {
+        polylines(img, pts, isClosed, color, thickness, lineType, shift);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(img);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_polylines_obj, 1, cv2_imgproc_polylines_fun);
+
+STATIC mp_obj_t cv2_imgproc_getTextSize_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_text, ARG_fontFace, ARG_fontScale, ARG_thickness };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_text,      MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_fontFace,  MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+        { MP_QSTR_fontScale, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_thickness, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 1} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    const char *text = mp_obj_str_get_str(args[ARG_text].u_obj);
+    int fontFace = args[ARG_fontFace].u_int;
+    double fontScale = mp_obj_get_float(args[ARG_fontScale].u_obj);
+    int thickness = args[ARG_thickness].u_int;
+
+    int baseline;
+    Size textSize;
+    try {
+        textSize = getTextSize(text, fontFace, fontScale, thickness, &baseline);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    mp_obj_t size_arr[] = { mp_obj_new_int(textSize.width), mp_obj_new_int(textSize.height) };
+    mp_obj_t result[2];
+    result[0] = mp_obj_new_tuple(2, size_arr);
+    result[1] = mp_obj_new_int(baseline);
+    return mp_obj_new_tuple(2, result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_getTextSize_obj, 1, cv2_imgproc_getTextSize_fun);
+
+STATIC mp_obj_t cv2_imgproc_pointPolygonTest_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_contour, ARG_pt, ARG_measureDist };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_contour,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_pt,          MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_measureDist, MP_ARG_BOOL, {.u_bool = false} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    ndarray_obj_t *contour_arr = ndarray_from_mp_obj(args[ARG_contour].u_obj, 0);
+    if(!contour_arr || contour_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("contour must be Nx2 ndarray"));
+
+    size_t rows = contour_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point2f> contour(rows);
+    for(size_t r = 0; r < rows; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(contour_arr->array, contour_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(contour_arr->array, contour_arr->dtype, r * 2 + 1);
+        contour[r] = Point2f(x, y);
+    }
+
+    Point2f pt = (Point2f)mp_obj_to_point(args[ARG_pt].u_obj);
+    bool measureDist = args[ARG_measureDist].u_bool;
+
+    double result;
+    try {
+        result = pointPolygonTest(contour, pt, measureDist);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mp_obj_new_float(result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_pointPolygonTest_obj, 1, cv2_imgproc_pointPolygonTest_fun);
+
+STATIC mp_obj_t cv2_imgproc_fitEllipse_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_points };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_points, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    ndarray_obj_t *pts_arr = ndarray_from_mp_obj(args[ARG_points].u_obj, 0);
+    if(!pts_arr || pts_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("points must be Nx2 ndarray"));
+
+    size_t rows = pts_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point2f> pts(rows);
+    for(size_t r = 0; r < rows; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(pts_arr->array, pts_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(pts_arr->array, pts_arr->dtype, r * 2 + 1);
+        pts[r] = Point2f(x, y);
+    }
+
+    RotatedRect r;
+    try {
+        r = fitEllipse(pts);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    mp_obj_t center_arr[] = { mp_obj_new_float(r.center.x), mp_obj_new_float(r.center.y) };
+    mp_obj_t size_arr[] = { mp_obj_new_float(r.size.width), mp_obj_new_float(r.size.height) };
+    mp_obj_t result[3];
+    result[0] = mp_obj_new_tuple(2, center_arr);
+    result[1] = mp_obj_new_tuple(2, size_arr);
+    result[2] = mp_obj_new_float(r.angle);
+    return mp_obj_new_tuple(3, result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_fitEllipse_obj, 1, cv2_imgproc_fitEllipse_fun);
+
+STATIC mp_obj_t cv2_imgproc_fitLine_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_points, ARG_distType, ARG_param, ARG_reps, ARG_aeps };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_points,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_distType, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = cv::DIST_L2} },
+        { MP_QSTR_param,    MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_reps,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_aeps,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    ndarray_obj_t *pts_arr = ndarray_from_mp_obj(args[ARG_points].u_obj, 0);
+    if(!pts_arr || pts_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("points must be Nx2 ndarray"));
+
+    size_t rows = pts_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point2f> pts(rows);
+    for(size_t r = 0; r < rows; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(pts_arr->array, pts_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(pts_arr->array, pts_arr->dtype, r * 2 + 1);
+        pts[r] = Point2f(x, y);
+    }
+
+    int distType = args[ARG_distType].u_int;
+    double param = mp_obj_get_float(args[ARG_param].u_obj);
+    double reps = mp_obj_get_float(args[ARG_reps].u_obj);
+    double aeps = mp_obj_get_float(args[ARG_aeps].u_obj);
+
+    Vec4f line;
+    try {
+        fitLine(pts, line, distType, param, reps, aeps);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    mp_obj_t result[4];
+    result[0] = mp_obj_new_float(line[0]);
+    result[1] = mp_obj_new_float(line[1]);
+    result[2] = mp_obj_new_float(line[2]);
+    result[3] = mp_obj_new_float(line[3]);
+    return mp_obj_new_tuple(4, result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_fitLine_obj, 1, cv2_imgproc_fitLine_fun);
+
+STATIC mp_obj_t cv2_imgproc_convexityDefects_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_contour, ARG_convexhull };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_contour,    MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_convexhull, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    ndarray_obj_t *contour_arr = ndarray_from_mp_obj(args[ARG_contour].u_obj, 0);
+    if(!contour_arr || contour_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("contour must be Nx2 ndarray"));
+
+    ndarray_obj_t *hull_arr = ndarray_from_mp_obj(args[ARG_convexhull].u_obj, 0);
+    if(!hull_arr || hull_arr->ndim != 1)
+        mp_raise_ValueError(MP_ERROR_TEXT("convexhull must be 1D ndarray of indices"));
+
+    size_t rows = contour_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point> contour(rows);
+    for(size_t r = 0; r < rows; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(contour_arr->array, contour_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(contour_arr->array, contour_arr->dtype, r * 2 + 1);
+        contour[r] = Point((int)x, (int)y);
+    }
+
+    size_t hull_len = hull_arr->shape[ULAB_MAX_DIMS - 1];
+    std::vector<int> hull(hull_len);
+    for(size_t i = 0; i < hull_len; i++)
+        hull[i] = (int)ndarray_get_float_index(hull_arr->array, hull_arr->dtype, i);
+
+    std::vector<Vec4i> defects;
+    try {
+        convexityDefects(contour, hull, defects);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    size_t shape[ULAB_MAX_DIMS];
+    for(int i = 0; i < ULAB_MAX_DIMS - 2; i++)
+        shape[i] = 0;
+    shape[ULAB_MAX_DIMS - 2] = defects.size();
+    shape[ULAB_MAX_DIMS - 1] = 4;
+
+    ndarray_obj_t *result_arr = ndarray_new_dense_ndarray(2, shape, NDARRAY_FLOAT);
+    mp_float_t *data = (mp_float_t *)result_arr->array;
+    for(size_t i = 0; i < defects.size(); i++)
+    {
+        data[i * 4] = (float)defects[i][0];
+        data[i * 4 + 1] = (float)defects[i][1];
+        data[i * 4 + 2] = (float)defects[i][2];
+        data[i * 4 + 3] = (float)defects[i][3];
+    }
+    return MP_OBJ_FROM_PTR(result_arr);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_convexityDefects_obj, 1, cv2_imgproc_convexityDefects_fun);
+
+STATIC mp_obj_t cv2_imgproc_matchShapes_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_contour1, ARG_contour2, ARG_method, ARG_parameter };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_contour1,  MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_contour2,  MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_method,    MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 0} },
+        { MP_QSTR_parameter, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    ndarray_obj_t *c1_arr = ndarray_from_mp_obj(args[ARG_contour1].u_obj, 0);
+    if(!c1_arr || c1_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("contour1 must be Nx2 ndarray"));
+
+    ndarray_obj_t *c2_arr = ndarray_from_mp_obj(args[ARG_contour2].u_obj, 0);
+    if(!c2_arr || c2_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("contour2 must be Nx2 ndarray"));
+
+    size_t rows1 = c1_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point> contour1(rows1);
+    for(size_t r = 0; r < rows1; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(c1_arr->array, c1_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(c1_arr->array, c1_arr->dtype, r * 2 + 1);
+        contour1[r] = Point((int)x, (int)y);
+    }
+
+    size_t rows2 = c2_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point> contour2(rows2);
+    for(size_t r = 0; r < rows2; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(c2_arr->array, c2_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(c2_arr->array, c2_arr->dtype, r * 2 + 1);
+        contour2[r] = Point((int)x, (int)y);
+    }
+
+    int method = args[ARG_method].u_int;
+    double parameter = mp_obj_get_float(args[ARG_parameter].u_obj);
+
+    double result;
+    try {
+        result = matchShapes(contour1, contour2, method, parameter);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mp_obj_new_float(result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_matchShapes_obj, 1, cv2_imgproc_matchShapes_fun);
+
+STATIC mp_obj_t cv2_imgproc_isContourConvex_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_contour };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_contour, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    ndarray_obj_t *contour_arr = ndarray_from_mp_obj(args[ARG_contour].u_obj, 0);
+    if(!contour_arr || contour_arr->ndim != 2)
+        mp_raise_ValueError(MP_ERROR_TEXT("contour must be Nx2 ndarray"));
+
+    size_t rows = contour_arr->shape[ULAB_MAX_DIMS - 2];
+    std::vector<Point> contour(rows);
+    for(size_t r = 0; r < rows; r++)
+    {
+        mp_float_t x = ndarray_get_float_index(contour_arr->array, contour_arr->dtype, r * 2);
+        mp_float_t y = ndarray_get_float_index(contour_arr->array, contour_arr->dtype, r * 2 + 1);
+        contour[r] = Point((int)x, (int)y);
+    }
+
+    bool result;
+    try {
+        result = isContourConvex(contour);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mp_obj_new_bool(result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_isContourConvex_obj, 1, cv2_imgproc_isContourConvex_fun);
+
+// ---- Segmentation / Flood Fill ----
+
+STATIC mp_obj_t cv2_imgproc_watershed_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_image, ARG_markers };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_image,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_markers, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat image = mp_obj_to_mat(args[ARG_image].u_obj);
+    Mat markers = mp_obj_to_mat(args[ARG_markers].u_obj);
+    Mat markers_s32;
+    markers.convertTo(markers_s32, CV_32S);
+
+    try {
+        watershed(image, markers_s32);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    // Copy result back in case markers type was changed
+    if(markers_s32.data != markers.data)
+        markers_s32.convertTo(markers, CV_32F);
+    return mat_to_mp_obj(markers);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_watershed_obj, 1, cv2_imgproc_watershed_fun);
+
+STATIC mp_obj_t cv2_imgproc_distanceTransform_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_src, ARG_distanceType, ARG_maskSize, ARG_dst, ARG_dstType, ARG_labelType };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_src,          MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_distanceType, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = cv::DIST_L2} },
+        { MP_QSTR_maskSize,     MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 3} },
+        { MP_QSTR_dst,          MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_dstType,      MP_ARG_INT, {.u_int = CV_32F} },
+        { MP_QSTR_labelType,    MP_ARG_INT, {.u_int = cv::DIST_LABEL_CCOMP} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat src = mp_obj_to_mat(args[ARG_src].u_obj);
+    int distanceType = args[ARG_distanceType].u_int;
+    int maskSize = args[ARG_maskSize].u_int;
+    Mat dst = mp_obj_to_mat(args[ARG_dst].u_obj);
+    int dstType = args[ARG_dstType].u_int;
+    int labelType = args[ARG_labelType].u_int;
+
+    try {
+        distanceTransform(src, dst, distanceType, maskSize, dstType);
+        (void)labelType;
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+    return mat_to_mp_obj(dst);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_distanceTransform_obj, 1, cv2_imgproc_distanceTransform_fun);
+
+STATIC mp_obj_t cv2_imgproc_floodFill_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_image, ARG_mask, ARG_seedPoint, ARG_newVal, ARG_loDiff, ARG_upDiff, ARG_flags };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_image,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_mask,      MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_seedPoint, MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_newVal,    MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_loDiff,    MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_upDiff,    MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_flags,     MP_ARG_INT, {.u_int = 4} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat image = mp_obj_to_mat(args[ARG_image].u_obj);
+    Mat mask = mp_obj_to_mat(args[ARG_mask].u_obj);
+    Point seedPoint = mp_obj_to_point(args[ARG_seedPoint].u_obj);
+    Scalar newVal = mp_obj_to_scalar(args[ARG_newVal].u_obj);
+    Scalar loDiff = args[ARG_loDiff].u_obj == mp_const_none ? Scalar() : mp_obj_to_scalar(args[ARG_loDiff].u_obj);
+    Scalar upDiff = args[ARG_upDiff].u_obj == mp_const_none ? Scalar() : mp_obj_to_scalar(args[ARG_upDiff].u_obj);
+    int flags = args[ARG_flags].u_int;
+
+    Rect rect;
+    try {
+        floodFill(image, mask.empty() ? noArray() : (InputOutputArray)mask, seedPoint, newVal, &rect, loDiff, upDiff, flags);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    mp_obj_t r_arr[] = { mp_obj_new_int(rect.x), mp_obj_new_int(rect.y), mp_obj_new_int(rect.width), mp_obj_new_int(rect.height) };
+    mp_obj_t result[2];
+    result[0] = mat_to_mp_obj(image);
+    result[1] = mp_obj_new_tuple(4, r_arr);
+    return mp_obj_new_tuple(2, result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_floodFill_obj, 1, cv2_imgproc_floodFill_fun);
+
+STATIC mp_obj_t cv2_imgproc_grabCut_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_img, ARG_mask, ARG_rect, ARG_bgdModel, ARG_fgdModel, ARG_iterCount, ARG_mode };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_img,        MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_mask,       MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_rect,       MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_bgdModel,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_fgdModel,   MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_iterCount,  MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 5} },
+        { MP_QSTR_mode,       MP_ARG_INT, {.u_int = cv::GC_INIT_WITH_RECT} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat img = mp_obj_to_mat(args[ARG_img].u_obj);
+    Mat mask = mp_obj_to_mat(args[ARG_mask].u_obj);
+    Mat bgdModel = mp_obj_to_mat(args[ARG_bgdModel].u_obj);
+    Mat fgdModel = mp_obj_to_mat(args[ARG_fgdModel].u_obj);
+    Mat bgd64, fgd64;
+    bgdModel.convertTo(bgd64, CV_64F);
+    fgdModel.convertTo(fgd64, CV_64F);
+    int iterCount = args[ARG_iterCount].u_int;
+    int mode = args[ARG_mode].u_int;
+
+    mp_obj_t rect_obj = args[ARG_rect].u_obj;
+    size_t rlen;
+    mp_obj_t *ritems;
+    mp_obj_get_array(rect_obj, &rlen, &ritems);
+    if(rlen < 4)
+        mp_raise_ValueError(MP_ERROR_TEXT("rect must be (x, y, w, h)"));
+
+    Rect rect(mp_obj_get_int(ritems[0]), mp_obj_get_int(ritems[1]),
+              mp_obj_get_int(ritems[2]), mp_obj_get_int(ritems[3]));
+
+    try {
+        grabCut(img, mask, rect, bgd64, fgd64, iterCount, mode);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    mp_obj_t result[3];
+    result[0] = mat_to_mp_obj(mask);
+    result[1] = mat_to_mp_obj(bgd64);
+    result[2] = mat_to_mp_obj(fgd64);
+    return mp_obj_new_tuple(3, result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_grabCut_obj, 1, cv2_imgproc_grabCut_fun);
+
+STATIC mp_obj_t cv2_imgproc_connectedComponents_fun(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
+{
+    enum { ARG_image, ARG_labels, ARG_connectivity, ARG_ltype };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_image,        MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_labels,       MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_connectivity, MP_ARG_INT, {.u_int = 8} },
+        { MP_QSTR_ltype,        MP_ARG_INT, {.u_int = CV_32S} },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    Mat image = mp_obj_to_mat(args[ARG_image].u_obj);
+    Mat labels = mp_obj_to_mat(args[ARG_labels].u_obj);
+    int connectivity = args[ARG_connectivity].u_int;
+    int ltype = args[ARG_ltype].u_int;
+
+    int nlabels;
+    try {
+        nlabels = connectedComponents(image, labels, connectivity, ltype);
+    } catch(Exception &e) {
+        mp_raise_msg(&mp_type_Exception, MP_ERROR_TEXT(e.what()));
+    }
+
+    mp_obj_t result[2];
+    result[0] = mp_obj_new_int(nlabels);
+    result[1] = mat_to_mp_obj(labels);
+    return mp_obj_new_tuple(2, result);
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(cv2_imgproc_connectedComponents_obj, 1, cv2_imgproc_connectedComponents_fun);
