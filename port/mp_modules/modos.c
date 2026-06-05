@@ -38,6 +38,7 @@
 #include <sys/ioctl.h>
 #include <sys/random.h>
 
+#include "hal_syscall.h"
 #include "canmv_drivers.h"
 
 STATIC mp_obj_t mp_os_getenv(size_t n_args, const mp_obj_t *args) {
@@ -143,3 +144,11 @@ STATIC mp_obj_t mp_os_log(mp_obj_t log_in)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_os_log_obj, mp_os_log);
+
+STATIC mp_obj_t mp_os_tid(void)
+{
+    int tid = pthread_get_tid();
+
+    return MP_OBJ_NEW_SMALL_INT(tid);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_os_tid_obj, mp_os_tid);

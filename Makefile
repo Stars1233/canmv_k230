@@ -165,7 +165,7 @@ copy_sdcard: copy_examples
 	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/
 
 	@if [ -d "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" ]; then \
-		rsync -aq "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" "${SDK_BUILD_IMAGES_DIR}/sdcard/"; \
+		rsync -aq --delete --exclude='.git' --exclude='micropython' "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" "${SDK_BUILD_IMAGES_DIR}/sdcard/"; \
 	else \
 		echo "No sdcard resources found in $(SDK_CANMV_SRC_DIR)/resources/sdcard/"; \
 	fi
