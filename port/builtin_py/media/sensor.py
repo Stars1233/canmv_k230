@@ -7,14 +7,9 @@ import machine
 import os
 import time
 
-CAM_CHN0_OUT_WIDTH_MAX = const(3072)
-CAM_CHN0_OUT_HEIGHT_MAX = const(2160)
-
-CAM_CHN1_OUT_WIDTH_MAX = const(1920)
-CAM_CHN1_OUT_HEIGHT_MAX = const(1080)
-
-CAM_CHN2_OUT_WIDTH_MAX = const(1920)
-CAM_CHN2_OUT_HEIGHT_MAX = const(1080)
+# MPP: acq width > VICAP_SENSOR_MAX_WIDTH (3072) requires VICAP_WORK_SW_TILE_MODE
+VICAP_SENSOR_MAX_WIDTH = const(3072)
+VICAP_SENSOR_MAX_HEIGHT = const(2160)
 
 CAM_OUT_WIDTH_MIN = const(64)
 CAM_OUT_HEIGHT_MIN = const(64)
@@ -99,6 +94,41 @@ class Sensor:
             if isinstance(cls._devs[i], Sensor):
                 cnt = cnt + 1
         return True if cnt > 1 else False
+
+    @classmethod
+    def _needs_sw_tile_mode(cls, w, h):
+        return w > VICAP_SENSOR_MAX_WIDTH or h > VICAP_SENSOR_MAX_HEIGHT
+
+    @classmethod
+    def _check_mcm_sw_tile_at_run(cls):
+        """4K (SW_TILE) mode only supports one sensor; check at run() only."""
+        sw_devs = []
+        sensor_cnt = 0
+        for i in range(0, CAM_DEV_ID_MAX):
+            s = cls._devs[i]
+            if isinstance(s, Sensor) and s._dev_attr.dev_enable:
+                sensor_cnt += 1
+                if s._dev_attr.mode == VICAP_WORK_SW_TILE_MODE:
+                    sw_devs.append(i)
+        if sensor_cnt > 1 and sw_devs:
+            raise RuntimeError(
+                "4K (SW_TILE) mode only supports one sensor, but %d sensors are "
+                "enabled and dev %s requires SW_TILE (acq width > %d)"
+                % (sensor_cnt, sw_devs, VICAP_SENSOR_MAX_WIDTH)
+            )
+
+    @classmethod
+    def _apply_work_mode_for_resolution(cls, sensor):
+        w = sensor._dev_attr.acq_win.width
+        h = sensor._dev_attr.acq_win.height
+        if cls._needs_sw_tile_mode(w, h):
+            sensor._dev_attr.mode = VICAP_WORK_SW_TILE_MODE
+            sensor._dev_attr.buffer_num = 6
+            sensor._dev_attr.buffer_size = ALIGN_UP(w * h * 2, VICAP_ALIGN_4K)
+        else:
+            sensor._dev_attr.mode = VICAP_WORK_ONLINE_MODE
+            sensor._dev_attr.buffer_num = sensor._dft_input_buff_num
+            sensor._dev_attr.buffer_size = 0
 
     @classmethod
     def _handle_mcm_device(cls):
@@ -281,6 +311,9 @@ class Sensor:
             return
         self._buf_in_init = True
 
+        if self._dev_attr.mode == VICAP_WORK_SW_TILE_MODE:
+            return
+
         self._dev_attr.mode = VICAP_WORK_OFFLINE_MODE
         self._dev_attr.buffer_num = self._dft_input_buff_num
         self._dev_attr.buffer_size = ALIGN_UP((self._dev_attr.acq_win.width * self._dev_attr.acq_win.height * 2), VICAP_ALIGN_4K)
@@ -353,10 +386,7 @@ class Sensor:
         self._dev_attr.acq_win.width = self._dev_attr.sensor_info.width
         self._dev_attr.acq_win.height = self._dev_attr.sensor_info.height
 
-        self._dev_attr.mode = VICAP_WORK_ONLINE_MODE
-        # self.dev_attr.mode = VICAP_WORK_OFFLINE_MODE
-        # self.dev_attr.buffer_num = self._dft_input_buff_num
-        # cls.set_inbufs(self._dev_id, self._dft_input_buff_num)
+        Sensor._apply_work_mode_for_resolution(self)
         self._dev_attr.input_type = VICAP_INPUT_TYPE_SENSOR
         self._dev_attr.dev_enable = True
         self._dev_attr.pipe_ctrl.data = 0xffffffff
@@ -959,6 +989,8 @@ class Sensor:
 
         # if (self._dev_id > CAM_DEV_ID_MAX - 1):
         #     raise AssertionError(f"invaild sensor id {self._dev_id}, should < {CAM_DEV_ID_MAX - 1}")
+
+        Sensor._check_mcm_sw_tile_at_run()
 
         if Sensor._is_mcm_device():
             return Sensor._run_mcm_device()
