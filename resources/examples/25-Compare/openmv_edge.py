@@ -32,8 +32,8 @@ while True:
     img = sensor.snapshot()
     img.find_edges(image.EDGE_CANNY, threshold=(50, 80))
     fps = clock.fps()
-    img.draw_string(10, 10, "OpenMV Edges Detection", scale = 2.0, mono_space = False)
-    img.draw_string(10, 30, "FPS: %f" % fps, scale = 2.0, mono_space = False)
+    img.draw_string_advanced(10, 10,20, "OpenMV Edges Detection")
+    img.draw_string_advanced(10, 30,20, "FPS: %f" % fps)
     Display.show_image(img)
     gc.collect()
 # sensor stop run

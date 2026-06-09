@@ -40,8 +40,8 @@ while True:
         if (min_degree <= l.theta()) and (l.theta() <= max_degree):
             img.draw_line([v for v in l.line()], color = (0, 255, 0))
     fps = clock.fps()
-    img.draw_string(10, 10, "OpenMV find lines", color = (0, 255, 0), scale = 2.0, mono_space = False)
-    img.draw_string(10, 30, "FPS: %f" % fps, color = (0, 255, 0), scale = 2.0, mono_space = False)
+    img.draw_string_advanced(10, 10,20, "OpenMV find lines",color=(0, 255, 0))
+    img.draw_string_advanced(10, 30,20, "FPS: %f" % fps,color=(0, 255, 0))
     Display.show_image(img)
     gc.collect()
 # sensor stop run

@@ -8,7 +8,7 @@ from media.media import *
 import cv2
 from ulab import numpy as np
 
-DETECT_WIDTH  = 320 
+DETECT_WIDTH  = 320
 DETECT_HEIGHT = 240
 
 sensor = None
@@ -66,8 +66,8 @@ def main():
             img_np = img.to_numpy_ref()
             n = find_rectangles(img_np)
             fps = clock.fps()
-            img.draw_string(10, 10, "OpenCV find rects", color = (0, 255, 0), scale = 2.0, mono_space = False)
-            img.draw_string(10, 30, "FPS: %f" % fps, color = (0, 255, 0), scale = 2.0, mono_space = False)
+            img.draw_string_advanced(10, 10,20, "OpenCV find rects",color=(0, 255, 0))
+            img.draw_string_advanced(10, 30,20, "FPS: %f" % fps,color=(0, 255, 0))
             Display.show_image(img)
             gc.collect()
     finally:

@@ -41,8 +41,8 @@ def main():
             edges = detect_edges(img_np)
             im_draw=image.Image(DETECT_WIDTH,DETECT_HEIGHT,image.GRAYSCALE,alloc=image.ALLOC_REF,data=edges)
             fps = clock.fps()
-            im_draw.draw_string(10, 10, "OpenCV Edges Detection", scale = 2.0, mono_space = False)
-            im_draw.draw_string(10, 30, "FPS: %f" % fps, scale = 2.0, mono_space = False)
+            im_draw.draw_string_advanced(10, 10,20, "OpenCV Edges Detection")
+            im_draw.draw_string_advanced(10, 30,20, "FPS: %f" % fps)
             Display.show_image(im_draw)
             gc.collect()
     finally:
