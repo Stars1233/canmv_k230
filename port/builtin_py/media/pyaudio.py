@@ -379,26 +379,16 @@ class Read_stream(Stream):
         if (audio3a_value & AUDIO_3A_ENABLE_AEC):
             aio_vqe_enable.aec_enable = True
 
-        ret = kd_mpi_ai_set_vqe_attr(self._ai_dev, self._ai_chn,aio_vqe_enable)
-        if (0 != ret):
-            raise ValueError(("kd_mpi_ai_get_vqe_attr failed:%d")%(ret))
-
-        return ret
-
-    def audio3a_send_far_echo_frame(self, frame_data,data_len):
-        frame = k_audio_frame()
-        handle = kd_mpi_vb_get_block(-1, data_len, "")
-        phys_addr = kd_mpi_vb_handle_to_phyaddr(handle)
-        vir_data = kd_mpi_sys_mmap(phys_addr, data_len)
-
-        frame.len = data_len
-        uctypes.bytearray_at(vir_data, frame.len)[:] = frame_data
-        frame.phy_addr = phys_addr
-        kd_mpi_sys_munmap(vir_data,frame.len)
-
-        ret = kd_mpi_ai_send_far_echo_frame(self._ai_dev, self._ai_chn, frame,100)
-        # del buffer
-        kd_mpi_vb_release_block(handle)
+        if (self.device_type == DEVICE_PDM):
+            # PDM has multiple channels, set VQE for each
+            for i in range(self._pdm_chncnt):
+                ret = kd_mpi_ai_set_vqe_attr(self._ai_dev, i, aio_vqe_enable)
+                if (0 != ret):
+                    raise ValueError(("kd_mpi_ai_set_vqe_attr failed:%d")%(ret))
+        else:
+            ret = kd_mpi_ai_set_vqe_attr(self._ai_dev, self._ai_chn, aio_vqe_enable)
+            if (0 != ret):
+                raise ValueError(("kd_mpi_ai_set_vqe_attr failed:%d")%(ret))
 
         return ret
 
