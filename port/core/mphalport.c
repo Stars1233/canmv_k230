@@ -186,8 +186,13 @@ static void* mp_hal_uart_reader(void* arg) {
         }
 
         int ret = drv_uart_poll(inst, 200);
-        if (ret <= 0)
+        if (ret < 0) {
+            usleep(100000);
             continue;
+        } else if (ret == 0) {
+            continue;
+        }
+
         ssize_t n = drv_uart_read(inst, buf, sizeof(buf));
         if (n > 0)
             mp_hal_stdin_push(buf, n);
