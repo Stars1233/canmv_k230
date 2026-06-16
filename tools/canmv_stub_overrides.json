@@ -636,5 +636,129 @@
         }
       }
     }
+  },
+  "network": {
+    "symbols": {
+      "WLAN": {
+        "kind": "class",
+        "doc": "RT-Smart WLAN network interface. Use WLAN(STA_IF) for station mode or WLAN(AP_IF) for access point mode.",
+        "init": "(self, itf: int = STA_IF, /) -> None",
+        "attrs": {
+          "BAND_2_4GHZ": "int",
+          "BAND_5GHZ": "int",
+          "SECURITY_OPEN": "int",
+          "SECURITY_UNKNOWN": "int",
+          "SECURITY_WEP_PSK": "int",
+          "SECURITY_WEP_SHARED": "int",
+          "SECURITY_WPA_AES_8021X": "int",
+          "SECURITY_WPA_AES_PSK": "int",
+          "SECURITY_WPA_TKIP_8021X": "int",
+          "SECURITY_WPA_TKIP_PSK": "int",
+          "SECURITY_WPA2_AES_8021X": "int",
+          "SECURITY_WPA2_AES_CMAC": "int",
+          "SECURITY_WPA2_AES_PSK": "int",
+          "SECURITY_WPA2_MIXED_PSK": "int",
+          "SECURITY_WPA2_TKIP_8021X": "int",
+          "SECURITY_WPA2_TKIP_PSK": "int",
+          "SECURITY_WPA3_AES_PSK": "int",
+          "SECURITY_WPA_WPA2_MIXED_8021X": "int",
+          "SECURITY_WPA_WPA2_MIXED_PSK": "int",
+          "SECURITY_WPS_OPEN": "int",
+          "SECURITY_WPS_SECURE": "int"
+        },
+        "methods": {
+          "active": {
+            "doc": "Read or set whether the network interface is active.",
+            "signature": "(self, active: Optional[bool] = None, /) -> Any"
+          },
+          "config": {
+            "doc": "Read or set WLAN configuration values such as mac, auto_reconnect, ssid, key, info, or country.",
+            "signature": "(self, param: Optional[str] = None, /, *, mac: Any = None, auto_reconnect: Any = None, ssid: Optional[str] = None, key: Optional[str] = None, info: Any = None, country: int = -1) -> Any"
+          },
+          "connect": {
+            "doc": "Connect the station interface to an access point.",
+            "signature": "(self, ssid: Optional[str] = None, key: Optional[str] = None, /, *, info: Any = None) -> bool"
+          },
+          "disconnect": {
+            "doc": "Disconnect the station interface, optionally by peer MAC address.",
+            "signature": "(self, mac: Any = None, /) -> bool"
+          },
+          "ifconfig": {
+            "doc": "Read or set the interface IP configuration.",
+            "signature": "(self, config: Any = None, /) -> Any"
+          },
+          "info": {
+            "doc": "Return access point information.",
+            "signature": "(self) -> Any"
+          },
+          "isconnected": {
+            "doc": "Return True when the station interface is connected.",
+            "signature": "(self) -> bool"
+          },
+          "scan": {
+            "doc": "Scan for visible access points, optionally filtering by SSID.",
+            "signature": "(self, ssid: Optional[str] = None, /) -> list"
+          },
+          "status": {
+            "doc": "Return WLAN status or a named status field.",
+            "signature": "(self, param: Optional[str] = None, /) -> Any"
+          },
+          "stop": {
+            "doc": "Stop the access point interface.",
+            "signature": "(self) -> bool"
+          }
+        }
+      },
+      "LAN": {
+        "kind": "class",
+        "doc": "RT-Smart LAN network interface over USB Ethernet.",
+        "init": "(self, itf: int = LAN_RTL8152) -> None",
+        "methods": {
+          "active": {
+            "doc": "Read or set whether the network interface is active.",
+            "signature": "(self, active: Optional[bool] = None, /) -> Any"
+          },
+          "config": {
+            "doc": "Read or set LAN configuration values such as mac.",
+            "signature": "(self, param: Optional[str] = None, /, *, mac: Any = None) -> Any"
+          },
+          "ifconfig": {
+            "doc": "Read or set the interface IP configuration.",
+            "signature": "(self, config: Any = None, /) -> Any"
+          },
+          "isconnected": {
+            "doc": "Return True when the LAN interface is connected.",
+            "signature": "(self) -> bool"
+          },
+          "status": {
+            "doc": "Return LAN link status.",
+            "signature": "(self, param: Optional[str] = None, /) -> Any"
+          }
+        }
+      },
+      "get_dev_list": {
+        "kind": "function",
+        "doc": "Return the available network device names.",
+        "signature": "() -> list"
+      },
+      "set_default_dev": {
+        "kind": "function",
+        "doc": "Set the default network device by name.",
+        "signature": "(name: str, /) -> bool"
+      },
+      "get_default_dev": {
+        "kind": "function",
+        "doc": "Return the current default network device name.",
+        "signature": "() -> Optional[str]"
+      },
+      "LAN_RTL8152": {
+        "kind": "const",
+        "type": "int"
+      },
+      "LAN_ECM": {
+        "kind": "const",
+        "type": "int"
+      }
+    }
   }
 }

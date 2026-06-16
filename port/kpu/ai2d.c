@@ -295,23 +295,23 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_ai2d_set_affine_param_obj, 8, 8, mp_ai2d_
 //| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
 //| module: ai2d
 //| """CanMV ai2d module."""
-//| def __del__(obj: Any, /) -> Any:
+//| def __del__(self, /) -> Any:
 //|     """Perform del for ai2d."""
 //| def __init__() -> Any:
 //|     """Initialize ai2d."""
-//| def build(obj: Any, input_shape: Any, output_shape: Any, /) -> Any:
+//| def build(self, input_shape: Any, output_shape: Any, /) -> Any:
 //|     """Build ai2d."""
-//| def set_affine_param(obj: Any, flag: bool, interp_method: int, cord_round: int, bound_ind: int, bound_val: int, bound_smooth: int, M: Any, /) -> Any:
+//| def set_affine_param(self, flag: bool, interp_method: int, cord_round: int, bound_ind: int, bound_val: int, bound_smooth: int, M: Any, /) -> Any:
 //|     """Set affine param for ai2d."""
-//| def set_crop_param(obj: Any, flag: bool, start_x: int, start_y: int, width: int, height: int, /) -> Any:
+//| def set_crop_param(self, flag: bool, start_x: int, start_y: int, width: int, height: int, /) -> Any:
 //|     """Set crop param for ai2d."""
-//| def set_dtype(obj: Any, src_format: int, dst_format: int, src_type: int, dst_type: int, /) -> Any:
+//| def set_dtype(self, src_format: int, dst_format: int, src_type: int, dst_type: int, /) -> Any:
 //|     """Set dtype for ai2d."""
-//| def set_pad_param(obj: Any, flag: bool, paddings: Any, pad_mode: int, pad_value: Any, /) -> Any:
+//| def set_pad_param(self, flag: bool, paddings: Any, pad_mode: int, pad_value: Any, /) -> Any:
 //|     """Set pad param for ai2d."""
-//| def set_resize_param(obj: Any, flag: bool, interp_method: int, interp_mode: int, /) -> Any:
+//| def set_resize_param(self, flag: bool, interp_method: int, interp_mode: int, /) -> Any:
 //|     """Set resize param for ai2d."""
-//| def set_shift_param(obj: Any, flag: bool, shift_value: int, /) -> Any:
+//| def set_shift_param(self, flag: bool, shift_value: int, /) -> Any:
 //|     """Set shift param for ai2d."""
 
 STATIC const mp_rom_map_elem_t ai2d_locals_dict_table[] = {
@@ -368,11 +368,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_ai2d_release_obj, mp_ai2d_release);
 //| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
 //| module: ai2d_builder
 //| """CanMV ai2d_builder module."""
-//| def __del__(ai2d_builder: Any, /) -> Any:
+//| def __del__(self, /) -> Any:
 //|     """Perform del for ai2d_builder."""
-//| def release(ai2d_builder: Any, /) -> Any:
+//| def release(self, /) -> Any:
 //|     """Release resources held by ai2d_builder."""
-//| def run(obj: Any, inputs: Any, outputs: Any, /) -> Any:
+//| def run(self, inputs: Any, outputs: Any, /) -> Any:
 //|     """Run ai2d_builder."""
 
 

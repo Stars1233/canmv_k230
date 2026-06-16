@@ -286,27 +286,27 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(kpu_get_output_desc_obj, mp_kpu_get_output_desc
 //| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
 //| module: kpu
 //| """CanMV kpu module."""
-//| def __del__(obj: Any, /) -> Any:
+//| def __del__(self, /) -> Any:
 //|     """Perform del for kpu."""
-//| def get_input_tensor(obj: Any, index: Any, /) -> Any:
+//| def get_input_tensor(self, index: Any, /) -> Any:
 //|     """Return input tensor for kpu."""
-//| def get_output_tensor(obj: Any, index: Any, /) -> Any:
+//| def get_output_tensor(self, index: Any, /) -> Any:
 //|     """Return output tensor for kpu."""
-//| def inputs_desc(obj: Any, index: Any, /) -> Any:
+//| def inputs_desc(self, index: Any, /) -> Any:
 //|     """Perform inputs desc for kpu."""
-//| def inputs_size(obj: Any, /) -> Any:
+//| def inputs_size(self, /) -> Any:
 //|     """Perform inputs size for kpu."""
-//| def load_kmodel(obj: Any, filename: Any, /) -> Any:
+//| def load_kmodel(self, filename: Any, /) -> Any:
 //|     """Load kmodel for kpu."""
-//| def outputs_desc(obj: Any, index: Any, /) -> Any:
+//| def outputs_desc(self, index: Any, /) -> Any:
 //|     """Perform outputs desc for kpu."""
-//| def outputs_size(obj: Any, /) -> Any:
+//| def outputs_size(self, /) -> Any:
 //|     """Perform outputs size for kpu."""
-//| def run(obj: Any, /) -> Any:
+//| def run(self, /) -> Any:
 //|     """Run kpu."""
-//| def set_input_tensor(obj: Any, index: Any, tensor: Any, /) -> Any:
+//| def set_input_tensor(self, index: Any, tensor: Any, /) -> Any:
 //|     """Set input tensor for kpu."""
-//| def set_output_tensor(obj: Any, index: Any, tensor: Any, /) -> Any:
+//| def set_output_tensor(self, index: Any, tensor: Any, /) -> Any:
 //|     """Set output tensor for kpu."""
 
 STATIC const mp_rom_map_elem_t kpu_locals_dict_table[] = {
@@ -373,9 +373,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_runtime_tensor_del_obj, mp_runtime_tensor_re
 //| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
 //| module: runtime_tensor
 //| """CanMV runtime_tensor module."""
-//| def __del__(runtime_tensor: Any, /) -> Any:
+//| def __del__(self, /) -> Any:
 //|     """Perform del for runtime_tensor."""
-//| def to_numpy(obj: Any, /) -> Any:
+//| def to_numpy(self, /) -> Any:
 //|     """Convert runtime_tensor to numpy."""
 
 

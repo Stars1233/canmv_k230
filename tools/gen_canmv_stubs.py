@@ -49,7 +49,8 @@ ROM_MAP_RE = re.compile(
     re.DOTALL,
 )
 CONST_DICT_RE = re.compile(
-    r"(?:STATIC\s+|static\s+)?MP_DEFINE_CONST_DICT\(\s*(?P<dict>[A-Za-z0-9_]+)\s*,\s*(?P<table>[A-Za-z0-9_]+)\s*\)"
+    r"(?:STATIC\s+|static\s+)?MP_DEFINE_CONST_DICT\s*\(\s*(?P<dict>[A-Za-z0-9_]+)\s*,\s*(?P<table>[A-Za-z0-9_]+)\s*\)",
+    re.DOTALL,
 )
 TYPE_RE = re.compile(r"MP_DEFINE_CONST_OBJ_TYPE\(\s*(?P<type>[A-Za-z0-9_]+)\s*,\s*MP_QSTR_(?P<qstr>[A-Za-z0-9_]+)\s*,(?P<body>.*?)\);", re.DOTALL)
 MODULE_DEF_RE = re.compile(
@@ -130,6 +131,7 @@ class CAnalysis:
     modules: dict[str, CModule] = field(default_factory=dict)
     table_bodies: dict[str, str] = field(default_factory=dict)
     dict_tables: dict[str, str] = field(default_factory=dict)
+    module_extra_bodies: dict[str, str] = field(default_factory=dict)
 
 
 def run_git(args: list[str], cwd: Path) -> str:
@@ -177,6 +179,115 @@ def remove_suffix(value: str, suffix: str) -> str:
     return value[:-len(suffix)] if suffix and value.endswith(suffix) else value
 
 
+def qstr_module_name(name: str) -> str:
+    return name.replace("_dot_", ".")
+
+
+def collect_c_macros(text: str) -> dict[str, str]:
+    macros: dict[str, str] = {}
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.lstrip()
+        if not stripped.startswith("#define "):
+            index += 1
+            continue
+
+        parts = stripped[len("#define "):].split(None, 1)
+        if not parts:
+            index += 1
+            continue
+        name = parts[0]
+        body_parts = [parts[1] if len(parts) > 1 else ""]
+        while body_parts[-1].rstrip().endswith("\\") and index + 1 < len(lines):
+            body_parts[-1] = body_parts[-1].rstrip()[:-1]
+            index += 1
+            body_parts.append(lines[index])
+        body = "\n".join(body_parts)
+        # Prefer the first non-empty definition when multiple #define's
+        # exist for the same name (e.g. inside #if / #else / #endif).
+        if name not in macros or (not macros[name].strip() and body.strip()):
+            macros[name] = body
+        index += 1
+    return macros
+
+
+def expand_c_macro(name: str, macros: dict[str, str], seen: set[str] | None = None) -> str:
+    if seen is None:
+        seen = set()
+    if name in seen:
+        return ""
+    body = macros.get(name, "")
+    seen.add(name)
+    for token in sorted(set(re.findall(r"\b[A-Z][A-Z0-9_]+\b", body))):
+        if token in macros:
+            body = re.sub(r"\b" + re.escape(token) + r"\b", expand_c_macro(token, macros, seen.copy()), body)
+    return body
+
+
+_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"(?P<path>[^"]+)"', re.MULTILINE)
+_INCLUDE_SEARCH_DIRS: list[Path] | None = None
+
+
+def _include_search_dirs() -> list[Path]:
+    """Return project directories to search when resolving ``#include "..."``."""
+    global _INCLUDE_SEARCH_DIRS
+    if _INCLUDE_SEARCH_DIRS is None:
+        dirs: list[Path] = []
+        for root in (PORT_DIR, MICROPY_DIR, CANMV_DIR):
+            if root.exists():
+                dirs.append(root)
+        _INCLUDE_SEARCH_DIRS = dirs
+    return _INCLUDE_SEARCH_DIRS
+
+
+def resolve_local_includes(source_path: Path) -> dict[str, str]:
+    """Read source file, find ``#include "..."`` directives, resolve them against
+    the project tree, and return a merged dict of all macros from those headers.
+    """
+    try:
+        text = source_path.read_text(errors="ignore")
+    except OSError:
+        return {}
+    macros: dict[str, str] = {}
+    source_dir = source_path.parent
+    search_dirs = [source_dir] + _include_search_dirs()
+    seen: set[Path] = set()
+    for match in _INCLUDE_RE.finditer(text):
+        include_path = match.group("path")
+        for base in search_dirs:
+            candidate = (base / include_path).resolve()
+            if candidate.exists() and candidate not in seen:
+                seen.add(candidate)
+                try:
+                    header_text = candidate.read_text(errors="ignore")
+                except OSError:
+                    continue
+                macros.update(collect_c_macros(header_text))
+                break
+    return macros
+
+
+def expand_table_body_macros(body: str, macros: dict[str, str]) -> str:
+    """Expand C preprocessor macros found inside a ROM table body.
+
+    Only all-uppercase identifiers that reference known macros are expanded;
+    everything else is left unchanged.
+    """
+    if not macros:
+        return body
+    # Find standalone uppercase identifiers that could be macros
+    candidates = set(re.findall(r"\b([A-Z][A-Z0-9_]{2,})\b", body))
+    result = body
+    for name in sorted(candidates, key=len, reverse=True):
+        if name in macros:
+            expanded = expand_c_macro(name, macros)
+            if expanded and expanded != name:
+                result = result.replace(name, expanded)
+    return result
+
+
 def module_name_from_mpy(path: Path, root: Path) -> str:
     rel = path.relative_to(root).with_suffix("")
     parts = list(rel.parts)
@@ -195,11 +306,34 @@ def discover_frozen_modules(build_dir: Path | None) -> list[str]:
 
 
 def qstr_stem_to_source(qstr_file: Path) -> Path | None:
+    """Map a .qstr filename back to its original C/C++ source file.
+
+    Three naming conventions are handled:
+
+    1. ``@@__micropython__extmod__modtime.c.qstr``
+       Files from the MicroPython core (``MICROPY_DIR``).  Leading ``@@`` marks
+       the canonical upstream tree; the remainder is a relative path with ``__``
+       separators.
+
+    2. ``drivers__sensor__sc2236.c.qstr``
+       First-party port sources under ``PORT_DIR``.  No prefix ― the stem is a
+       relative path from ``PORT_DIR`` with ``__`` separators.
+
+    3. ``__home__...__output__...__lvgl__lv_mpy.c.qstr``
+       Generated or out-of-tree sources whose QSTR stem is an absolute path
+       encoded with ``__`` as directory separators.  These files live inside
+       the build directory itself.
+    """
     stem = remove_suffix(qstr_file.name, ".qstr")
     if stem.startswith("@@__micropython__"):
         rel = remove_prefix(stem, "@@__micropython__").replace("__", "/")
         src = MICROPY_DIR / rel
     elif stem.startswith("__"):
+        # Absolute-path encoding: /home/.../output/.../lvgl/lv_mpy.c
+        # becomes __home__...__output__...__lvgl__lv_mpy.c
+        candidate = Path("/" + stem.replace("__", "/"))
+        if candidate.exists():
+            return candidate
         return None
     else:
         src = PORT_DIR / stem.replace("__", "/")
@@ -218,6 +352,51 @@ def discover_qstr_sources(build_dir: Path | None) -> list[Path]:
         if src is not None:
             sources.append(src)
     return sorted(set(sources))
+
+
+def discover_sibling_sources(qstr_sources: list[Path]) -> list[Path]:
+    """Find C/C++ files that live in the same directory subtrees as *qstr_sources*
+    but don't have their own .qstr file.  These are typically helper translation
+    units (e.g. ``bitwise.c``, ``compare.c`` in ulab) whose function objects are
+    referenced from another file's ROM table.
+    """
+    known = set(qstr_sources)
+    result: list[Path] = []
+    seen_dirs: set[Path] = set()
+    for src in qstr_sources:
+        parent = src.parent
+        if parent in seen_dirs:
+            continue
+        seen_dirs.add(parent)
+        # Walk up to 4 levels deep from the source directory
+        for depth in range(5):
+            search_root = parent
+            for _ in range(depth):
+                search_root = search_root.parent
+            if not _is_within_project(search_root):
+                continue
+            for c_file in sorted(search_root.glob("*.c")):
+                if c_file not in known and c_file not in result:
+                    result.append(c_file)
+            for cpp_file in sorted(search_root.glob("*.cpp")):
+                if cpp_file not in known and cpp_file not in result:
+                    result.append(cpp_file)
+    return sorted(set(result))
+
+
+def _is_within_project(path: Path) -> bool:
+    """Return True if *path* is inside PORT_DIR or MICROPY_DIR."""
+    try:
+        path.resolve().relative_to(PORT_DIR.resolve())
+        return True
+    except ValueError:
+        pass
+    try:
+        path.resolve().relative_to(MICROPY_DIR.resolve())
+        return True
+    except ValueError:
+        pass
+    return False
 
 
 def fallback_sources() -> list[Path]:
@@ -1773,12 +1952,18 @@ def globals_dict_from_module_body(body: str) -> str | None:
 def analyze_c_sources(sources: Iterable[Path]) -> CAnalysis:
     analysis = CAnalysis(sources=sorted(set(sources)))
     source_text: dict[Path, str] = {}
+    c_macros: dict[str, str] = {}
 
     for src in analysis.sources:
         text = src.read_text(errors="ignore")
         source_text[src] = text
+        c_macros.update(collect_c_macros(text))
+        # Also collect macros from locally-included headers so that table-body
+        # macros like OPENCV_CORE_GLOBALS can be expanded.
+        c_macros.update(resolve_local_includes(src))
         for match in ROM_MAP_RE.finditer(text):
-            analysis.table_bodies[match.group("name")] = match.group("body")
+            body = expand_table_body_macros(match.group("body"), c_macros)
+            analysis.table_bodies[match.group("name")] = body
         for match in CONST_DICT_RE.finditer(text):
             analysis.dict_tables[match.group("dict")] = match.group("table")
         analysis.functions.update(collect_functions(text))
@@ -1802,13 +1987,18 @@ def analyze_c_sources(sources: Iterable[Path]) -> CAnalysis:
             globals_dict = globals_dict_from_module_body(match.group("body"))
             for register in REGISTER_RE.finditer(text):
                 if register.group("var") == module_var:
-                    analysis.modules[register.group("module")] = CModule(
-                        name=register.group("module"),
+                    module_name = qstr_module_name(register.group("module"))
+                    analysis.modules[module_name] = CModule(
+                        name=module_name,
                         var=module_var,
                         globals_dict=globals_dict,
                         table=analysis.dict_tables.get(globals_dict or ""),
                         source=str(src),
                     )
+
+    network_interfaces = expand_c_macro("MICROPY_PORT_NETWORK_INTERFACES", c_macros)
+    if network_interfaces:
+        analysis.module_extra_bodies["network"] = network_interfaces
 
     for ctype in analysis.types.values():
         if not ctype.locals_dict:
@@ -1842,7 +2032,180 @@ def analyze_c_sources(sources: Iterable[Path]) -> CAnalysis:
             elif "MP_ROM_INT" in rhs or name.isupper():
                 ctype.attrs[name] = "int"
 
+        # Synthesize dunder methods from MicroPython type slots.
+        _apply_type_slot_methods(ctype, analysis)
+
     return analysis
+
+
+_SLOT_DUNDER_METHODS: dict[str, list[tuple[str, str]]] = {
+    "binary_op": [
+        ("__add__", "(self, other: Any, /) -> ndarray"),
+        ("__sub__", "(self, other: Any, /) -> ndarray"),
+        ("__mul__", "(self, other: Any, /) -> ndarray"),
+        ("__truediv__", "(self, other: Any, /) -> ndarray"),
+        ("__floordiv__", "(self, other: Any, /) -> ndarray"),
+        ("__mod__", "(self, other: Any, /) -> ndarray"),
+        ("__pow__", "(self, other: Any, /) -> ndarray"),
+        ("__lshift__", "(self, other: Any, /) -> ndarray"),
+        ("__rshift__", "(self, other: Any, /) -> ndarray"),
+        ("__and__", "(self, other: Any, /) -> ndarray"),
+        ("__or__", "(self, other: Any, /) -> ndarray"),
+        ("__xor__", "(self, other: Any, /) -> ndarray"),
+        ("__lt__", "(self, other: Any, /) -> ndarray"),
+        ("__le__", "(self, other: Any, /) -> ndarray"),
+        ("__gt__", "(self, other: Any, /) -> ndarray"),
+        ("__ge__", "(self, other: Any, /) -> ndarray"),
+        ("__eq__", "(self, other: Any, /) -> ndarray"),
+        ("__ne__", "(self, other: Any, /) -> ndarray"),
+    ],
+    "unary_op": [
+        ("__neg__", "(self, /) -> ndarray"),
+        ("__pos__", "(self, /) -> ndarray"),
+        ("__abs__", "(self, /) -> ndarray"),
+        ("__invert__", "(self, /) -> ndarray"),
+    ],
+    "subscr": [
+        ("__getitem__", "(self, index: Any, /) -> Any"),
+        ("__setitem__", "(self, index: Any, value: Any, /) -> None"),
+    ],
+    "iter": [
+        ("__iter__", "(self, /) -> Any"),
+        ("__next__", "(self, /) -> Any"),
+    ],
+    "len": [
+        ("__len__", "(self, /) -> int"),
+    ],
+}
+
+
+def _apply_type_slot_methods(ctype: CType, analysis: CAnalysis) -> None:
+    """Add dunder methods implied by MicroPython type slots.
+
+    Slots like ``binary_op``, ``unary_op``, ``subscr``, ``iter`` and ``len``
+    are not listed in the type's locals dictionary but still define
+    user-visible Python behaviour.  We detect them by inspecting the
+    ``MP_DEFINE_CONST_OBJ_TYPE`` body stored in *analysis*.
+
+    Slot-based dunder methods are only synthesised for types whose source
+    file lives inside the ulab tree, because those are the only types where
+    we can confidently map slots to the full set of numeric operators.
+    """
+    # Locate the TYPE_RE body that defines this type.
+    type_body: str | None = None
+    type_source: Path | None = None
+    for src in analysis.sources:
+        try:
+            text = src.read_text(errors="ignore")
+        except OSError:
+            continue
+        for match in TYPE_RE.finditer(text):
+            if match.group("type") == ctype.type_var:
+                type_body = match.group("body")
+                type_source = src
+                break
+        if type_body is not None:
+            break
+    if type_body is None:
+        return
+
+    # Expand macros so that slot macros like NDARRAY_TYPE_BINARY_OP
+    # (which expand to "binary_op, ndarray_binary_op,") are resolved.
+    macros: dict[str, str] = {}
+    if type_source is not None:
+        try:
+            macros.update(collect_c_macros(type_source.read_text(errors="ignore")))
+        except OSError:
+            pass
+        macros.update(resolve_local_includes(type_source))
+    if macros:
+        type_body = expand_table_body_macros(type_body, macros)
+
+    # Only synthesise full arithmetic operators for ulab-owned types.
+    _is_ulab = type_source is not None and "ulab" in str(type_source)
+
+    for slot, methods in _SLOT_DUNDER_METHODS.items():
+        if re.search(r"\b" + re.escape(slot) + r"\s*,", type_body):
+            for method_name, signature in methods:
+                if method_name not in ctype.methods:
+                    if not _is_ulab:
+                        # For non-ulab types only emit comparison operators
+                        # and container protocols; skip arithmetic.
+                        if slot == "binary_op" and method_name not in _COMPARISON_DUNDER_NAMES:
+                            continue
+                        if slot == "unary_op":
+                            continue
+                        # Use generic return types for non-ulab types.
+                        signature = _genericise_signature(signature)
+                    ctype.methods[method_name] = signature
+
+    # attr slot: scan the attr handler function for MP_QSTR_ property names.
+    if _is_ulab:
+        _apply_attr_slot_properties(ctype, type_body, type_source, analysis)
+
+
+_COMPARISON_DUNDER_NAMES = {
+    "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
+}
+
+
+def _genericise_signature(signature: str) -> str:
+    """Replace ndarray-specific return types with ``Any``."""
+    return signature.replace(" -> ndarray", " -> Any")
+
+
+_ATTR_SLOT_RE = re.compile(r"attr\s*,\s*(?P<func>[A-Za-z_][A-Za-z0-9_]*)")
+_ATTR_QSTR_RE = re.compile(r"case\s+MP_QSTR_(?P<name>[A-Za-z0-9_]+)\s*:")
+
+
+def _apply_attr_slot_properties(
+    ctype: CType, type_body: str, type_source: Path | None, analysis: CAnalysis
+) -> None:
+    """Detect an ``attr`` slot and extract property names from its handler."""
+    attr_match = _ATTR_SLOT_RE.search(type_body)
+    if not attr_match or type_source is None:
+        return
+    func_name = attr_match.group("func")
+    # Find the handler function body in the source tree.
+    func_text = _find_function_body(func_name, analysis)
+    if not func_text:
+        return
+    for match in _ATTR_QSTR_RE.finditer(func_text):
+        prop_name = match.group("name")
+        if prop_name.startswith("_"):
+            continue
+        if valid_stub_identifier(prop_name) and prop_name not in ctype.attrs:
+            # Attempt to guess the type from the handler call
+            ctype.attrs[prop_name] = "Any"
+
+
+def _find_function_body(func_name: str, analysis: CAnalysis) -> str:
+    """Search all source files for a function definition and return its body."""
+    pattern = re.compile(
+        r"(?:void|STATIC\s+void|static\s+void|mp_obj_t|STATIC\s+mp_obj_t|static\s+mp_obj_t)\s+"
+        + re.escape(func_name)
+        + r"\s*\([^)]*\)\s*\{",
+        re.DOTALL,
+    )
+    for src in analysis.sources:
+        try:
+            text = src.read_text(errors="ignore")
+        except OSError:
+            continue
+        match = pattern.search(text)
+        if match:
+            start = match.start()
+            body_start = text.find("{", match.start())
+            if body_start >= 0:
+                depth = 0
+                for i in range(body_start, min(len(text), body_start + 8000)):
+                    if text[i] == "{":
+                        depth += 1
+                    elif text[i] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            return text[start : i + 1]
+    return ""
 
 
 ENTRY_KIND_PRIORITY = {"object": 0, "const": 1, "function": 2, "class": 3}
@@ -1865,6 +2228,9 @@ def prefer_entry(current: tuple[str, str | None] | None, candidate: tuple[str, s
 def module_entries(analysis: CAnalysis, module: CModule) -> dict[str, tuple[str, str | None]]:
     entries: dict[str, tuple[str, str | None]] = {}
     body = analysis.table_bodies.get(module.table or "", "")
+    extra_body = analysis.module_extra_bodies.get(module.name, "")
+    if extra_body:
+        body += "\n" + extra_body
     for entry in ENTRY_RE.finditer(body):
         name = entry.group("name")
         if name == "__name__" or name.startswith("_dot_") or not valid_stub_identifier(name):
@@ -1903,7 +2269,27 @@ def render_ctype_class(name: str, ctype: CType, override: dict[str, Any]) -> lis
     return render_class(name, override, methods, ctype.attrs, add_default_init=ctype.make_new is not None)
 
 
-def generate_c_module_stub(module_name: str, module: CModule, analysis: CAnalysis, out_dir: Path, overrides: OverrideMap) -> bool:
+def module_stub_path(out_dir: Path, module_name: str, package_modules: set[str]) -> Path:
+    rel = Path(*module_name.split("."))
+    if module_name in package_modules:
+        return out_dir / rel / "__init__.pyi"
+    return out_dir / rel.with_suffix(".pyi")
+
+
+def _module_is_extensible(module: CModule, analysis: CAnalysis) -> bool:
+    """Return True when *module* is an extensible module whose functions behave
+    like methods on a singleton instance (e.g. ``kpu``).  In that case the first
+    C-level parameter is the bound module itself and should be hidden in stubs.
+    """
+    if not module.globals_dict:
+        return False
+    for ctype in analysis.types.values():
+        if ctype.qstr == module.name and ctype.locals_dict == module.globals_dict:
+            return True
+    return False
+
+
+def generate_c_module_stub(module_name: str, module: CModule, analysis: CAnalysis, out_dir: Path, overrides: OverrideMap, package_modules: set[str]) -> bool:
     entries = module_entries(analysis, module)
     symbols = module_symbols(overrides, module_name)
     qstr_types = types_by_qstr(analysis)
@@ -1913,6 +2299,7 @@ def generate_c_module_stub(module_name: str, module: CModule, analysis: CAnalysi
     if not entries:
         return False
 
+    module_is_extensible = _module_is_extensible(module, analysis)
     module_doc = module_override(overrides, module_name).get("doc")
     lines = [HEADER.rstrip(), ""]
     lines.extend(doc_lines(module_doc, ""))
@@ -1929,22 +2316,47 @@ def generate_c_module_stub(module_name: str, module: CModule, analysis: CAnalysi
         elif override.get("kind"):
             lines.extend(render_override_symbol(name, override))
         elif kind == "function" and ref in analysis.functions:
-            lines.extend(render_function(name, function_signature(analysis.functions[ref], include_self=False, name=name), override.get("doc")))
+            lines.extend(render_function(name, function_signature(analysis.functions[ref], include_self=module_is_extensible, name=name), override.get("doc")))
         elif kind == "const":
             lines.append(f"{name}: {override.get('type', 'Any')}")
         else:
             lines.append(f"{name}: Any")
-    dst = out_dir / (module_name.replace(".", "/") + ".pyi")
+    dst = module_stub_path(out_dir, module_name, package_modules)
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     return True
 
 
+def ensure_c_parent_packages(out_dir: Path, module_names: set[str]) -> None:
+    children: dict[str, set[str]] = {}
+    for module_name in module_names:
+        parts = module_name.split(".")
+        for index in range(1, len(parts)):
+            parent = ".".join(parts[:index])
+            children.setdefault(parent, set()).add(parts[index])
+
+    for parent, child_names in sorted(children.items()):
+        init_path = out_dir / Path(*parent.split(".")) / "__init__.pyi"
+        if init_path.exists():
+            continue
+        init_path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [HEADER.rstrip(), ""]
+        for child in sorted(child_names):
+            if valid_stub_identifier(child):
+                lines.append(f"from . import {child} as {child}")
+        if len(lines) == 2:
+            lines.append("...")
+        init_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+
 def generate_c_module_stubs(out_dir: Path, overrides: OverrideMap, analysis: CAnalysis) -> int:
     count = 0
+    module_names = set(analysis.modules)
+    package_modules = {name for name in module_names if any(other.startswith(name + ".") for other in module_names)}
     for module_name, module in sorted(analysis.modules.items()):
-        if generate_c_module_stub(module_name, module, analysis, out_dir, overrides):
+        if generate_c_module_stub(module_name, module, analysis, out_dir, overrides, package_modules):
             count += 1
+    ensure_c_parent_packages(out_dir, module_names)
     return count
 
 
@@ -2052,6 +2464,8 @@ def main(argv: list[str] | None = None) -> int:
     frozen_modules = discover_frozen_modules(build_dir)
     manifest_sources = discover_manifest_python_sources(manifest_path)
     qstr_sources = discover_qstr_sources(build_dir)
+    if qstr_sources:
+        qstr_sources = sorted(set(qstr_sources + discover_sibling_sources(qstr_sources)))
     analysis = analyze_c_sources(qstr_sources or fallback_sources())
     source_overrides = collect_port_doc_overrides(analysis, manifest_sources)
     overrides = merge_overrides(source_overrides, file_overrides)
