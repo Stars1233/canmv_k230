@@ -132,6 +132,24 @@ STATIC mp_obj_t onewire_crc8(mp_obj_t data) {
     return MP_OBJ_NEW_SMALL_INT(crc);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(onewire_crc8_obj, onewire_crc8);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _onewire
+//| """CanMV _onewire module."""
+//| def crc8(data: Any, /) -> Any:
+//|     """Perform crc8 for _onewire."""
+//| def readbit(pin: Any, /) -> Any:
+//|     """Read data from _onewire."""
+//| def readbyte(pin: Any, /) -> Any:
+//|     """Read data from _onewire."""
+//| def reset(pin: Any, /) -> None:
+//|     """Reset _onewire."""
+//| def search_rom(pin: Any, l_rom: Any, diff: Any, /) -> Any:
+//|     """Perform search rom for _onewire."""
+//| def writebit(pin: Any, value: Any, /) -> Any:
+//|     """Write or send data using _onewire."""
+//| def writebyte(pin: Any, value: Any, /) -> Any:
+//|     """Write or send data using _onewire."""
+
 
 STATIC const mp_rom_map_elem_t onewire_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_onewire) },

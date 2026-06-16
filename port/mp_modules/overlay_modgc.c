@@ -180,6 +180,32 @@ STATIC mp_obj_t gc_threshold(size_t n_args, const mp_obj_t *args) {
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(gc_threshold_obj, 0, 1, gc_threshold);
 #endif
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: gc
+//| """CanMV gc module."""
+//| def collect() -> Any:
+//|     """Perform collect for gc."""
+//| def disable() -> Any:
+//|     """Disable for gc."""
+//| def enable() -> Any:
+//|     """Enable for gc."""
+//| def isenabled() -> Any:
+//|     """Return the isenabled state for gc."""
+//| def mem_alloc() -> Any:
+//|     """Perform mem alloc for gc."""
+//| def mem_free() -> Any:
+//|     """Perform mem free for gc."""
+//| def sys_heap() -> Any:
+//|     """Perform sys heap for gc."""
+//| def sys_mmz() -> Any:
+//|     """Perform sys mmz for gc."""
+//| def sys_page() -> Any:
+//|     """Perform sys page for gc."""
+//| def sys_total() -> Any:
+//|     """Perform sys total for gc."""
+//| def threshold(val: int = ..., /) -> Any:
+//|     """Perform threshold for gc."""
+
 
 STATIC const mp_rom_map_elem_t mp_module_gc_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_gc) },

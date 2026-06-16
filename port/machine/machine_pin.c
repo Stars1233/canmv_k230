@@ -533,6 +533,35 @@ void machine_pin_irq_init(void)
         MP_STATE_PORT(machine_pin_irq_obj[i]) = NULL;
     }
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class Pin:
+//|     """GPIO pin object."""
+//|     def __init__(self, id: int, mode: int = ..., pull: int = ..., *, value: int = ..., drive: int = ..., alt: int = ...) -> None:
+//|         """Create a machine.Pin object."""
+//|     def drive(self, drive: int = ..., /) -> Any:
+//|         """Perform drive for machine.Pin."""
+//|     def high(self, /) -> Any:
+//|         """Perform high for machine.Pin."""
+//|     def init(self, mode: int = ..., pull: int = ..., *, value: int = ..., drive: int = ..., alt: int = ...) -> None:
+//|         """Configure pin mode, pull, initial output value and drive strength."""
+//|     def irq(self, handler: Any = ..., trigger: int = ..., hard: bool = ...) -> Any:
+//|         """Configure an interrupt callback for this pin."""
+//|     def low(self, /) -> Any:
+//|         """Perform low for machine.Pin."""
+//|     def mode(self, mode: Optional[int] = ...) -> int:
+//|         """Read or set the pin mode."""
+//|     def off(self) -> bool:
+//|         """Set output low."""
+//|     def on(self) -> bool:
+//|         """Set output high."""
+//|     def pull(self, pull: Optional[int] = ...) -> int:
+//|         """Read or set the pin pull configuration."""
+//|     def toggle(self) -> None:
+//|         """Toggle the output value."""
+//|     def value(self, value: Optional[int] = ...) -> int:
+//|         """Read the pin value, or set it when value is provided."""
+
 
 STATIC const mp_rom_map_elem_t machine_pin_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_pin_destroy_obj) },

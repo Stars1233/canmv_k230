@@ -264,6 +264,23 @@ STATIC mp_obj_t machine_uart_txdone(mp_obj_t self_in)
     return mp_const_false;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_uart_txdone_obj, machine_uart_txdone);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class UART:
+//|     """Hardware UART object."""
+//|     def __init__(self, id: int, baudrate: int = 115200, bits: int = 8, parity: int = ..., stop: int = ..., *, timeout: int = 10, tx: Optional[int] = None, rx: Optional[int] = None) -> None:
+//|         """Create a machine.UART object."""
+//|     def any(self) -> int:
+//|         """Return the any state for machine.UART."""
+//|     def deinit(self) -> None:
+//|         """Release resources held by machine.UART."""
+//|     def init(self, baudrate: int = 115200, bits: int = 8, parity: int = ..., stop: int = ..., *, timeout: int = 10, tx: Optional[int] = None, rx: Optional[int] = None) -> None:
+//|         """Configure baudrate, frame format, timeout and optional FPIOA TX/RX pins."""
+//|     def sendbreak(self) -> None:
+//|         """Write or send data using machine.UART."""
+//|     def txdone(self) -> bool:
+//|         """Return the txdone state for machine.UART."""
+
 
 STATIC const mp_rom_map_elem_t machine_uart_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_uart_deinit_obj) },

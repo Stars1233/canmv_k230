@@ -54,6 +54,15 @@ void _kd_mpi_struct_test_I(mp_obj_t obj, float *result, size_t *data_size) {
 }
 
 // interp_method
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nncase_runtime
+//| class interp_method:
+//|     """nncase_runtime.interp_method object."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: interp_method
+//| """CanMV interp_method module."""
+
 STATIC const mp_rom_map_elem_t mp_interp_method_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_tf_nearest), MP_ROM_INT(INTERP_METHOD_TF_NEAREST) },
     { MP_ROM_QSTR(MP_QSTR_tf_bilinear), MP_ROM_INT(INTERP_METHOD_TF_BILINEAR) },
@@ -78,6 +87,15 @@ MP_DEFINE_CONST_OBJ_TYPE(
     );
 
 // interp_mode
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nncase_runtime
+//| class interp_mode:
+//|     """nncase_runtime.interp_mode object."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: interp_mode
+//| """CanMV interp_mode module."""
+
 STATIC const mp_rom_map_elem_t mp_interp_mode_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_none), MP_ROM_INT(INTERP_MODE_NONE) },
     { MP_ROM_QSTR(MP_QSTR_align_corner), MP_ROM_INT(INTERP_MODE_ALIGN_CORNER) },
@@ -101,6 +119,15 @@ MP_DEFINE_CONST_OBJ_TYPE(
     
 
 // interp_mode
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nncase_runtime
+//| class ai2d_format:
+//|     """nncase_runtime.ai2d_format object."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: ai2d_format
+//| """CanMV ai2d_format module."""
+
 STATIC const mp_rom_map_elem_t mp_ai2d_format_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_YUV420_NV12), MP_ROM_INT(AI2D_FORMAT_YUV420_NV12) },
     { MP_ROM_QSTR(MP_QSTR_YUV420_NV21), MP_ROM_INT(AI2D_FORMAT_YUV420_NV21) },
@@ -242,6 +269,51 @@ STATIC mp_obj_t mp_ai2d_set_affine_param(size_t n_args, const mp_obj_t *args) {
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_ai2d_set_affine_param_obj, 8, 8, mp_ai2d_set_affine_param);
 
 // set dict
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nncase_runtime
+//| class ai2d:
+//|     """nncase_runtime.ai2d object."""
+//|     def __init__(self) -> None:
+//|         """Create a nncase_runtime.ai2d object."""
+//|     def __init__(self, /) -> Any:
+//|         """Initialize nncase_runtime.ai2d."""
+//|     def build(self, input_shape: Any, output_shape: Any, /) -> Any:
+//|         """Build nncase_runtime.ai2d."""
+//|     def set_affine_param(self, flag: bool, interp_method: int, cord_round: int, bound_ind: int, bound_val: int, bound_smooth: int, M: Any, /) -> Any:
+//|         """Set affine param for nncase_runtime.ai2d."""
+//|     def set_crop_param(self, flag: bool, start_x: int, start_y: int, width: int, height: int, /) -> Any:
+//|         """Set crop param for nncase_runtime.ai2d."""
+//|     def set_dtype(self, src_format: int, dst_format: int, src_type: int, dst_type: int, /) -> Any:
+//|         """Set dtype for nncase_runtime.ai2d."""
+//|     def set_pad_param(self, flag: bool, paddings: Any, pad_mode: int, pad_value: Any, /) -> Any:
+//|         """Set pad param for nncase_runtime.ai2d."""
+//|     def set_resize_param(self, flag: bool, interp_method: int, interp_mode: int, /) -> Any:
+//|         """Set resize param for nncase_runtime.ai2d."""
+//|     def set_shift_param(self, flag: bool, shift_value: int, /) -> Any:
+//|         """Set shift param for nncase_runtime.ai2d."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: ai2d
+//| """CanMV ai2d module."""
+//| def __del__(obj: Any, /) -> Any:
+//|     """Perform del for ai2d."""
+//| def __init__() -> Any:
+//|     """Initialize ai2d."""
+//| def build(obj: Any, input_shape: Any, output_shape: Any, /) -> Any:
+//|     """Build ai2d."""
+//| def set_affine_param(obj: Any, flag: bool, interp_method: int, cord_round: int, bound_ind: int, bound_val: int, bound_smooth: int, M: Any, /) -> Any:
+//|     """Set affine param for ai2d."""
+//| def set_crop_param(obj: Any, flag: bool, start_x: int, start_y: int, width: int, height: int, /) -> Any:
+//|     """Set crop param for ai2d."""
+//| def set_dtype(obj: Any, src_format: int, dst_format: int, src_type: int, dst_type: int, /) -> Any:
+//|     """Set dtype for ai2d."""
+//| def set_pad_param(obj: Any, flag: bool, paddings: Any, pad_mode: int, pad_value: Any, /) -> Any:
+//|     """Set pad param for ai2d."""
+//| def set_resize_param(obj: Any, flag: bool, interp_method: int, interp_mode: int, /) -> Any:
+//|     """Set resize param for ai2d."""
+//| def set_shift_param(obj: Any, flag: bool, shift_value: int, /) -> Any:
+//|     """Set shift param for ai2d."""
+
 STATIC const mp_rom_map_elem_t ai2d_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ai2d) },
     { MP_ROM_QSTR(MP_QSTR___init__), MP_ROM_PTR(&mp_ai2d_create_obj) },
@@ -293,6 +365,16 @@ static mp_obj_t mp_ai2d_release(mp_obj_t ai2d_builder_obj) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_ai2d_release_obj, mp_ai2d_release);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: ai2d_builder
+//| """CanMV ai2d_builder module."""
+//| def __del__(ai2d_builder: Any, /) -> Any:
+//|     """Perform del for ai2d_builder."""
+//| def release(ai2d_builder: Any, /) -> Any:
+//|     """Release resources held by ai2d_builder."""
+//| def run(obj: Any, inputs: Any, outputs: Any, /) -> Any:
+//|     """Run ai2d_builder."""
+
 
 
 STATIC const mp_rom_map_elem_t mp_ai2d_builder_dict_table[] = {

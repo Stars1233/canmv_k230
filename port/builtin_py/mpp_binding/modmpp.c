@@ -40,6 +40,10 @@ extern const mp_obj_module_t mp_module_vdec_api;
 extern const mp_obj_module_t mp_module_mp4_format_api;
 extern const mp_obj_module_t mp_module_pm_api;
 extern const mp_obj_module_t mp_module_libogg_api;
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: mpp
+//| """CanMV mpp module."""
+
 
 STATIC const mp_rom_map_elem_t mpp_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_mpp) },

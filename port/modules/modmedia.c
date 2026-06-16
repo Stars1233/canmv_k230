@@ -29,6 +29,10 @@
 #include "py/runtime.h"
 
 #include "py_modules.h"
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| """CanMV _media module."""
+
 
 STATIC const mp_rom_map_elem_t media_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__media) },

@@ -404,6 +404,25 @@ STATIC mp_obj_t machine_fpioa_make_new(const mp_obj_type_t* type, size_t n_args,
 
     return (mp_obj_t)&machine_fpioa_obj;
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class FPIOA:
+//|     """K230 FPIOA pin-function mapper."""
+//|     def __init__(self) -> None:
+//|         """Create a machine.FPIOA object."""
+//|     def get_pin_cfg(self, pin: int) -> Any:
+//|         """Return the current FPIOA configuration object for a pin."""
+//|     def get_pin_func(self, obj: Any, /) -> Any:
+//|         """Return pin func for machine.FPIOA."""
+//|     def get_pin_num(self, obj: Any, /) -> Any:
+//|         """Return pin num for machine.FPIOA."""
+//|     def help(self, pin: int = ...) -> None:
+//|         """Print supported FPIOA functions."""
+//|     def set_function(self, pin: int, func: int, *, ie: int = ..., oe: int = ..., pu: int = ..., pd: int = ..., ds: int = ..., st: int = ..., sl: int = ...) -> None:
+//|         """Assign an FPIOA function to a physical pin."""
+//|     def set_pin_cfg(self, cfg: Any) -> bool:
+//|         """Apply a pin configuration object."""
+
 
 STATIC const mp_rom_map_elem_t machine_fpioa_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_set_function), MP_ROM_PTR(&machine_fpioa_set_function_obj) },

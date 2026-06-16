@@ -3600,6 +3600,19 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_threshold_value_obj, py_threshold_value);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_threshold_l_value_obj, py_threshold_l_value);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_threshold_a_value_obj, py_threshold_a_value);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_threshold_b_value_obj, py_threshold_b_value);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: gc
+//| class threshold:
+//|     """gc.threshold object."""
+//|     def a_value(self, /) -> Any:
+//|         """Perform a value for gc.threshold."""
+//|     def b_value(self, /) -> Any:
+//|         """Perform b value for gc.threshold."""
+//|     def l_value(self, /) -> Any:
+//|         """Perform l value for gc.threshold."""
+//|     def value(self, /) -> Any:
+//|         """Perform value for gc.threshold."""
+
 
 STATIC const mp_rom_map_elem_t py_threshold_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_value), MP_ROM_PTR(&py_threshold_value_obj) },
@@ -5124,6 +5137,25 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_y_obj, py_rect_y);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_w_obj, py_rect_w);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_h_obj, py_rect_h);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_magnitude_obj, py_rect_magnitude);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: cmath
+//| class rect:
+//|     """cmath.rect object."""
+//|     def corners(self, /) -> Any:
+//|         """Perform corners for cmath.rect."""
+//|     def h(self, /) -> Any:
+//|         """Perform h for cmath.rect."""
+//|     def magnitude(self, /) -> Any:
+//|         """Perform magnitude for cmath.rect."""
+//|     def rect(self, /) -> Any:
+//|         """Perform rect for cmath.rect."""
+//|     def w(self, /) -> Any:
+//|         """Perform w for cmath.rect."""
+//|     def x(self, /) -> Any:
+//|         """Perform x for cmath.rect."""
+//|     def y(self, /) -> Any:
+//|         """Perform y for cmath.rect."""
+
 
 STATIC const mp_rom_map_elem_t py_rect_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_corners), MP_ROM_PTR(&py_rect_corners_obj) },
@@ -6516,6 +6548,273 @@ static mp_obj_t py_image_as_lvgl_img_src(size_t n, const mp_obj_t* args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(py_image_as_lvgl_img_src_obj, 2, 2, py_image_as_lvgl_img_src);
 #endif
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: image
+//| class Image:
+//|     """image.Image object."""
+//|     def add(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform add for image.Image."""
+//|     def as_lvgl_img_src(self, lv_img: Any, /) -> Any:
+//|         """Perform as lvgl img src for image.Image."""
+//|     def assign(self, *, hmirror: int = ..., vflip: int = ..., transpose: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Assign data for image.Image."""
+//|     def awb(self, *, max: float = ...) -> Any:
+//|         """Perform awb for image.Image."""
+//|     def b_and(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform b and for image.Image."""
+//|     def b_nand(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform b nand for image.Image."""
+//|     def b_nor(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform b nor for image.Image."""
+//|     def b_or(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform b or for image.Image."""
+//|     def b_xnor(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform b xnor for image.Image."""
+//|     def b_xor(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform b xor for image.Image."""
+//|     def bilateral(self, ksize: Any, *, color_sigma: float = ..., space_sigma: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform bilateral for image.Image."""
+//|     def binary(self, thresholds: Any, *, invert: int = ..., zero: int = ..., to_bitmap: int = ..., copy: int = ..., mask: Any = ...) -> Any:
+//|         """Perform binary for image.Image."""
+//|     def black_hat(self, ksize: Any, *, threshold: int = ..., mask: Any = ...) -> Any:
+//|         """Perform black hat for image.Image."""
+//|     def blend(self, py_image_type: Any, *, alpha: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Blend data for image.Image."""
+//|     def blur(self, ksize: Any, *, unsharp: int = ..., mul: float = ..., add: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform blur for image.Image."""
+//|     def bytearray(self, /) -> Any:
+//|         """Perform bytearray for image.Image."""
+//|     def cached(self, /) -> Any:
+//|         """Perform cached for image.Image."""
+//|     def cartoon(self, *, seed_threshold: float = ..., floating_threshold: float = ..., mask: Any = ...) -> Any:
+//|         """Perform cartoon for image.Image."""
+//|     def ccm(self, ccm: Any, /) -> Any:
+//|         """Perform ccm for image.Image."""
+//|     def clear(self, *, mask: Any = ...) -> Any:
+//|         """Perform clear for image.Image."""
+//|     def close(self, ksize: Any, *, threshold: int = ..., mask: Any = ...) -> None:
+//|         """Release resources held by image.Image."""
+//|     def compress(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Compress data for image.Image."""
+//|     def compress_for_ide(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Perform compress for ide for image.Image."""
+//|     def compressed(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Perform compressed for image.Image."""
+//|     def compressed_for_ide(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Perform compressed for ide for image.Image."""
+//|     def copy(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Copy data for image.Image."""
+//|     def copy_from(self, obj: Any, /) -> Any:
+//|         """Copy from data for image.Image."""
+//|     def copy_to(self, dst_img: Any, /) -> Any:
+//|         """Copy to data for image.Image."""
+//|     def crop(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Crop data for image.Image."""
+//|     def difference(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform difference for image.Image."""
+//|     def dilate(self, ksize: Any, *, threshold: int = ..., mask: Any = ...) -> Any:
+//|         """Perform dilate for image.Image."""
+//|     def div(self, py_image_type: Any, *, invert: int = ..., mod: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform div for image.Image."""
+//|     def draw_arrow(self, x0: int, y0: int, x1: int, y1: int, *, size: int = ..., thickness: int = ..., color: Any = ...) -> Any:
+//|         """Draw arrow on image.Image."""
+//|     def draw_circle(self, cx: int, cy: int, cr: int, *, thickness: int = ..., fill: int = ..., color: Any = ...) -> Any:
+//|         """Draw circle on image.Image."""
+//|     def draw_cross(self, x: int, y: int, *, size: int = ..., thickness: int = ..., color: Any = ...) -> Any:
+//|         """Draw cross on image.Image."""
+//|     def draw_edges(self, corners: Any, *, size: int = ..., thickness: int = ..., fill: int = ..., color: Any = ...) -> Any:
+//|         """Draw edges on image.Image."""
+//|     def draw_ellipse(self, cx: int, cy: int, rx: int, ry: int, r: int, *, thickness: int = ..., fill: int = ..., color: Any = ...) -> Any:
+//|         """Draw ellipse on image.Image."""
+//|     def draw_image(self, other: Any, x_off: int, y_off: int, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Draw image on image.Image."""
+//|     def draw_keypoints(self, kpts: Any, *, size: int = ..., thickness: int = ..., fill: int = ..., color: Any = ...) -> Any:
+//|         """Draw keypoints on image.Image."""
+//|     def draw_line(self, x0: int, y0: int, x1: int, y1: int, *, thickness: int = ..., color: Any = ...) -> Any:
+//|         """Draw line on image.Image."""
+//|     def draw_rectangle(self, rx: int, ry: int, rw: int, rh: int, *, thickness: int = ..., fill: int = ..., color: Any = ...) -> Any:
+//|         """Draw rectangle on image.Image."""
+//|     def draw_string(self, x_off: int, y_off: int, str: str, *, scale: float = ..., x_spacing: int = ..., y_spacing: int = ..., mono_space: int = ..., char_rotation: int = ..., char_hmirror: int = ..., char_vflip: int = ..., string_rotation: int = ..., string_hmirror: int = ..., string_vflip: int = ..., color: Any = ...) -> Any:
+//|         """Draw string on image.Image."""
+//|     def draw_string_advanced(self, x_off: int, y_off: int, char_size: int, str: str, *, font: Any = ..., color: Any = ...) -> Any:
+//|         """Draw string advanced on image.Image."""
+//|     def erode(self, ksize: Any, *, threshold: int = ..., mask: Any = ...) -> Any:
+//|         """Perform erode for image.Image."""
+//|     def find_apriltags(self, *, families: int = ..., fx: float = ..., fy: float = ..., cx: float = ..., cy: float = ..., roi: Any = ...) -> Any:
+//|         """Find apriltags in image.Image."""
+//|     def find_barcodes(self, *, roi: Any = ...) -> Any:
+//|         """Find barcodes in image.Image."""
+//|     def find_blobs(self, thresholds: Any, *, invert: int = ..., x_stride: int = ..., y_stride: int = ..., area_threshold: int = ..., pixels_threshold: int = ..., merge: int = ..., margin: int = ..., threshold_cb: Any = ..., merge_cb: Any = ..., x_hist_bins_max: int = ..., y_hist_bins_max: int = ..., roi: Any = ...) -> Any:
+//|         """Find blobs in image.Image."""
+//|     def find_circles(self, *, x_stride: int = ..., y_stride: int = ..., threshold: int = ..., x_margin: int = ..., y_margin: int = ..., r_margin: int = ..., r_min: int = ..., r_max: int = ..., r_step: int = ..., roi: Any = ...) -> Any:
+//|         """Find circles in image.Image."""
+//|     def find_datamatrices(self, *, effort: int = ..., roi: Any = ...) -> Any:
+//|         """Find datamatrices in image.Image."""
+//|     def find_displacement(self, template_img: Any, *, template_roi: Any = ..., logpolar: int = ..., fix_rotation_scale: int = ..., roi: Any = ...) -> Any:
+//|         """Find displacement in image.Image."""
+//|     def find_edges(self, edge_type: int, *, threshold: Any = ..., roi: Any = ...) -> Any:
+//|         """Find edges in image.Image."""
+//|     def find_eye(self, roi: Any) -> Any:
+//|         """Find eye in image.Image."""
+//|     def find_features(self, cascade: Any, *, threshold: float = ..., scale_factor: float = ..., roi: Any = ...) -> Any:
+//|         """Find features in image.Image."""
+//|     def find_hog(self, *, size: int = ..., roi: Any = ...) -> Any:
+//|         """Find hog in image.Image."""
+//|     def find_keypoints(self, *, threshold: int = ..., normalized: int = ..., scale_factor: float = ..., max_keypoints: int = ..., corner_detector: int = ..., roi: Any = ...) -> Any:
+//|         """Find keypoints in image.Image."""
+//|     def find_lbp(self, roi: Any) -> Any:
+//|         """Find lbp in image.Image."""
+//|     def find_line_segments(self, *, merge_distance: int = ..., max_theta_diff: int = ..., roi: Any = ...) -> Any:
+//|         """Find line segments in image.Image."""
+//|     def find_lines(self, *, x_stride: int = ..., y_stride: int = ..., threshold: int = ..., theta_margin: int = ..., rho_margin: int = ..., roi: Any = ...) -> Any:
+//|         """Find lines in image.Image."""
+//|     def find_qrcodes(self, *, roi: Any = ...) -> Any:
+//|         """Find qrcodes in image.Image."""
+//|     def find_rects(self, *, threshold: int = ..., roi: Any = ...) -> Any:
+//|         """Find rects in image.Image."""
+//|     def find_template(self, template: Any, thresh: float, *, step: int = ..., search: int = ..., roi: Any = ...) -> Any:
+//|         """Find template in image.Image."""
+//|     def flood_fill(self, x_off: int, y_off: int, *, seed_threshold: float = ..., floating_threshold: float = ..., invert: float = ..., clear_background: float = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform flood fill for image.Image."""
+//|     def flush(self, /) -> None:
+//|         """Flush image.Image."""
+//|     def format(self, /) -> Any:
+//|         """Return format for image.Image."""
+//|     def gamma(self, *, gamma: float = ..., contrast: float = ..., brightness: float = ...) -> Any:
+//|         """Perform gamma for image.Image."""
+//|     def gamma_corr(self, *, gamma: float = ..., contrast: float = ..., brightness: float = ...) -> Any:
+//|         """Perform gamma corr for image.Image."""
+//|     def gaussian(self, ksize: Any, *, unsharp: int = ..., mul: float = ..., add: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform gaussian for image.Image."""
+//|     def gaussian_blur(self, ksize: Any, *, unsharp: int = ..., mul: float = ..., add: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform gaussian blur for image.Image."""
+//|     def get_hist(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> Any:
+//|         """Return hist for image.Image."""
+//|     def get_histogram(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> Any:
+//|         """Return histogram for image.Image."""
+//|     def get_pixel(self, x: int, y: int, *, rgbtuple: int = ...) -> Any:
+//|         """Return pixel for image.Image."""
+//|     def get_regression(self, thresholds: Any, *, invert: int = ..., x_stride: int = ..., y_stride: int = ..., area_threshold: int = ..., pixels_threshold: int = ..., robust: int = ..., roi: Any = ...) -> Any:
+//|         """Return regression for image.Image."""
+//|     def get_similarity(self, other: Any, /, *, color: Any = ...) -> Any:
+//|         """Return similarity for image.Image."""
+//|     def get_statistics(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> Any:
+//|         """Return statistics for image.Image."""
+//|     def get_stats(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> Any:
+//|         """Return stats for image.Image."""
+//|     def height(self, /) -> Any:
+//|         """Return height for image.Image."""
+//|     def histeq(self, *, adaptive: int = ..., clip_limit: float = ..., mask: Any = ...) -> Any:
+//|         """Perform histeq for image.Image."""
+//|     def histogram(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> Any:
+//|         """Perform histogram for image.Image."""
+//|     def invert(self, /) -> Any:
+//|         """Perform invert for image.Image."""
+//|     def jpeg_encode_for_ide(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Perform jpeg encode for ide for image.Image."""
+//|     def jpeg_encoded_for_ide(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Perform jpeg encoded for ide for image.Image."""
+//|     def laplacian(self, ksize: Any, *, sharpen: int = ..., mul: float = ..., add: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform laplacian for image.Image."""
+//|     def lens_corr(self, *, strength: float = ..., zoom: float = ..., x_corr: float = ..., y_corr: float = ...) -> Any:
+//|         """Perform lens corr for image.Image."""
+//|     def linpolar(self, *, reverse: int = ...) -> Any:
+//|         """Perform linpolar for image.Image."""
+//|     def logpolar(self, *, reverse: int = ...) -> Any:
+//|         """Perform logpolar for image.Image."""
+//|     def mask_circle(self, cx: int = ..., cy: int = ..., cr: int = ...) -> Any:
+//|         """Apply a circular mask to the image in place."""
+//|     def mask_ellipse(self, cx: int = ..., cy: int = ..., rx: int = ..., ry: int = ..., r: int = 0) -> Any:
+//|         """Apply an elliptical mask to the image in place."""
+//|     def mask_rectangle(self, rx: int = ..., ry: int = ..., rw: int = ..., rh: int = ...) -> Any:
+//|         """Apply a rectangular mask to the image in place."""
+//|     def max(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform max for image.Image."""
+//|     def mean(self, ksize: Any, *, threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform mean for image.Image."""
+//|     def mean_pool(self, x_div: Any, y_div: Any, /) -> Any:
+//|         """Perform mean pool for image.Image."""
+//|     def mean_pooled(self, x_div: int, y_div: int, *, alloc: int = ..., cache: bool = ..., data: Any = ...) -> Any:
+//|         """Return a new image reduced by mean pooling."""
+//|     def median(self, ksize: Any, *, percentile: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform median for image.Image."""
+//|     def midpoint(self, ksize: Any, *, bias: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform midpoint for image.Image."""
+//|     def midpoint_pool(self, x_div: int, y_div: int, *, bias: float = ...) -> Any:
+//|         """Perform midpoint pool for image.Image."""
+//|     def midpoint_pooled(self, x_div: int, y_div: int, *, bias: float = ...) -> Any:
+//|         """Perform midpoint pooled for image.Image."""
+//|     def min(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform min for image.Image."""
+//|     def mode(self, ksize: Any, *, threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform mode for image.Image."""
+//|     def morph(self, ksize: Any, n: Any, *, mul: float = ..., add: float = ..., threshold: int = ..., offset: int = ..., invert: int = ..., mask: Any = ...) -> Any:
+//|         """Perform morph for image.Image."""
+//|     def mul(self, py_image_type: Any, *, invert: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform mul for image.Image."""
+//|     def nand(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform nand for image.Image."""
+//|     def negate(self, /) -> Any:
+//|         """Perform negate for image.Image."""
+//|     def nor(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform nor for image.Image."""
+//|     def open(self, ksize: Any, *, threshold: int = ..., mask: Any = ...) -> Any:
+//|         """Open image.Image."""
+//|     def phyaddr(self, /) -> Any:
+//|         """Return phyaddr for image.Image."""
+//|     def poolid(self, /) -> Any:
+//|         """Return poolid for image.Image."""
+//|     def replace(self, *, hmirror: int = ..., vflip: int = ..., transpose: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Replace data for image.Image."""
+//|     def rotation_corr(self, *, x_rotation: float = ..., y_rotation: float = ..., z_rotation: float = ..., x_translation: float = ..., y_translation: float = ..., zoom: float = ..., fov: float = ..., corners: Any = ...) -> Any:
+//|         """Perform rotation corr for image.Image."""
+//|     def save(self, path: str, *, quality: int = ..., roi: Any = ...) -> Any:
+//|         """Save Image from image.Image."""
+//|     def scale(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Perform scale for image.Image."""
+//|     def selective_search(self, *, threshold: int = ..., size: int = ..., a1: float = ...) -> Any:
+//|         """Perform selective search for image.Image."""
+//|     def set(self, *, hmirror: int = ..., vflip: int = ..., transpose: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform set for image.Image."""
+//|     def set_pixel(self, x: int, y: int, *, color: Any = ...) -> Any:
+//|         """Set pixel for image.Image."""
+//|     def size(self, /) -> Any:
+//|         """Return size for image.Image."""
+//|     def statistics(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> Any:
+//|         """Perform statistics for image.Image."""
+//|     def stereo_disparity(self, *, reversed: int = ..., max_disparity: int = ..., threshold: int = ...) -> Any:
+//|         """Perform stereo disparity for image.Image."""
+//|     def sub(self, py_image_type: Any, *, reverse: int = ..., color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform sub for image.Image."""
+//|     def to_bitmap(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to bitmap."""
+//|     def to_grayscale(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to grayscale."""
+//|     def to_ironbow(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to ironbow."""
+//|     def to_jpeg(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to jpeg."""
+//|     def to_numpy_ref(self, /) -> Any:
+//|         """Convert image.Image to numpy ref."""
+//|     def to_png(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to png."""
+//|     def to_rainbow(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to rainbow."""
+//|     def to_rgb565(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to rgb565."""
+//|     def to_rgb888(self, *, x_scale: float = ..., y_scale: float = ..., rgb_channel: int = ..., alpha: int = ..., hint: int = ..., x_size: int = ..., y_size: int = ..., quality: int = ..., encode_for_ide: int = ..., color: Any = ..., roi: Any = ...) -> Any:
+//|         """Convert image.Image to rgb888."""
+//|     def top_hat(self, ksize: Any, *, threshold: int = ..., mask: Any = ...) -> Any:
+//|         """Perform top hat for image.Image."""
+//|     def virtaddr(self, /) -> Any:
+//|         """Return virtaddr for image.Image."""
+//|     def width(self, /) -> Any:
+//|         """Return width for image.Image."""
+//|     def xnor(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform xnor for image.Image."""
+//|     def xor(self, py_image_type: Any, *, color: Any = ..., mask: Any = ...) -> Any:
+//|         """Perform xor for image.Image."""
+
 
 static const mp_rom_map_elem_t locals_dict_table[] = {
     /* Basic Methods */
@@ -7625,6 +7924,62 @@ int py_image_descriptor_from_roi(image_t *img, const char *path, rectangle_t *ro
     return 0;
 }
 #endif // IMLIB_ENABLE_KEYPOINTS && IMLIB_ENABLE_IMAGE_FILE_IO
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: image
+//| """CanMV image module."""
+//| def HaarCascade(path: str, stages: int = ...) -> Any:
+//|     """Load a Haar cascade by path or built-in cascade name."""
+//| def Image(w: int, **kwargs: Any) -> Any:
+//|     """Perform Image for image."""
+//| def binary_to_grayscale(arg: Any, /) -> Any:
+//|     """Convert binary values to grayscale."""
+//| def binary_to_lab(arg: Any, /) -> Any:
+//|     """Convert binary values to lab."""
+//| def binary_to_rgb(arg: Any, /) -> Any:
+//|     """Convert binary values to rgb."""
+//| def binary_to_yuv(arg: Any, /) -> Any:
+//|     """Convert binary values to yuv."""
+//| def fb_stat(cmd: int = 0) -> Any:
+//|     """Query framebuffer statistics."""
+//| def grayscale_to_binary(arg: Any, /) -> Any:
+//|     """Convert grayscale values to binary."""
+//| def grayscale_to_lab(arg: Any, /) -> Any:
+//|     """Convert grayscale values to lab."""
+//| def grayscale_to_rgb(arg: Any, /) -> Any:
+//|     """Convert grayscale values to rgb."""
+//| def grayscale_to_yuv(arg: Any, /) -> Any:
+//|     """Convert grayscale values to yuv."""
+//| def lab_to_binary(l: int, a: int, b: int) -> Any:
+//|     """Convert LAB components using lab to binary."""
+//| def lab_to_grayscale(l: int, a: int, b: int) -> Any:
+//|     """Convert LAB components using lab to grayscale."""
+//| def lab_to_rgb(l: int, a: int, b: int) -> Any:
+//|     """Convert LAB components using lab to rgb."""
+//| def lab_to_yuv(l: int, a: int, b: int) -> Any:
+//|     """Convert LAB components using lab to yuv."""
+//| def load_descriptor(path: str) -> Any:
+//|     """Load an image descriptor from a file."""
+//| def match_descriptor(desc1_type: Any, desc2_type: Any, *, threshold: int = ..., filter_outliers: int = ...) -> Any:
+//|     """Perform match descriptor for image."""
+//| def rgb_to_binary(r: int, g: int, b: int) -> Any:
+//|     """Convert RGB components using rgb to binary."""
+//| def rgb_to_grayscale(r: int, g: int, b: int) -> Any:
+//|     """Convert RGB components using rgb to grayscale."""
+//| def rgb_to_lab(r: int, g: int, b: int) -> Any:
+//|     """Convert RGB components using rgb to lab."""
+//| def rgb_to_yuv(r: int, g: int, b: int) -> Any:
+//|     """Convert RGB components using rgb to yuv."""
+//| def save_descriptor(desc_obj: Any, path: str) -> bool:
+//|     """Save an image descriptor to a file."""
+//| def yuv_to_binary(y: int, u: int, v: int) -> Any:
+//|     """Convert YUV components using yuv to binary."""
+//| def yuv_to_grayscale(y: int, u: int, v: int) -> Any:
+//|     """Convert YUV components using yuv to grayscale."""
+//| def yuv_to_lab(y: int, u: int, v: int) -> Any:
+//|     """Convert YUV components using yuv to lab."""
+//| def yuv_to_rgb(y: int, u: int, v: int) -> Any:
+//|     """Convert YUV components using yuv to rgb."""
+
 
 static const mp_rom_map_elem_t globals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__),            MP_OBJ_NEW_QSTR(MP_QSTR_image)},

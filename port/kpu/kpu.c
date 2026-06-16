@@ -65,6 +65,10 @@ mp_obj_t get_dtype_str(mpy_datatype_t dt) {
 }
 
 // datatype
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: datatype
+//| """CanMV datatype module."""
+
 STATIC const mp_rom_map_elem_t mp_datatype_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_dt_boolean), MP_ROM_INT(0) },
     { MP_ROM_QSTR(MP_QSTR_dt_utf8char), MP_ROM_INT(1) },
@@ -252,6 +256,59 @@ STATIC mp_obj_t mp_kpu_get_output_desc(mp_obj_t self_in, mp_obj_t index_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(kpu_get_output_desc_obj, mp_kpu_get_output_desc);
 
 // set dict
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nncase_runtime
+//| class kpu:
+//|     """nncase_runtime.kpu object."""
+//|     def __init__(self) -> None:
+//|         """Create a nncase_runtime.kpu object."""
+//|     def get_input_tensor(self, index: Any, /) -> Any:
+//|         """Return input tensor for nncase_runtime.kpu."""
+//|     def get_output_tensor(self, index: Any, /) -> Any:
+//|         """Return output tensor for nncase_runtime.kpu."""
+//|     def inputs_desc(self, index: Any, /) -> Any:
+//|         """Perform inputs desc for nncase_runtime.kpu."""
+//|     def inputs_size(self, /) -> Any:
+//|         """Perform inputs size for nncase_runtime.kpu."""
+//|     def load_kmodel(self, filename: Any, /) -> Any:
+//|         """Load kmodel for nncase_runtime.kpu."""
+//|     def outputs_desc(self, index: Any, /) -> Any:
+//|         """Perform outputs desc for nncase_runtime.kpu."""
+//|     def outputs_size(self, /) -> Any:
+//|         """Perform outputs size for nncase_runtime.kpu."""
+//|     def run(self, /) -> Any:
+//|         """Run nncase_runtime.kpu."""
+//|     def set_input_tensor(self, index: Any, tensor: Any, /) -> Any:
+//|         """Set input tensor for nncase_runtime.kpu."""
+//|     def set_output_tensor(self, index: Any, tensor: Any, /) -> Any:
+//|         """Set output tensor for nncase_runtime.kpu."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: kpu
+//| """CanMV kpu module."""
+//| def __del__(obj: Any, /) -> Any:
+//|     """Perform del for kpu."""
+//| def get_input_tensor(obj: Any, index: Any, /) -> Any:
+//|     """Return input tensor for kpu."""
+//| def get_output_tensor(obj: Any, index: Any, /) -> Any:
+//|     """Return output tensor for kpu."""
+//| def inputs_desc(obj: Any, index: Any, /) -> Any:
+//|     """Perform inputs desc for kpu."""
+//| def inputs_size(obj: Any, /) -> Any:
+//|     """Perform inputs size for kpu."""
+//| def load_kmodel(obj: Any, filename: Any, /) -> Any:
+//|     """Load kmodel for kpu."""
+//| def outputs_desc(obj: Any, index: Any, /) -> Any:
+//|     """Perform outputs desc for kpu."""
+//| def outputs_size(obj: Any, /) -> Any:
+//|     """Perform outputs size for kpu."""
+//| def run(obj: Any, /) -> Any:
+//|     """Run kpu."""
+//| def set_input_tensor(obj: Any, index: Any, tensor: Any, /) -> Any:
+//|     """Set input tensor for kpu."""
+//| def set_output_tensor(obj: Any, index: Any, tensor: Any, /) -> Any:
+//|     """Set output tensor for kpu."""
+
 STATIC const mp_rom_map_elem_t kpu_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_kpu) },
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&kpu_destroy_obj) },
@@ -313,6 +370,14 @@ static mp_obj_t mp_runtime_tensor_release(mp_obj_t runtime_tensor_obj) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_runtime_tensor_del_obj, mp_runtime_tensor_release);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: runtime_tensor
+//| """CanMV runtime_tensor module."""
+//| def __del__(runtime_tensor: Any, /) -> Any:
+//|     """Perform del for runtime_tensor."""
+//| def to_numpy(obj: Any, /) -> Any:
+//|     """Convert runtime_tensor to numpy."""
+
 
 STATIC const mp_rom_map_elem_t mp_rt_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_runtime_tensor) },

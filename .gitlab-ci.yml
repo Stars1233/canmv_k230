@@ -1,3 +1,7 @@
+variables:
+  MANIFEST: "git@g.a-bug.org:canmv/k230/manifest.git"
+  REPO_URL: "https://gitee.com/mamh-mixed/git-repo"
+  STUB_BOARD: "k230_canmv_01studio"
 
 default:
   image: ai.b-bug.org:5000/k230_sdk:latest
@@ -5,6 +9,7 @@ default:
     - canmv_k230
 
 stages:
+  - build
   - generate
 
 .generate_pipeline_version: &generate_pipeline_version
@@ -27,6 +32,16 @@ before_script:
   - chmod 600 ~/.ssh/id_rsa
   - eval "$(ssh-agent -s)"
   - ssh-add ~/.ssh/id_rsa
+  - |
+      if [ -n "${MY_SSH_PRIVATE_KEY:-}" ] && [ -f "${MY_SSH_PRIVATE_KEY}" ]; then
+        cp "${MY_SSH_PRIVATE_KEY}" ~/.ssh/id_repo_rsa
+        chmod 600 ~/.ssh/id_repo_rsa
+        ssh-add ~/.ssh/id_repo_rsa
+      fi
+  - |
+      if [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+        printf '%s\n' "${SSH_PRIVATE_KEY}" | tr -d '\r' | ssh-add -
+      fi
   - '[[ -f /.dockerenv ]] && echo -e "Host *\n    StrictHostKeyChecking no\n" > ~/.ssh/config'
   - echo $SHELL
   - echo "config ssh timeout"
@@ -49,6 +64,7 @@ before_script:
   - echo "${GITLAB_USER_NAME}"
   - git config --global user.email "${GITLAB_USER_EMAIL}"
   - git config --global user.name "${GITLAB_USER_NAME}"
+  - git config --global --add safe.directory "$CI_PROJECT_DIR"
 
 # build setup for all jobs
 build_setup:
@@ -70,12 +86,98 @@ build_setup:
     reports:
       dotenv: setup.env
 
+build-image-and-stubs:
+  stage: build
+  timeout: 3 hours
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "canmv_k230" || $CI_COMMIT_BRANCH == "test_ci")'
+  script:
+    - echo '---------- Check changed files ----------'
+    - |
+        changed_files=""
+        if [ "${CI_COMMIT_BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
+          git fetch origin "${CI_COMMIT_BEFORE_SHA}" --depth=1 || true
+          changed_files="$(git diff --name-only "${CI_COMMIT_BEFORE_SHA}" "${CI_COMMIT_SHA}" || true)"
+        fi
+        if [ -z "${changed_files}" ]; then
+          changed_files="$(git diff-tree --root --no-commit-id --name-only -r "${CI_COMMIT_SHA}" || true)"
+        fi
+        echo "Changed files:"
+        printf '%s\n' "${changed_files}"
+        non_example_changes="$(printf '%s\n' "${changed_files}" | grep -v -E '^resources/examples(/|$)' | grep -v -E '^[[:space:]]*$' || true)"
+        if [ -n "${changed_files}" ] && [ -z "${non_example_changes}" ]; then
+          echo "Only resources/examples changed; skip image build and stub generation."
+          exit 0
+        fi
+
+    - echo '---------- Download Repo Tool ----------'
+    - mkdir -p ${HOME}/bin
+    - wget -q https://ai.b-bug.org/k230/test_resources/ci/tools/repo -O ${HOME}/bin/repo
+    - chmod +x ${HOME}/bin/repo
+    - export PATH="${HOME}/bin:${PATH}"
+    - repo --version
+
+    - echo '---------- Install Python Dependencies ----------'
+    - pip3 install --quiet jsonschema jinja2
+
+    - echo '---------- Init and Sync Repo ----------'
+    - mkdir -p ${HOME}/canmv_k230 && cd ${HOME}/canmv_k230
+    - time repo init -u ${MANIFEST} --repo-url=${REPO_URL}
+    - time repo sync -j$(nproc)
+
+    - echo "---------- Checkout canmv ${CI_COMMIT_BRANCH}/${CI_COMMIT_SHA} ----------"
+    - pushd ${HOME}/canmv_k230/src/canmv > /dev/null || exit 1
+    - |
+        CANMV_REMOTE="$(git remote | sed -n '1p')"
+        if [ -z "${CANMV_REMOTE}" ]; then
+          echo "No git remote found in src/canmv"
+          exit 1
+        fi
+        git fetch "${CANMV_REMOTE}" "${CI_COMMIT_BRANCH}"
+        git checkout "${CI_COMMIT_SHA}"
+        git branch --show-current || true
+        git rev-parse HEAD
+    - popd > /dev/null || exit 1
+
+    - echo '---------- Download Toolchain ----------'
+    - cd ${HOME}/canmv_k230
+    - export NATIVE_BUILD=1
+    - mkdir -p ~/.kendryte
+    - make dl_toolchain TOOLCHAIN=rtsmart
+
+    - echo '---------- Build Image ----------'
+    - export SKIP_TOOLCHAIN_CHECK=1
+    - make ${STUB_BOARD}_defconfig
+    - time make -j$(nproc)
+
+    - echo '---------- Generate CanMV K230 Stubs ----------'
+    - mkdir -p ${CI_PROJECT_DIR}/generated
+    - export STUB_DIR="${CI_PROJECT_DIR}/generated/${CI_COMMIT_SHA}"
+    - export STUB_ARCHIVE="${CI_PROJECT_DIR}/generated/${CI_COMMIT_SHA}.zip"
+    - python3 ${HOME}/canmv_k230/src/canmv/tools/gen_canmv_stubs.py --build-dir ${HOME}/canmv_k230/output/${STUB_BOARD}_defconfig/canmv --out "${STUB_DIR}"
+    - python3 -m compileall -q "${STUB_DIR}"
+    - python3 -c "import os, shutil; shutil.make_archive(os.environ['STUB_ARCHIVE'][:-4], 'zip', os.environ['STUB_DIR'])"
+    - cp "${STUB_DIR}/canmv_stub_metadata.json" "${CI_PROJECT_DIR}/generated/${CI_COMMIT_SHA}.json"
+    - printf '%s\n' "${CI_COMMIT_SHA}" > "${CI_PROJECT_DIR}/generated/latest"
+    - ls -alh ${CI_PROJECT_DIR}/generated
+
+    - echo '---------- Upload CanMV K230 Stubs ----------'
+    - scp -P $DNLD_SRV_PORT -C "${STUB_ARCHIVE}" "${CI_PROJECT_DIR}/generated/${CI_COMMIT_SHA}.json" $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/canmv_k230_stubs/
+    - scp -P $DNLD_SRV_PORT -C "${CI_PROJECT_DIR}/generated/latest" $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/canmv_k230_stubs/latest
+  artifacts:
+    when: on_success
+    expire_in: 1 week
+    paths:
+      - generated/*.zip
+      - generated/*.json
+      - generated/latest
+
 generate-resources:
   stage: generate
   script:
     - python3 tools/generate_ide_resource.py resources
     - ls -ald generated/*
-    - scp -P $DNLD_SRV_PORT -C -r generated/canmv-ide-resources-*.zip generated/version.txt $DNLD_SRV:/data/kendryte-download/developer/tools/canmv_ide_k230/canmv_ide_resources
+    - scp -P $DNLD_SRV_PORT -C -r generated/canmv-ide-resources-*.zip generated/version.txt $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/canmv_ide_resources/
 
   rules:
   - if: '$CI_COMMIT_BRANCH == "canmv_k230" || $CI_COMMIT_BRANCH == "test_ci"'

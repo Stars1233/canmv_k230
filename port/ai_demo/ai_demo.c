@@ -1767,6 +1767,82 @@ STATIC mp_obj_t aidemo_rgb888_compress(size_t n_args, const mp_obj_t *args)
     return MP_OBJ_FROM_PTR(out);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aidemo_rgb888_compress_obj, 3, 3, aidemo_rgb888_compress);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: aidemo
+//| """CanMV aidemo module."""
+//| def body_seg_postprocess(data_mp: Any, num_class: int, ori_shape_mp: Any, dst_shape_mp: Any, color: Any, /) -> Any:
+//|     """Run body seg post-processing for aidemo."""
+//| def contours(mp_img: Any, mp_pts: Any, contour_idx: int, mp_color: Any, thickness: int, line_type: int, /) -> Any:
+//|     """Perform contours for aidemo."""
+//| def eye_gaze_post_process(outputs: Any, /) -> Any:
+//|     """Run eye gaze post-processing for aidemo."""
+//| def face_det_post_process(obj_thresh: float, nms_thresh: float, net_len: float, mp_anchors: Any, ori_shape_list: Any, mp_outputs: Any, /) -> Any:
+//|     """Run face det post-processing for aidemo."""
+//| def face_draw_mesh(img: Any, vertices: Any, /) -> Any:
+//|     """Perform face draw mesh for aidemo."""
+//| def face_mesh_post_process(roi: Any, vertices: Any, /) -> Any:
+//|     """Run face mesh post-processing for aidemo."""
+//| def face_parse_post_process(mp_img: Any, mp_ai_img_shape: Any, mp_osd_img_shape: Any, net_len: int, mp_bbox: Any, mp_outputs: Any, /) -> Any:
+//|     """Run face parse post-processing for aidemo."""
+//| def invert_affine_transform(matrix_ndarray: Any, /) -> Any:
+//|     """Perform invert affine transform for aidemo."""
+//| def kws_fp_create() -> Any:
+//|     """Perform kws fp create for aidemo."""
+//| def kws_fp_destroy(fp: Any, /) -> Any:
+//|     """Release resources held by aidemo."""
+//| def kws_preprocess(fp: Any, wav: Any, /) -> Any:
+//|     """Run kws preprocessing for aidemo."""
+//| def licence_det_postprocess(p_outputs_list: Any, frame_size_list: Any, kmodel_frame_size_list: Any, obj_thresh: float, nms_thresh: float, /) -> Any:
+//|     """Run licence det post-processing for aidemo."""
+//| def mask_resize(dest: Any, ori_shape: Any, tag_shape: Any, /) -> Any:
+//|     """Perform mask resize for aidemo."""
+//| def nanotracker_postprocess(p_outputs_ndarray_0: Any, p_outputs_ndarray_1: Any, sensor_size_list: Any, obj_thresh: float, center_xy_wh_list: Any, crop_size: int, CONTEXT_AMOUNT: float, /) -> Any:
+//|     """Run nanotracker post-processing for aidemo."""
+//| def ocr_rec_preprocess(data: Any, ori_shape: Any, boxpoint8: Any, /) -> Any:
+//|     """Run ocr rec preprocessing for aidemo."""
+//| def opencv_grayscale_find_blobs(frame_size_mp: Any, data: Any, threshold_min: int, threshold_max: int, /) -> Any:
+//|     """Perform opencv grayscale find blobs for aidemo."""
+//| def person_kp_postprocess(p_outputs_ndarray: Any, frame_size_list: Any, kmodel_frame_size_list: Any, obj_thresh: float, nms_thresh: float, /) -> Any:
+//|     """Run person kp post-processing for aidemo."""
+//| def polylines(mp_img: Any, mp_pts: Any, is_closed: bool, mp_color: Any, thickness: int, line_type: int, shift: int, /) -> Any:
+//|     """Perform polylines for aidemo."""
+//| def rgb888_compress(frame_size_mp: Any, data: Any, jpeg_quality: int, /) -> Any:
+//|     """Perform rgb888 compress for aidemo."""
+//| def save_wav(wav_list: Any, wav_length: int, wav_path: str, sample_rate: Any, /) -> Any:
+//|     """Save wav from aidemo."""
+//| def segment_postprocess(p_outputs_list: Any, frame_size_list: Any, kmodel_frame_size_list: Any, display_frame_size_list: Any, conf_thres: float, nms_thres: float, mask_thres: float, masks_results: Any, /) -> Any:
+//|     """Run segment post-processing for aidemo."""
+//| def tts_zh_create(dictfile: Any, phasefile: Any, mapfile: Any, /) -> Any:
+//|     """Perform tts zh create for aidemo."""
+//| def tts_zh_destroy(ttszh: Any, /) -> Any:
+//|     """Release resources held by aidemo."""
+//| def tts_zh_preprocess(ttszh: Any, text: Any, /) -> Any:
+//|     """Run tts zh preprocessing for aidemo."""
+//| def yolo26_det_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolo26 det post-processing for aidemo."""
+//| def yolo26_obb_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolo26 obb post-processing for aidemo."""
+//| def yolo26_pose_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, kp_num: int, kp_dim: int, conf_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolo26 pose post-processing for aidemo."""
+//| def yolo26_seg_postprocess(data_mp_0: Any, data_mp_1: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, mask_thresh: float, masks_results: Any, /) -> Any:
+//|     """Run yolo26 seg post-processing for aidemo."""
+//| def yolo_license_plate_det_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, conf_thresh: float, nms_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolo license plate det post-processing for aidemo."""
+//| def yolo_obb_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, nms_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolo obb post-processing for aidemo."""
+//| def yolov5_det_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, nms_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolov5 det post-processing for aidemo."""
+//| def yolov5_seg_postprocess(data_mp_0: Any, data_mp_1: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, nms_thresh: float, mask_thresh: float, masks_results: Any, /) -> Any:
+//|     """Run yolov5 seg post-processing for aidemo."""
+//| def yolov8_det_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, nms_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolov8 det post-processing for aidemo."""
+//| def yolov8_pose_postprocess(data_mp_0: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, kp_num: int, kp_dim: int, conf_thresh: float, nms_thresh: float, max_box_cnt: int, /) -> Any:
+//|     """Run yolov8 pose post-processing for aidemo."""
+//| def yolov8_seg_postprocess(data_mp_0: Any, data_mp_1: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, num_class: int, conf_thresh: float, nms_thresh: float, mask_thresh: float, masks_results: Any, /) -> Any:
+//|     """Run yolov8 seg post-processing for aidemo."""
+//| def yunet_postprocess(p_outputs_list: Any, frame_size_mp: Any, kmodel_input_size_mp: Any, display_size_mp: Any, strides_mp: Any, conf_thres: float, nms_thres: float, max_box_cnt: int, /) -> Any:
+//|     """Run yunet post-processing for aidemo."""
+
 
 
 STATIC const mp_rom_map_elem_t aidemo_globals_table[] = {

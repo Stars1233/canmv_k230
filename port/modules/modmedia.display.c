@@ -1660,6 +1660,39 @@ static mp_obj_t py_display_wbc_dump_wrap(size_t n, const mp_obj_t* args)
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR(py_display_wbc_dump_obj, 0, py_display_wbc_dump_wrap);
 static MP_DEFINE_CONST_STATICMETHOD_OBJ(py_display_wbc_dump_method, MP_ROM_PTR(&py_display_wbc_dump_obj));
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| class Display:
+//|     """_media.Display object."""
+//|     def _disable_layer(arg: Any, /) -> Any:
+//|         """Perform disable layer for _media.Display."""
+//|     def bind_layer(src: Any, *, rect: Any = None, pix_format: int = -1, layer: int = -1, alpha: int = 255, flag: int = 0) -> Any:
+//|         """Bind an MPP source channel to a display layer."""
+//|     def config_layer(*, rect: Any = None, pix_format: int = -1, layer: int = -1, alpha: int = 255, flag: int = 0) -> Any:
+//|         """Config layer for _media.Display."""
+//|     def deinit() -> None:
+//|         """Release resources held by _media.Display."""
+//|     def disable_layer(arg: Any, /) -> Any:
+//|         """Perform disable layer for _media.Display."""
+//|     def fps() -> Any:
+//|         """Perform fps for _media.Display."""
+//|     def height(layer: Optional[int] = None) -> int:
+//|         """Return display or layer height."""
+//|     def init(type: int, width: int = 0, height: int = 0, fps: int = 60, flag: int = 0, osd_num: int = 1, to_ide: bool = False, quality: int = 90) -> None:
+//|         """Initialize _media.Display."""
+//|     def inited() -> Any:
+//|         """Return the inited state for _media.Display."""
+//|     def show_image(img: Any, x: int = 0, y: int = 0, layer: int = ..., alpha: Any = None, pixel_format: Any = None, flag: int = 0, direct_show: bool = False) -> Any:
+//|         """Perform show image for _media.Display."""
+//|     def unbind_layer(arg: Any, /) -> Any:
+//|         """Unbind layer for _media.Display."""
+//|     def width(layer: Optional[int] = None) -> int:
+//|         """Return display or layer width."""
+//|     def writeback(enable: Optional[bool] = None) -> bool:
+//|         """Read or set display writeback state."""
+//|     def writeback_dump(timeout: int = 1000) -> Any:
+//|         """Capture a writeback frame."""
+
 
 static const mp_rom_map_elem_t display_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&py_display_init_method) },

@@ -341,6 +341,17 @@ STATIC mp_obj_t cryptolib_aes_decrypt(size_t n_args, const mp_obj_t *args) {
     return aes_process(n_args, args, false);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cryptolib_aes_decrypt_obj, 2, 3, cryptolib_aes_decrypt);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: cryptolib
+//| class aes:
+//|     """cryptolib.aes object."""
+//|     def __init__(self, keyinfo: Any, block_mode: int, ivinfo: Any = ..., /) -> None:
+//|         """Create a cryptolib.aes object."""
+//|     def decrypt(self, input: Any, output: Any = ..., /) -> Any:
+//|         """Perform decrypt for cryptolib.aes."""
+//|     def encrypt(self, input: Any, output: Any = ..., /) -> Any:
+//|         """Perform encrypt for cryptolib.aes."""
+
 
 STATIC const mp_rom_map_elem_t cryptolib_aes_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_encrypt), MP_ROM_PTR(&cryptolib_aes_encrypt_obj) },
@@ -355,6 +366,10 @@ STATIC MP_DEFINE_CONST_OBJ_TYPE(
     make_new, cryptolib_aes_make_new,
     locals_dict, &cryptolib_aes_locals_dict
     );
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: cryptolib
+//| """CanMV cryptolib module."""
+
 
 STATIC const mp_rom_map_elem_t mp_module_cryptolib_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cryptolib) },

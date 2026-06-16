@@ -1996,6 +1996,108 @@ STATIC mp_obj_t cv_lite_rgb888_perspective_transform(size_t n_args, const mp_obj
     return MP_OBJ_FROM_PTR(out);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(cv_lite_rgb888_perspective_transform_obj, 6, 6, cv_lite_rgb888_perspective_transform);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: cv_lite
+//| """CanMV cv_lite module."""
+//| def grayscale_find_blobs(frame_size_mp: Any, data: Any, threshold_min: int, threshold_max: int, min_area: int, kernel_size: int, /) -> Any:
+//|     """Perform grayscale find blobs for cv_lite."""
+//| def grayscale_find_circles(frame_size_mp: Any, data: Any, dp: int, minDist: int, param1: int, param2: int, minRadius: int, maxRadius: int, /) -> Any:
+//|     """Perform grayscale find circles for cv_lite."""
+//| def grayscale_find_corners(frame_size_mp: Any, data: Any, maxCorners: int, qualityLevel: float, minDistance: float, /) -> Any:
+//|     """Perform grayscale find corners for cv_lite."""
+//| def grayscale_find_edges(frame_size_mp: Any, data: Any, threshold1: int, threshold2: int, /) -> Any:
+//|     """Perform grayscale find edges for cv_lite."""
+//| def grayscale_find_lines(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, gaussian_blur_size: int, rho: float, theta: float, hough_thresh: int, min_line_length: float, max_line_gap: float, /) -> Any:
+//|     """Perform grayscale find lines for cv_lite."""
+//| def grayscale_find_lines_no_hough(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, gaussian_blur_size: int, min_contour_len: float, /) -> Any:
+//|     """Perform grayscale find lines no hough for cv_lite."""
+//| def grayscale_find_lines_raw(frame_size_mp: Any, data: Any, x_stride: int, y_stride: int, sobel_thresh: int, rho_step: float, theta_step: float, hough_thresh: int, /) -> Any:
+//|     """Perform grayscale find lines raw for cv_lite."""
+//| def grayscale_find_lines_sobel(frame_size_mp: Any, data: Any, sobel_thresh: int, gaussian_blur_size: int, rho: float, theta: float, hough_thresh: int, min_line_length: float, max_line_gap: float, /) -> Any:
+//|     """Perform grayscale find lines sobel for cv_lite."""
+//| def grayscale_find_rectangles(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, approx_eps_ratio: float, area_min_ratio: float, max_angle_cos: float, gaussian_blur_size: int, /) -> Any:
+//|     """Perform grayscale find rectangles for cv_lite."""
+//| def grayscale_find_rectangles_with_corners(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, approx_eps_ratio: float, area_min_ratio: float, max_angle_cos: float, gaussian_blur_size: int, /) -> Any:
+//|     """Perform grayscale find rectangles with corners for cv_lite."""
+//| def grayscale_threshold_binary(frame_size_mp: Any, data: Any, thresh: int, maxval: int, /) -> Any:
+//|     """Perform grayscale threshold binary for cv_lite."""
+//| def load_image(file_path: str, /) -> Any:
+//|     """Load image for cv_lite."""
+//| def rgb888_adjust_exposure(frame_size_mp: Any, data: Any, exposure_gain: float, /) -> Any:
+//|     """Perform rgb888 adjust exposure for cv_lite."""
+//| def rgb888_adjust_exposure_fast(frame_size_mp: Any, data: Any, exposure_gain: float, /) -> Any:
+//|     """Perform rgb888 adjust exposure fast for cv_lite."""
+//| def rgb888_blackhat(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 blackhat for cv_lite."""
+//| def rgb888_calc_histogram(frame_size_mp: Any, data: Any, /) -> Any:
+//|     """Perform rgb888 calc histogram for cv_lite."""
+//| def rgb888_close(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 close for cv_lite."""
+//| def rgb888_denoise(frame_size_mp: Any, data: Any, method: int, strength: int, /) -> Any:
+//|     """Perform rgb888 denoise for cv_lite."""
+//| def rgb888_denoise_fast(frame_size_mp: Any, data: Any, method: int, strength: int, /) -> Any:
+//|     """Perform rgb888 denoise fast for cv_lite."""
+//| def rgb888_dilate(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 dilate for cv_lite."""
+//| def rgb888_erode(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 erode for cv_lite."""
+//| def rgb888_find_blobs(frame_size_mp: Any, data: Any, threshold_list: Any, min_area: int, kernel_size: int, /) -> Any:
+//|     """Perform rgb888 find blobs for cv_lite."""
+//| def rgb888_find_circles(frame_size_mp: Any, data: Any, dp: int, minDist: int, param1: int, param2: int, minRadius: int, maxRadius: int, /) -> Any:
+//|     """Perform rgb888 find circles for cv_lite."""
+//| def rgb888_find_corners(frame_size_mp: Any, data: Any, maxCorners: int, qualityLevel: float, minDistance: float, /) -> Any:
+//|     """Perform rgb888 find corners for cv_lite."""
+//| def rgb888_find_corners_fast(frame_size_mp: Any, data: Any, maxCorners: int, qualityLevel: float, minDistance: float, /) -> Any:
+//|     """Perform rgb888 find corners fast for cv_lite."""
+//| def rgb888_find_edges(frame_size_mp: Any, data: Any, threshold1: int, threshold2: int, /) -> Any:
+//|     """Perform rgb888 find edges for cv_lite."""
+//| def rgb888_find_lines(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, gaussian_blur_size: int, rho: float, theta: float, hough_thresh: int, min_line_length: float, max_line_gap: float, /) -> Any:
+//|     """Perform rgb888 find lines for cv_lite."""
+//| def rgb888_find_rectangles(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, approx_eps_ratio: float, area_min_ratio: float, max_angle_cos: float, gaussian_blur_size: int, /) -> Any:
+//|     """Perform rgb888 find rectangles for cv_lite."""
+//| def rgb888_find_rectangles_with_corners(frame_size_mp: Any, data: Any, canny_thresh1: int, canny_thresh2: int, approx_eps_ratio: float, area_min_ratio: float, max_angle_cos: float, gaussian_blur_size: int, /) -> Any:
+//|     """Perform rgb888 find rectangles with corners for cv_lite."""
+//| def rgb888_gaussian_blur_fast(frame_size_mp: Any, data: Any, kernel_size: int, /) -> Any:
+//|     """Perform rgb888 gaussian blur fast for cv_lite."""
+//| def rgb888_gradient(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 gradient for cv_lite."""
+//| def rgb888_mean_blur(frame_size_mp: Any, data: Any, kernel_size: int, /) -> Any:
+//|     """Perform rgb888 mean blur for cv_lite."""
+//| def rgb888_mean_blur_fast(frame_size_mp: Any, data: Any, kernel_size: int, /) -> Any:
+//|     """Perform rgb888 mean blur fast for cv_lite."""
+//| def rgb888_open(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 open for cv_lite."""
+//| def rgb888_perspective_transform(frame_size_mp: Any, data: Any, roi_mp: Any, dst_pts_mp: Any, output_width: int, output_height: int, /) -> Any:
+//|     """Perform rgb888 perspective transform for cv_lite."""
+//| def rgb888_pnp_distance(frame_size_mp: Any, data: Any, roi_mp: Any, camera_matrix_mp: Any, dist_coeffs_mp: Any, dist_len: int, roi_width_real: float, roi_height_real: float, /) -> Any:
+//|     """Perform rgb888 pnp distance for cv_lite."""
+//| def rgb888_pnp_distance_from_corners(frame_size_mp: Any, data: Any, camera_matrix_mp: Any, dist_coeffs_mp: Any, dist_len: int, obj_width_cm: float, obj_height_cm: float, /) -> Any:
+//|     """Perform rgb888 pnp distance from corners for cv_lite."""
+//| def rgb888_threshold_binary(frame_size_mp: Any, data: Any, thresh: int, maxval: int, /) -> Any:
+//|     """Perform rgb888 threshold binary for cv_lite."""
+//| def rgb888_tophat(frame_size_mp: Any, data: Any, kernel_size: int, iterations: int, threshold_value: int, /) -> Any:
+//|     """Perform rgb888 tophat for cv_lite."""
+//| def rgb888_undistort(frame_size_mp: Any, data: Any, camera_matrix_mp: Any, dist_coeffs_mp: Any, dist_len: int, /) -> Any:
+//|     """Perform rgb888 undistort for cv_lite."""
+//| def rgb888_undistort_fast(frame_size_mp: Any, data: Any, camera_matrix_mp: Any, dist_coeffs_mp: Any, dist_len: int, /) -> Any:
+//|     """Perform rgb888 undistort fast for cv_lite."""
+//| def rgb888_undistort_new_cam_mat(frame_size_mp: Any, data: Any, camera_matrix_mp: Any, dist_coeffs_mp: Any, dist_len: int, /) -> Any:
+//|     """Perform rgb888 undistort new cam mat for cv_lite."""
+//| def rgb888_white_balance_gray_world(frame_size_mp: Any, data: Any, /) -> Any:
+//|     """Perform rgb888 white balance gray world for cv_lite."""
+//| def rgb888_white_balance_gray_world_adjustable(frame_size_mp: Any, data: Any, alpha: float, /) -> Any:
+//|     """Perform rgb888 white balance gray world adjustable for cv_lite."""
+//| def rgb888_white_balance_gray_world_fast(frame_size_mp: Any, data: Any, /) -> Any:
+//|     """Perform rgb888 white balance gray world fast for cv_lite."""
+//| def rgb888_white_balance_gray_world_fast_ex(frame_size_mp: Any, data: Any, gain_clip: float = ..., brightness_boost: float = ..., /) -> Any:
+//|     """Perform rgb888 white balance gray world fast ex for cv_lite."""
+//| def rgb888_white_balance_white_patch(frame_size_mp: Any, data: Any, /) -> Any:
+//|     """Perform rgb888 white balance white patch for cv_lite."""
+//| def rgb888_white_balance_white_patch_ex(frame_size_mp: Any, data: Any, top_percent: float = ..., gain_clip: float = ..., brightness_boost: float = ..., /) -> Any:
+//|     """Perform rgb888 white balance white patch ex for cv_lite."""
+//| def save_image(save_path: str, frame_size_mp: Any, data: Any, /) -> Any:
+//|     """Save image from cv_lite."""
+
 
 STATIC const mp_rom_map_elem_t cv_lite_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_cv_lite) },

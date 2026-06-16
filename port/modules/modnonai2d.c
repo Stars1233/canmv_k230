@@ -27,6 +27,10 @@
 #include "py/runtime.h"
 
 #include "py_modules.h"
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nonai2d
+//| """CanMV nonai2d module."""
+
 
 STATIC const mp_rom_map_elem_t nonai2d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_nonai2d) },

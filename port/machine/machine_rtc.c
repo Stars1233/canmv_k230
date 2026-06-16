@@ -210,6 +210,23 @@ STATIC mp_obj_t machine_rtc_ntp_sync(mp_obj_t self_in) {
     return mp_obj_new_bool(0x00 < result);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_rtc_ntp_sync_obj, machine_rtc_ntp_sync);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class RTC:
+//|     """machine.RTC object."""
+//|     def __init__(self) -> None:
+//|         """Create a machine.RTC object."""
+//|     def datetime(self, date: Any = ..., /) -> Any:
+//|         """Perform datetime for machine.RTC."""
+//|     def init(self, date: Any, /) -> None:
+//|         """Initialize machine.RTC."""
+//|     def now(self, /) -> Any:
+//|         """Perform now for machine.RTC."""
+//|     def ntp_sync(self, /) -> Any:
+//|         """Perform ntp sync for machine.RTC."""
+//|     def timezone(self, timezone: int = ..., /) -> Any:
+//|         """Perform timezone for machine.RTC."""
+
 
 STATIC const mp_rom_map_elem_t machine_rtc_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&machine_rtc_init_obj) },

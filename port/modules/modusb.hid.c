@@ -932,6 +932,27 @@ static mp_obj_t py_usb_pointer_read(size_t n_args, const mp_obj_t *args)
     }
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(py_usb_pointer_read_obj, 1, 2, py_usb_pointer_read);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: usb
+//| class Keyboard:
+//|     """USB keyboard input device."""
+//|     def __init__(self, path: Optional[str] = None, timeout_ms: int = 300, auto_reconnect: bool = True) -> None:
+//|         """Create a usb.Keyboard object."""
+//|     def close(self) -> None:
+//|         """Close the HID device."""
+//|     def info(self) -> dict:
+//|         """Return device information such as kind, name, path and capability bits."""
+//|     def is_open(self) -> bool:
+//|         """Return True when the HID device is connected."""
+//|     def open(self, path: Optional[str] = None) -> bool:
+//|         """Open the HID device, optionally overriding the input event path."""
+//|     def poll(self, timeout_ms: Optional[int] = None) -> bool:
+//|         """Wait until input is available."""
+//|     def read(self, timeout_ms: Optional[int] = None) -> dict:
+//|         """Read one keyboard frame. The result includes events, chars, text and modifier states."""
+//|     def reconnect(self) -> bool:
+//|         """Try to reconnect after the device was unplugged."""
+
 
 STATIC const mp_rom_map_elem_t py_usb_keyboard_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_usb_hid_close_obj) },
@@ -948,6 +969,48 @@ STATIC const mp_rom_map_elem_t py_usb_keyboard_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_VALUE_REPEAT), MP_ROM_INT(KEY_REPEAT) },
 };
 STATIC MP_DEFINE_CONST_DICT(py_usb_keyboard_locals_dict, py_usb_keyboard_locals_dict_table);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: usb
+//| class Mouse:
+//|     """USB mouse input device."""
+//|     def __init__(self, path: Optional[str] = None, timeout_ms: int = 300, auto_reconnect: bool = True) -> None:
+//|         """Create a usb.Mouse object."""
+//|     def close(self) -> None:
+//|         """Close the HID device."""
+//|     def info(self) -> dict:
+//|         """Return device information such as kind, name, path and capability bits."""
+//|     def is_open(self) -> bool:
+//|         """Return True when the HID device is connected."""
+//|     def open(self, path: Optional[str] = None) -> bool:
+//|         """Open the HID device, optionally overriding the input event path."""
+//|     def poll(self, timeout_ms: Optional[int] = None) -> bool:
+//|         """Wait until input is available."""
+//|     def read(self, timeout_ms: Optional[int] = None) -> dict:
+//|         """Read one mouse/touch frame. The result includes relative, absolute, wheel and button state fields."""
+//|     def reconnect(self) -> bool:
+//|         """Try to reconnect after the device was unplugged."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: usb
+//| class Touch:
+//|     """USB touch input device."""
+//|     def __init__(self, path: Optional[str] = None, timeout_ms: int = 300, auto_reconnect: bool = True) -> None:
+//|         """Create a usb.Touch object."""
+//|     def close(self) -> None:
+//|         """Close the HID device."""
+//|     def info(self) -> dict:
+//|         """Return device information such as kind, name, path and capability bits."""
+//|     def is_open(self) -> bool:
+//|         """Return True when the HID device is connected."""
+//|     def open(self, path: Optional[str] = None) -> bool:
+//|         """Open the HID device, optionally overriding the input event path."""
+//|     def poll(self, timeout_ms: Optional[int] = None) -> bool:
+//|         """Wait until input is available."""
+//|     def read(self, timeout_ms: Optional[int] = None) -> dict:
+//|         """Read one mouse/touch frame. The result includes relative, absolute, wheel and button state fields."""
+//|     def reconnect(self) -> bool:
+//|         """Try to reconnect after the device was unplugged."""
+
 
 STATIC const mp_rom_map_elem_t py_usb_pointer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_usb_hid_close_obj) },

@@ -356,6 +356,20 @@ STATIC mp_obj_t aicube_seg_post_process(size_t n_args, const mp_obj_t *args) {
 }
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(aicube_seg_post_process_obj, 4, 4, aicube_seg_post_process);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: aicube
+//| """CanMV aicube module."""
+//| def anchorbasedet_post_process(data_mp_0: Any, data_mp_1: Any, data_mp_2: Any, kmodel_frame_size_mp: Any, frame_size_mp: Any, strides_mp: Any, num_class: int, ob_det_thresh: float, ob_nms_thresh: float, anchors_mp: bool, nms_option: bool, /) -> Any:
+//|     """Run anchorbasedet post-processing for aicube."""
+//| def anchorfreedet_post_process(data_mp_0: Any, data_mp_1: int, data_mp_2: Any, kmodel_frame_size_mp: Any, frame_size_mp: Any, strides_mp: Any, num_class: int, ob_det_thresh: float, ob_nms_thresh: float, nms_option: bool, /) -> Any:
+//|     """Run anchorfreedet post-processing for aicube."""
+//| def gfldet_post_process(data_mp_0: Any, data_mp_1: int, data_mp_2: Any, kmodel_frame_size_mp: Any, frame_size_mp: Any, strides_mp: Any, num_class: int, ob_det_thresh: float, ob_nms_thresh: float, nms_option: bool, /) -> Any:
+//|     """Run gfldet post-processing for aicube."""
+//| def ocr_post_process(data_mp_0: Any, data_mp_1: Any, kmodel_frame_size_mp: Any, frame_size_mp: Any, threshold: float, box_thresh: float, /) -> Any:
+//|     """Run ocr post-processing for aicube."""
+//| def seg_post_process(data_mp: Any, num_class: int, ori_shape_mp: Any, dst_shape_mp: Any, /) -> Any:
+//|     """Run seg post-processing for aicube."""
+
 
 STATIC const mp_rom_map_elem_t aicube_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_aicube) },

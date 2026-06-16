@@ -136,6 +136,20 @@ STATIC mp_obj_t machine_read_temp(void) {
     return mp_obj_new_float_from_d(temp);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_read_temp_obj, machine_read_temp);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| """CanMV machine module."""
+//| def bootloader() -> None:
+//|     """Reboot into bootloader mode when supported by the board."""
+//| def chipid() -> bytes:
+//|     """Return the SoC chip identifier."""
+//| def mem_copy(dst: int, src: int, length: int) -> None:
+//|     """Copy length bytes from source address to destination address."""
+//| def reset() -> None:
+//|     """Reset the board immediately."""
+//| def temperature() -> float:
+//|     """Read the chip temperature in degrees Celsius."""
+
 
 STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_machine) },

@@ -180,6 +180,17 @@ STATIC mp_obj_t gsdma_gdma_convert(size_t n, const mp_obj_t* args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(gsdma_gdma_convert_obj, 4, 4, gsdma_gdma_convert);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(gsdma_gdma_convert_method, MP_ROM_PTR(&gsdma_gdma_convert_obj));
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| class GSDMA:
+//|     """_media.GSDMA object."""
+//|     def gdma_convert(n: Any, dst_phys_addr: int, dst_phys_size: int, rotation: int, /) -> Any:
+//|         """Perform gdma convert for _media.GSDMA."""
+//|     def sdma_memcpy(dst_addr: Any, src_addr: Any, size: Any, /) -> Any:
+//|         """Perform sdma memcpy for _media.GSDMA."""
+//|     def sdma_memset(n: int, size: int, data: int, data_size: int = ..., /) -> Any:
+//|         """Perform sdma memset for _media.GSDMA."""
+
 
 STATIC const mp_rom_map_elem_t gsdma_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_sdma_memcpy), MP_ROM_PTR(&gsdma_sdma_memcpy_method) },

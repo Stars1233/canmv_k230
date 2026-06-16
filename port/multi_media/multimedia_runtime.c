@@ -38,6 +38,10 @@
 #define MICROPY_PY_MULTIMEDIA_RUNTIME      (1)
 
 #if MICROPY_PY_MULTIMEDIA_RUNTIME
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: multimedia
+//| """CanMV multimedia module."""
+
 
 STATIC const mp_rom_map_elem_t multimedia_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_multimedia) },

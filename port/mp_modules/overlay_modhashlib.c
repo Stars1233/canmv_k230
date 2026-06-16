@@ -154,6 +154,17 @@ STATIC mp_obj_t hashlib_sha256_digest(mp_obj_t self_in) {
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(hashlib_sha256_update_obj, hashlib_sha256_update);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(hashlib_sha256_digest_obj, hashlib_sha256_digest);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: hashlib
+//| class sha256:
+//|     """hashlib.sha256 object."""
+//|     def __init__(self, data: Any = ...) -> None:
+//|         """Create a hashlib.sha256 object."""
+//|     def digest(self) -> bytes:
+//|         """Return the binary digest and finalize this hash object."""
+//|     def update(self, data: Any) -> None:
+//|         """Update the hash object with bytes-like data."""
+
 
 STATIC const mp_rom_map_elem_t hashlib_sha256_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_update), MP_ROM_PTR(&hashlib_sha256_update_obj) },
@@ -249,6 +260,17 @@ STATIC mp_obj_t hashlib_sha1_digest(mp_obj_t self_in) {
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(hashlib_sha1_update_obj, hashlib_sha1_update);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(hashlib_sha1_digest_obj, hashlib_sha1_digest);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: hashlib
+//| class sha1:
+//|     """hashlib.sha1 object."""
+//|     def __init__(self, data: Any = ...) -> None:
+//|         """Create a hashlib.sha1 object."""
+//|     def digest(self) -> bytes:
+//|         """Return the binary digest and finalize this hash object."""
+//|     def update(self, data: Any) -> None:
+//|         """Update the hash object with bytes-like data."""
+
 
 STATIC const mp_rom_map_elem_t hashlib_sha1_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_update), MP_ROM_PTR(&hashlib_sha1_update_obj) },
@@ -343,6 +365,17 @@ STATIC mp_obj_t hashlib_md5_digest(mp_obj_t self_in) {
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(hashlib_md5_update_obj, hashlib_md5_update);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(hashlib_md5_digest_obj, hashlib_md5_digest);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: hashlib
+//| class md5:
+//|     """hashlib.md5 object."""
+//|     def __init__(self, data: Any = ...) -> None:
+//|         """Create a hashlib.md5 object."""
+//|     def digest(self) -> bytes:
+//|         """Return the binary digest and finalize this hash object."""
+//|     def update(self, data: Any) -> None:
+//|         """Update the hash object with bytes-like data."""
+
 
 STATIC const mp_rom_map_elem_t hashlib_md5_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_update), MP_ROM_PTR(&hashlib_md5_update_obj) },
@@ -358,6 +391,10 @@ STATIC MP_DEFINE_CONST_OBJ_TYPE(
     locals_dict, &hashlib_md5_locals_dict
     );
 #endif // MICROPY_PY_HASHLIB_MD5
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: hashlib
+//| """CanMV hashlib module."""
+
 
 STATIC const mp_rom_map_elem_t mp_module_hashlib_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_hashlib) },

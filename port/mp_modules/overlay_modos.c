@@ -120,6 +120,40 @@ STATIC mp_obj_t mp_os_uname(void) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_os_uname_obj, mp_os_uname);
 
 #endif
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: os
+//| """CanMV os module."""
+//| def chdir(path: Any, /) -> Any:
+//|     """Perform chdir for os."""
+//| def getcwd() -> Any:
+//|     """Perform getcwd for os."""
+//| def ilistdir(path: Any = ..., /) -> Any:
+//|     """Perform ilistdir for os."""
+//| def listdir(arg0: Any = ..., /) -> Any:
+//|     """Perform listdir for os."""
+//| def mkdir(path: Any, /) -> Any:
+//|     """Perform mkdir for os."""
+//| def mount(*, readonly: Any = ..., mkfs: Any = ...) -> Any:
+//|     """Perform mount for os."""
+//| def remove(path: Any, /) -> Any:
+//|     """Perform remove for os."""
+//| def rename(old_path: Any, new_path: Any, /) -> Any:
+//|     """Perform rename for os."""
+//| def rmdir(path: Any, /) -> Any:
+//|     """Perform rmdir for os."""
+//| def stat(path: Any, /) -> Any:
+//|     """Perform stat for os."""
+//| def statvfs(path: Any, /) -> Any:
+//|     """Perform statvfs for os."""
+//| def sync() -> Any:
+//|     """Sync os."""
+//| def umount(mnt: Any, /) -> Any:
+//|     """Perform umount for os."""
+//| def uname() -> Any:
+//|     """Perform uname for os."""
+//| def unlink(path: Any, /) -> Any:
+//|     """Perform unlink for os."""
+
 
 STATIC const mp_rom_map_elem_t os_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_os) },

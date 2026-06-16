@@ -278,6 +278,25 @@ STATIC mp_obj_t machine_spi_readinto(size_t n_args, const mp_obj_t *args) {
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_spi_readinto_obj, 2, 3, machine_spi_readinto);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class SPI:
+//|     """machine.SPI object."""
+//|     def __init__(self, spi_id: int, /, baudrate: int = 500000, *, polarity: int = 0, phase: int = 0, bits: int = 8, cs: int = -1, data_line: int = 1, firstbit: int = -1, sck: Any = ..., mosi: Any = ..., miso: Any = ...) -> None:
+//|         """Create a machine.SPI object."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.SPI."""
+//|     def init(self, baudrate: int = 500000, *, polarity: int = 0, phase: int = 0, bits: int = 8, cs: int = -1, data_line: int = 1, firstbit: int = -1, sck: Any = ..., mosi: Any = ..., miso: Any = ...) -> None:
+//|         """Reconfigure the SPI bus."""
+//|     def read(self, nbytes: int, write: int = ..., /) -> bytes:
+//|         """Read data from machine.SPI."""
+//|     def readinto(self, buf: Any, write: int = ..., /) -> int:
+//|         """Read data from machine.SPI."""
+//|     def write(self, wr_buf: Any, /) -> int:
+//|         """Write or send data using machine.SPI."""
+//|     def write_readinto(self, wr_buf: Any, rd_buf: Any, /) -> Any:
+//|         """Write or send data using machine.SPI."""
+
 
 STATIC const mp_rom_map_elem_t machine_spi_locals_dict_table_k230[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_spi_deinit_obj) },

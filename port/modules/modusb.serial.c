@@ -219,6 +219,17 @@ STATIC mp_obj_t py_usb_serial_close(mp_obj_t self_in)
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_usb_serial_close_obj, py_usb_serial_close);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: usb
+//| class Serial:
+//|     """USB serial device."""
+//|     def __init__(self, path: Optional[str] = None, timeout_ms: int = 300) -> None:
+//|         """Create a usb.Serial object."""
+//|     def close(self) -> None:
+//|         """Close the serial device."""
+//|     def open(self, path: Optional[str] = None) -> bool:
+//|         """Open the serial device."""
+
 
 STATIC const mp_rom_map_elem_t py_usb_serial_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_usb_serial_close_obj) },

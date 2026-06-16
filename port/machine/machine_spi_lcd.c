@@ -787,6 +787,47 @@ STATIC mp_obj_t machine_spi_lcd_make_new(const mp_obj_type_t *type, size_t n_arg
 
     return MP_OBJ_FROM_PTR(self);
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class SPI_LCD:
+//|     """machine.SPI_LCD object."""
+//|     def __init__(self) -> None:
+//|         """Create a machine.SPI_LCD object."""
+//|     def bgr(self, new: bool = ..., /) -> Any:
+//|         """Perform bgr for machine.SPI_LCD."""
+//|     def command(self, cmd: Any, data: Any, /) -> Any:
+//|         """Perform command for machine.SPI_LCD."""
+//|     def configure(self, *, hmirror: bool = False, vflip: bool = False, bgr: bool = False) -> Any:
+//|         """Configure for machine.SPI_LCD."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.SPI_LCD."""
+//|     def fill(self, spi: Any, dc: Any, cs: Any = None, rst: Any = None, bl: Any = None, type: int = ..., *, color: Any = ...) -> Any:
+//|         """Perform fill for machine.SPI_LCD."""
+//|     def get(self, obj_x: Any, obj_y: Any, /) -> Any:
+//|         """Perform get for machine.SPI_LCD."""
+//|     def get_direction(self, /) -> Any:
+//|         """Return direction for machine.SPI_LCD."""
+//|     def height(self, /) -> Any:
+//|         """Return height for machine.SPI_LCD."""
+//|     def hmirror(self, new: bool = ..., /) -> Any:
+//|         """Perform hmirror for machine.SPI_LCD."""
+//|     def init(self, custom_command: bool = ..., /) -> None:
+//|         """Initialize machine.SPI_LCD."""
+//|     def light(self, val: int = ..., /) -> Any:
+//|         """Perform light for machine.SPI_LCD."""
+//|     def pixel(self, spi: Any, dc: Any, cs: Any = None, rst: Any = None, bl: Any = None, type: int = ..., *, color: Any = ...) -> Any:
+//|         """Perform pixel for machine.SPI_LCD."""
+//|     def set(self, spi: Any, dc: Any, cs: Any = None, rst: Any = None, bl: Any = None, type: int = ..., *, color: Any = ...) -> Any:
+//|         """Perform set for machine.SPI_LCD."""
+//|     def show(self, img: Any = ..., x: int = ..., y: int = ..., /) -> Any:
+//|         """Perform show for machine.SPI_LCD."""
+//|     def show_image(self, img: Any = ..., x: int = ..., y: int = ..., /) -> Any:
+//|         """Perform show image for machine.SPI_LCD."""
+//|     def vflip(self, new: bool = ..., /) -> Any:
+//|         """Perform vflip for machine.SPI_LCD."""
+//|     def width(self, /) -> Any:
+//|         """Return width for machine.SPI_LCD."""
+
 
 STATIC const mp_rom_map_elem_t machine_spi_lcd_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_spi_lcd_deinit_obj) },

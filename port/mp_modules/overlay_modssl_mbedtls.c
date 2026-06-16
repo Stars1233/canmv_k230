@@ -299,6 +299,15 @@ STATIC mp_obj_t ssl_context_wrap_socket(size_t n_args, const mp_obj_t *pos_args,
         args[ARG_do_handshake_on_connect].u_bool, args[ARG_server_hostname].u_obj);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(ssl_context_wrap_socket_obj, 2, ssl_context_wrap_socket);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: ssl
+//| class SSLContext:
+//|     """ssl.SSLContext object."""
+//|     def __init__(self, type_: int, /) -> None:
+//|         """Create a ssl.SSLContext object."""
+//|     def wrap_socket(self, *, server_side: bool = False, do_handshake_on_connect: bool = True, server_hostname: Any = ...) -> Any:
+//|         """Perform wrap socket for ssl.SSLContext."""
+
 
 STATIC const mp_rom_map_elem_t ssl_context_locals_dict_table[] = {
     #if MICROPY_PY_SSL_FINALISER
@@ -640,6 +649,12 @@ STATIC mp_obj_t mod_ssl_wrap_socket(size_t n_args, const mp_obj_t *pos_args, mp_
         args[ARG_do_handshake].u_bool, args[ARG_server_hostname].u_obj);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mod_ssl_wrap_socket_obj, 1, mod_ssl_wrap_socket);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: ssl
+//| """CanMV ssl module."""
+//| def wrap_socket(*, key: Any = ..., cert: Any = ..., server_side: bool = False, server_hostname: Any = ..., cert_reqs: int = ..., cadata: Any = ..., do_handshake: bool = True) -> Any:
+//|     """Perform wrap socket for ssl."""
+
 
 STATIC const mp_rom_map_elem_t mp_module_ssl_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ssl) },

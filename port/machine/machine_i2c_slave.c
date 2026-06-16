@@ -158,6 +158,17 @@ STATIC mp_obj_t machine_i2c_slave_deinit(mp_obj_t self_in) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(machine_i2c_slave_deinit_obj, machine_i2c_slave_deinit);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class I2C_Slave:
+//|     """machine.I2C_Slave object."""
+//|     def __init__(self, i2c_number: int, /, *, addr: int = 0x01, mem_size: int = 10) -> None:
+//|         """Create a machine.I2C_Slave object."""
+//|     def readfrom_mem(self, mem_addr: Any, size: Any, /) -> Any:
+//|         """Read data from machine.I2C_Slave."""
+//|     def writeto_mem(self, mem_addr: int, buf: Any, /) -> Any:
+//|         """Write or send data using machine.I2C_Slave."""
+
 
 
 STATIC const mp_rom_map_elem_t machine_i2c_slave_locals_dict_table[] = {

@@ -353,6 +353,19 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_video_frame_destroy_obj, py_video_frame_dest
 
 STATIC mp_obj_t py_video_frame_release(mp_obj_t self_in) { return py_video_frame_destroy(self_in); }
 STATIC          MP_DEFINE_CONST_FUN_OBJ_1(py_video_frame_release_obj, py_video_frame_release);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| class py_video_frame:
+//|     """_media.py_video_frame object."""
+//|     def __init__(self, buf: Any, /) -> None:
+//|         """Create a _media.py_video_frame object."""
+//|     def nv12_to_grayscale(self, /) -> Any:
+//|         """Perform nv12 to grayscale for _media.py_video_frame."""
+//|     def release(self, /) -> Any:
+//|         """Release resources held by _media.py_video_frame."""
+//|     def to_image(self, new_format: int = ...) -> Any:
+//|         """Convert _media.py_video_frame to image."""
+
 
 STATIC const mp_rom_map_elem_t py_video_frame_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_video_frame_destroy_obj) },

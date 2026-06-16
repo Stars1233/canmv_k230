@@ -372,6 +372,17 @@ STATIC mp_obj_t machine_touch_make_new(const mp_obj_type_t* type, size_t n_args,
 
     return MP_OBJ_FROM_PTR(self);
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class TOUCH:
+//|     """machine.TOUCH object."""
+//|     def __init__(self, dev: int, *, rotate: int = -1, range_x: int = -1, range_y: int = -1, i2c: Any = None, rst: Any = None, int: Any = None, type: int = -1, slave_addr: Any = None) -> None:
+//|         """Create a machine.TOUCH object."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.TOUCH."""
+//|     def read(self, point_number: int = ..., /) -> bytes:
+//|         """Read data from machine.TOUCH."""
+
 
 STATIC const mp_rom_map_elem_t machine_touch_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_touch_deinit_obj) },

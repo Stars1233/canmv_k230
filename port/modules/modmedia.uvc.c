@@ -529,6 +529,25 @@ STATIC mp_obj_t uvc_snapshot(size_t n, const mp_obj_t* objs)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(uvc_snapsho_obj, 0, 1, uvc_snapshot);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(uvc_snapsho_method, MP_ROM_PTR(&uvc_snapsho_obj));
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| class UVC:
+//|     """_media.UVC object."""
+//|     def list_video_mode() -> Any:
+//|         """Perform list video mode for _media.UVC."""
+//|     def probe() -> Any:
+//|         """Perform probe for _media.UVC."""
+//|     def select_video_mode(mode: Any, /) -> Any:
+//|         """Perform select video mode for _media.UVC."""
+//|     def snapshot(timeout: int = ...) -> Any:
+//|         """Capture one frame from the selected UVC video mode."""
+//|     def start(delay_ms: int = 0, cvt: bool = True) -> Any:
+//|         """Start _media.UVC."""
+//|     def stop() -> Any:
+//|         """Stop _media.UVC."""
+//|     def video_mode(width: int = ..., height: int = ..., fourcc: int = ..., fps: int = ...) -> Any:
+//|         """Return the current UVC mode, or create a mode from width, height, fourcc and fps."""
+
 
 STATIC const mp_rom_map_elem_t uvc_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_probe), MP_ROM_PTR(&uvc_probe_method) },

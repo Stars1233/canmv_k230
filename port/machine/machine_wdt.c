@@ -146,6 +146,19 @@ static mp_obj_t machine_wdt_close(mp_obj_t self_in)
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(machine_wdt_close_obj, machine_wdt_close);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class WDT:
+//|     """machine.WDT object."""
+//|     def __init__(self, id: int = 1, timeout: int = 5, *, auto_close: bool = True) -> None:
+//|         """Create a machine.WDT object."""
+//|     def close(self, /) -> None:
+//|         """Release resources held by machine.WDT."""
+//|     def feed(self, /) -> Any:
+//|         """Feed machine.WDT."""
+//|     def stop(self, /) -> Any:
+//|         """Stop machine.WDT."""
+
 
 static const mp_rom_map_elem_t machine_wdt_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_feed), MP_ROM_PTR(&machine_wdt_feed_obj) },

@@ -102,6 +102,16 @@ STATIC mp_obj_t machine_adc_read_uv(size_t n, const mp_obj_t* args)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_adc_read_uv_obj, 1, 2, machine_adc_read_uv);
 
+//| module: machine
+//| class ADC:
+//|     """Analog-to-digital converter channel."""
+//|     def __init__(self, channel: int) -> None:
+//|         """Create an ADC object for a hardware ADC channel."""
+//|     def read_u16(self) -> int:
+//|         """Read the current ADC value as a 16-bit integer."""
+//|     def read_uv(self, ref_uv: int = ...) -> int:
+//|         """Read the channel voltage in microvolts using the optional reference voltage."""
+
 STATIC const mp_rom_map_elem_t machine_adc_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_adc_destroy_obj) },
 

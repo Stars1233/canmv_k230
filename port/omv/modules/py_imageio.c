@@ -603,6 +603,37 @@ STATIC mp_obj_t py_imageio_make_new(const mp_obj_type_t *type, size_t n_args, si
 
     return MP_OBJ_FROM_PTR(stream);
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: image
+//| class ImageIO:
+//|     """image.ImageIO object."""
+//|     def __init__(self, mp_type_tuple: Any, mode: str, /) -> None:
+//|         """Create a image.ImageIO object."""
+//|     def buffer_size(self, /) -> Any:
+//|         """Perform buffer size for image.ImageIO."""
+//|     def close(self, /) -> None:
+//|         """Release resources held by image.ImageIO."""
+//|     def count(self, /) -> Any:
+//|         """Return count for image.ImageIO."""
+//|     def is_closed(self, /) -> Any:
+//|         """Return the is closed state for image.ImageIO."""
+//|     def offset(self, /) -> Any:
+//|         """Return offset for image.ImageIO."""
+//|     def read(self, *, copy_to_fb: Any = ..., pause: int = ..., loop: int = ...) -> bytes:
+//|         """Read data from image.ImageIO."""
+//|     def seek(self, offs: Any, /) -> Any:
+//|         """Seek image.ImageIO."""
+//|     def size(self, /) -> Any:
+//|         """Return size for image.ImageIO."""
+//|     def sync(self, /) -> Any:
+//|         """Sync image.ImageIO."""
+//|     def type(self, /) -> Any:
+//|         """Return type for image.ImageIO."""
+//|     def version(self, /) -> Any:
+//|         """Return version for image.ImageIO."""
+//|     def write(self, img: Any, /) -> int:
+//|         """Write or send data using image.ImageIO."""
+
 
 STATIC const mp_rom_map_elem_t py_imageio_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),        MP_ROM_QSTR(MP_QSTR_imageio)            },

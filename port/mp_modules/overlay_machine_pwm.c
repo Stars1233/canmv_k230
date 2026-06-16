@@ -119,6 +119,27 @@ STATIC mp_obj_t machine_pwm_enable(size_t n_args, const mp_obj_t *args) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_pwm_enable_obj, 1, 2, machine_pwm_enable);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class PWM:
+//|     """PWM output channel."""
+//|     def __init__(self, channel_or_pin: int, *, freq: int = -1, duty: int = -1, duty_u16: int = -1, duty_ns: int = -1, invert: bool = False) -> None:
+//|         """Create a PWM object from a PWM channel or supported pin."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.PWM."""
+//|     def duty(self, duty: int = ..., /) -> Any:
+//|         """Perform duty for machine.PWM."""
+//|     def duty_ns(self, duty_ns: int = ..., /) -> Any:
+//|         """Perform duty ns for machine.PWM."""
+//|     def duty_u16(self, duty_u16: int = ..., /) -> Any:
+//|         """Perform duty u16 for machine.PWM."""
+//|     def enable(self, enable: Any = ..., /) -> Any:
+//|         """Enable for machine.PWM."""
+//|     def freq(self, freq: int = ..., /) -> Any:
+//|         """Perform freq for machine.PWM."""
+//|     def init(self, *, freq: int = -1, duty: int = -1, duty_u16: int = -1, duty_ns: int = -1, invert: bool = False) -> None:
+//|         """Update PWM frequency and duty settings."""
+
 
 STATIC const mp_rom_map_elem_t machine_pwm_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_pwm_deinit_obj) },

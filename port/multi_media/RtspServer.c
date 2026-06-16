@@ -133,6 +133,41 @@ STATIC mp_obj_t mp_rtspserver_test(mp_obj_t self_in)
 }
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_rtsp_test_obj, mp_rtspserver_test);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: multimedia
+//| class rtsp_server:
+//|     """multimedia.rtsp_server object."""
+//|     def __init__(self) -> None:
+//|         """Create a multimedia.rtsp_server object."""
+//|     def rtspserver_create(self, /) -> Any:
+//|         """Perform rtspserver create for multimedia.rtsp_server."""
+//|     def rtspserver_createsession(self, session_name: Any, video_type: Any, enable_audio: Any, /) -> Any:
+//|         """Perform rtspserver createsession for multimedia.rtsp_server."""
+//|     def rtspserver_deinit(self, /) -> Any:
+//|         """Perform rtspserver deinit for multimedia.rtsp_server."""
+//|     def rtspserver_destroy(self, /) -> Any:
+//|         """Release resources held by multimedia.rtsp_server."""
+//|     def rtspserver_destroysession(self, session_name: Any, /) -> Any:
+//|         """Perform rtspserver destroysession for multimedia.rtsp_server."""
+//|     def rtspserver_getrtspurl(self, session_name: Any, /) -> Any:
+//|         """Perform rtspserver getrtspurl for multimedia.rtsp_server."""
+//|     def rtspserver_init(self, port: Any, /) -> Any:
+//|         """Perform rtspserver init for multimedia.rtsp_server."""
+//|     def rtspserver_sendaudiodata(self, session_name: Any, data: Any, size: Any, timestamp: Any, /) -> Any:
+//|         """Perform rtspserver sendaudiodata for multimedia.rtsp_server."""
+//|     def rtspserver_sendaudiodata_byphyaddr(self, session_name: Any, phy_addr: Any, size: Any, timestamp: Any, /) -> Any:
+//|         """Perform rtspserver sendaudiodata byphyaddr for multimedia.rtsp_server."""
+//|     def rtspserver_sendvideodata(self, session_name: Any, data: Any, size: Any, timestamp: Any, /) -> Any:
+//|         """Perform rtspserver sendvideodata for multimedia.rtsp_server."""
+//|     def rtspserver_sendvideodata_byphyaddr(self, session_name: Any, phy_addr: Any, size: Any, timestamp: Any, /) -> Any:
+//|         """Perform rtspserver sendvideodata byphyaddr for multimedia.rtsp_server."""
+//|     def rtspserver_start(self, /) -> Any:
+//|         """Perform rtspserver start for multimedia.rtsp_server."""
+//|     def rtspserver_stop(self, /) -> Any:
+//|         """Perform rtspserver stop for multimedia.rtsp_server."""
+//|     def rtspserver_test(self, /) -> Any:
+//|         """Perform rtspserver test for multimedia.rtsp_server."""
+
 
 STATIC const mp_rom_map_elem_t RtspServer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_rtspserver) },
@@ -170,6 +205,15 @@ MP_DEFINE_CONST_OBJ_TYPE(
     );
 
 // interp_mode
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: multimedia
+//| class multi_media_type:
+//|     """multimedia.multi_media_type object."""
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: multi_media_type
+//| """CanMV multi_media_type module."""
+
 STATIC const mp_rom_map_elem_t mp_media_type_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_media_h264), MP_ROM_INT(MULTI_MEDIA_TYPE_H264) },
     { MP_ROM_QSTR(MP_QSTR_media_h265), MP_ROM_INT(MULTI_MEDIA_TYPE_H265) },

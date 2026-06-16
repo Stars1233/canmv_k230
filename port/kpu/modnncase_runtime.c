@@ -78,6 +78,16 @@ STATIC mp_obj_t mp_version()
     return MP_OBJ_TO_PTR(mp_v_string);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_version_obj, mp_version);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nncase_runtime
+//| """CanMV nncase_runtime module."""
+//| def from_numpy(ndarray: Any, /) -> Any:
+//|     """Create nncase_runtime from numpy."""
+//| def shrink_memory_pool() -> Any:
+//|     """Perform shrink memory pool for nncase_runtime."""
+//| def version() -> Any:
+//|     """Return version for nncase_runtime."""
+
 
 STATIC const mp_rom_map_elem_t nncase_runtime_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_nncase_runtime) },

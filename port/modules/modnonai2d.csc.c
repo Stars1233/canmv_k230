@@ -556,6 +556,21 @@ void py_nonai_2d_csc_destroy_all(void)
         }
     }
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: nonai2d
+//| class CSC:
+//|     """nonai2d.CSC object."""
+//|     def __init__(self, fmt: int = 0, *, max_width: int = 1920, max_height: int = 1080, buf_num: int = 2) -> None:
+//|         """Create a nonai2d.CSC object."""
+//|     def convert(self, image: Any, timeout_ms: int = 1000, cvt: bool = True) -> Any:
+//|         """Convert data for nonai2d.CSC."""
+//|     def destroy(self, /) -> Any:
+//|         """Release resources held by nonai2d.CSC."""
+//|     def get_frame(self, timeout_ms: int = 1000) -> Any:
+//|         """Return frame for nonai2d.CSC."""
+//|     def release_frame(self, video_frame_info: Any, /) -> Any:
+//|         """Perform release frame for nonai2d.CSC."""
+
 
 STATIC const mp_rom_map_elem_t py_nonai_2d_csc_locals_dict_table[] = {
     // { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_nonai_2d_csc_destroy_obj) },

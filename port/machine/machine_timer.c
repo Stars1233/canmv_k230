@@ -400,6 +400,17 @@ STATIC void machine_timer_print(const mp_print_t* print, mp_obj_t self_in, mp_pr
     mp_printf(print, "Timer %d: period=%u ms, mode=%s, callback=%p\n", timer_id, self->period,
               self->mode == HWTIMER_MODE_ONESHOT ? "oneshot" : "periodic", self->callback);
 }
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class Timer:
+//|     """machine.Timer object."""
+//|     def __init__(self, index: int, /, mode: int = ..., freq: int = -1, period: int = -1, callback: Any = None) -> None:
+//|         """Create a machine.Timer object."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.Timer."""
+//|     def init(self, mode: int = ..., freq: int = -1, period: int = -1, callback: Any = None) -> None:
+//|         """Configure and start the timer."""
+
 
 STATIC const mp_rom_map_elem_t machine_timer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_timer_deinit_obj) },

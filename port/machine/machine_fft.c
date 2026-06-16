@@ -233,6 +233,21 @@ STATIC mp_obj_t machine_fft_amplitude(mp_obj_t self_o, const mp_obj_t list_obj)
     return MP_OBJ_FROM_PTR(ret_list);
 }
 MP_DEFINE_CONST_FUN_OBJ_2(machine_fft_amplitude_obj, machine_fft_amplitude);
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class FFT:
+//|     """machine.FFT object."""
+//|     def __init__(self, byte: Any, points: int = 64, shift: int = 0) -> None:
+//|         """Create a machine.FFT object."""
+//|     def amplitude(self, list: Any, /) -> Any:
+//|         """Perform amplitude for machine.FFT."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.FFT."""
+//|     def freq(self, points: int = 64, sample_rate: int = 16000) -> Any:
+//|         """Perform freq for machine.FFT."""
+//|     def run(self) -> Any:
+//|         """Run the FFT and return complex output pairs."""
+
 
 STATIC const mp_rom_map_elem_t machine_fft_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_fft_deinit_obj) },

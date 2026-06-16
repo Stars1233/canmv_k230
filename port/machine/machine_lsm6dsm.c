@@ -327,6 +327,17 @@ STATIC mp_obj_t machine_lsm6dsm_make_new(const mp_obj_type_t *type, size_t n_arg
 /* ------------------------------------------------------------------ */
 /* Module registration                                                */
 /* ------------------------------------------------------------------ */
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: machine
+//| class LSM6DSM:
+//|     """machine.LSM6DSM object."""
+//|     def __init__(self, type: Any) -> None:
+//|         """Create a machine.LSM6DSM object."""
+//|     def deinit(self, /) -> None:
+//|         """Release resources held by machine.LSM6DSM."""
+//|     def read(self, /) -> bytes:
+//|         """Read data from machine.LSM6DSM."""
+
 
 STATIC const mp_rom_map_elem_t machine_lsm6dsm_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&machine_lsm6dsm_deinit_obj) },

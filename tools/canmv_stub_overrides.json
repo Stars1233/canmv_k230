@@ -1,0 +1,640 @@
+{
+  "__comment": "Hand-written CanMV stub signatures. These entries override or extend generated .pyi files for better VSCode/Pylance argument tips.",
+  "hashlib": {
+    "symbols": {
+      "md5": {
+        "init": "(self, data: Any = ...) -> None",
+        "kind": "class",
+        "methods": {
+          "digest": {
+            "doc": "Return the binary digest and finalize this hash object.",
+            "signature": "(self) -> bytes"
+          },
+          "update": {
+            "doc": "Update the hash object with bytes-like data.",
+            "signature": "(self, data: Any) -> None"
+          }
+        }
+      },
+      "sha1": {
+        "init": "(self, data: Any = ...) -> None",
+        "kind": "class",
+        "methods": {
+          "digest": {
+            "doc": "Return the binary digest and finalize this hash object.",
+            "signature": "(self) -> bytes"
+          },
+          "update": {
+            "doc": "Update the hash object with bytes-like data.",
+            "signature": "(self, data: Any) -> None"
+          }
+        }
+      },
+      "sha256": {
+        "init": "(self, data: Any = ...) -> None",
+        "kind": "class",
+        "methods": {
+          "digest": {
+            "doc": "Return the binary digest and finalize this hash object.",
+            "signature": "(self) -> bytes"
+          },
+          "update": {
+            "doc": "Update the hash object with bytes-like data.",
+            "signature": "(self, data: Any) -> None"
+          }
+        }
+      }
+    }
+  },
+  "machine": {
+    "symbols": {
+      "FPIOA": {
+        "doc": "K230 FPIOA pin-function mapper.",
+        "init": "(self) -> None",
+        "kind": "class",
+        "methods": {
+          "get_pin_cfg": {
+            "doc": "Return the current FPIOA configuration object for a pin.",
+            "signature": "(self, pin: int) -> Any"
+          },
+          "help": {
+            "doc": "Print supported FPIOA functions.",
+            "signature": "(self, pin: int = ...) -> None"
+          },
+          "set_function": {
+            "doc": "Assign an FPIOA function to a physical pin.",
+            "signature": "(self, pin: int, func: int, *, ie: int = ..., oe: int = ..., pu: int = ..., pd: int = ..., ds: int = ..., st: int = ..., sl: int = ...) -> None"
+          },
+          "set_pin_cfg": {
+            "doc": "Apply a pin configuration object.",
+            "signature": "(self, cfg: Any) -> bool"
+          }
+        }
+      },
+      "Pin": {
+        "attrs": {
+          "IN": "int",
+          "IRQ_BOTH": "int",
+          "IRQ_FALLING": "int",
+          "IRQ_HIGH_LEVEL": "int",
+          "IRQ_LOW_LEVEL": "int",
+          "IRQ_RISING": "int",
+          "OUT": "int",
+          "PULL_DOWN": "int",
+          "PULL_NONE": "int",
+          "PULL_UP": "int"
+        },
+        "doc": "GPIO pin object.",
+        "init": "(self, id: int, mode: int = ..., pull: int = ..., *, value: int = ..., drive: int = ..., alt: int = ...) -> None",
+        "kind": "class",
+        "methods": {
+          "init": {
+            "doc": "Configure pin mode, pull, initial output value and drive strength.",
+            "signature": "(self, mode: int = ..., pull: int = ..., *, value: int = ..., drive: int = ..., alt: int = ...) -> None"
+          },
+          "irq": {
+            "doc": "Configure an interrupt callback for this pin.",
+            "signature": "(self, handler: Any = ..., trigger: int = ..., hard: bool = ...) -> Any"
+          },
+          "mode": {
+            "doc": "Read or set the pin mode.",
+            "signature": "(self, mode: Optional[int] = ...) -> int"
+          },
+          "off": {
+            "doc": "Set output low.",
+            "signature": "(self) -> bool"
+          },
+          "on": {
+            "doc": "Set output high.",
+            "signature": "(self) -> bool"
+          },
+          "pull": {
+            "doc": "Read or set the pin pull configuration.",
+            "signature": "(self, pull: Optional[int] = ...) -> int"
+          },
+          "toggle": {
+            "doc": "Toggle the output value.",
+            "signature": "(self) -> None"
+          },
+          "value": {
+            "doc": "Read the pin value, or set it when value is provided.",
+            "signature": "(self, value: Optional[int] = ...) -> int"
+          }
+        }
+      },
+      "UART": {
+        "attrs": {
+          "PARITY_EVEN": "int",
+          "PARITY_NONE": "int",
+          "PARITY_ODD": "int",
+          "STOPBITS_ONE": "int",
+          "STOPBITS_ONE_P_FIVE": "int",
+          "STOPBITS_TWO": "int",
+          "UART1": "int",
+          "UART2": "int",
+          "UART3": "int",
+          "UART4": "int",
+          "UART_GS": "int"
+        },
+        "doc": "Hardware UART object.",
+        "init": "(self, id: int, baudrate: int = 115200, bits: int = 8, parity: int = ..., stop: int = ..., *, timeout: int = 10, tx: Optional[int] = None, rx: Optional[int] = None) -> None",
+        "kind": "class",
+        "methods": {
+          "any": {
+            "signature": "(self) -> int"
+          },
+          "deinit": {
+            "signature": "(self) -> None"
+          },
+          "flush": {
+            "signature": "(self) -> None"
+          },
+          "init": {
+            "doc": "Configure baudrate, frame format, timeout and optional FPIOA TX/RX pins.",
+            "signature": "(self, baudrate: int = 115200, bits: int = 8, parity: int = ..., stop: int = ..., *, timeout: int = 10, tx: Optional[int] = None, rx: Optional[int] = None) -> None"
+          },
+          "read": {
+            "signature": "(self, nbytes: Optional[int] = None) -> bytes"
+          },
+          "readinto": {
+            "signature": "(self, buf: Any, nbytes: Optional[int] = None) -> int"
+          },
+          "readline": {
+            "signature": "(self) -> bytes"
+          },
+          "sendbreak": {
+            "signature": "(self) -> None"
+          },
+          "txdone": {
+            "signature": "(self) -> bool"
+          },
+          "write": {
+            "signature": "(self, buf: Any) -> int"
+          }
+        }
+      },
+      "bootloader": {
+        "doc": "Reboot into bootloader mode when supported by the board.",
+        "kind": "function",
+        "signature": "() -> None"
+      },
+      "chipid": {
+        "doc": "Return the SoC chip identifier.",
+        "kind": "function",
+        "signature": "() -> bytes"
+      },
+      "mem_copy": {
+        "doc": "Copy length bytes from source address to destination address.",
+        "kind": "function",
+        "signature": "(dst: int, src: int, length: int) -> None"
+      },
+      "reset": {
+        "doc": "Reset the board immediately.",
+        "kind": "function",
+        "signature": "() -> None"
+      },
+      "temperature": {
+        "doc": "Read the chip temperature in degrees Celsius.",
+        "kind": "function",
+        "signature": "() -> float"
+      },
+      "PWM": {
+        "kind": "class",
+        "doc": "PWM output channel.",
+        "init": "(self, channel_or_pin: int, *, freq: int = -1, duty: int = -1, duty_u16: int = -1, duty_ns: int = -1, invert: bool = False) -> None",
+        "init_doc": "Create a PWM object from a PWM channel or supported pin.",
+        "methods": {
+          "init": {
+            "doc": "Update PWM frequency and duty settings.",
+            "signature": "(self, *, freq: int = -1, duty: int = -1, duty_u16: int = -1, duty_ns: int = -1, invert: bool = False) -> None"
+          }
+        }
+      },
+      "SPI": {
+        "kind": "class",
+        "methods": {
+          "init": {
+            "doc": "Reconfigure the SPI bus.",
+            "signature": "(self, baudrate: int = 500000, *, polarity: int = 0, phase: int = 0, bits: int = 8, cs: int = -1, data_line: int = 1, firstbit: int = -1, sck: Any = ..., mosi: Any = ..., miso: Any = ...) -> None"
+          }
+        }
+      },
+      "Timer": {
+        "kind": "class",
+        "methods": {
+          "init": {
+            "doc": "Configure and start the timer.",
+            "signature": "(self, mode: int = ..., freq: int = -1, period: int = -1, callback: Any = None) -> None"
+          }
+        }
+      },
+      "FFT": {
+        "kind": "class",
+        "methods": {
+          "run": {
+            "doc": "Run the FFT and return complex output pairs.",
+            "signature": "(self) -> Any"
+          }
+        }
+      },
+      "I2C": {
+        "kind": "class",
+        "methods": {
+          "init": {
+            "doc": "Unsupported on this CanMV port; construct a new I2C object instead.",
+            "signature": "(self) -> None"
+          }
+        }
+      }
+    }
+  },
+  "media.sensor": {
+    "symbols": {
+      "Sensor": {
+        "doc": "Camera sensor controller.",
+        "init": "(self, *, id: int = ..., type: Optional[int] = None, force: bool = False, fps: int = 60, width: int = 1920, height: int = 1080) -> None",
+        "kind": "class",
+        "methods": {
+          "set_framesize": {
+            "doc": "Set output frame size by preset, w/h, or width/height keyword arguments.",
+            "signature": "(self, framesize: int = ..., chn: int = ..., alignment: int = ..., crop: bool = ..., *, w: int = ..., h: int = ..., width: int = ..., height: int = ...) -> None"
+          },
+          "set_pixformat": {
+            "doc": "Set output pixel format, for example Sensor.RGB565 or Sensor.YUV420SP.",
+            "signature": "(self, pix_format: int, chn: int = ...) -> None"
+          },
+          "snapshot": {
+            "doc": "Capture and return an image/frame from the selected channel.",
+            "signature": "(self, chn: int = ..., timeout: int = ..., dump_frame: bool = ..., auto_reboot: bool = ...) -> Any"
+          },
+          "disable_delays": {
+            "doc": "Unsupported sensor delay-control placeholder.",
+            "signature": "(self) -> Any"
+          },
+          "disable_full_flush": {
+            "doc": "Unsupported sensor flush-control placeholder.",
+            "signature": "(self) -> Any"
+          },
+          "ioctl": {
+            "doc": "Unsupported sensor ioctl placeholder.",
+            "signature": "(self) -> Any"
+          },
+          "skip_frames": {
+            "doc": "Unsupported sensor frame-skip placeholder.",
+            "signature": "(self) -> Any"
+          },
+          "set_auto_blc": {
+            "doc": "Unsupported sensor auto blc placeholder.",
+            "signature": "(self, enable: bool) -> Any"
+          },
+          "set_auto_gain": {
+            "doc": "Unsupported sensor auto gain placeholder.",
+            "signature": "(self, enable: bool) -> Any"
+          },
+          "set_auto_whitebal": {
+            "doc": "Unsupported sensor auto whitebal placeholder.",
+            "signature": "(self, enable: bool) -> Any"
+          }
+        }
+      }
+    }
+  },
+  "usb": {
+    "symbols": {
+      "Keyboard": {
+        "attrs": {
+          "VALUE_PRESSED": "int",
+          "VALUE_RELEASED": "int",
+          "VALUE_REPEAT": "int"
+        },
+        "doc": "USB keyboard input device.",
+        "init": "(self, path: Optional[str] = None, timeout_ms: int = 300, auto_reconnect: bool = True) -> None",
+        "kind": "class",
+        "methods": {
+          "close": {
+            "doc": "Close the HID device.",
+            "signature": "(self) -> None"
+          },
+          "info": {
+            "doc": "Return device information such as kind, name, path and capability bits.",
+            "signature": "(self) -> dict"
+          },
+          "is_open": {
+            "doc": "Return True when the HID device is connected.",
+            "signature": "(self) -> bool"
+          },
+          "open": {
+            "doc": "Open the HID device, optionally overriding the input event path.",
+            "signature": "(self, path: Optional[str] = None) -> bool"
+          },
+          "poll": {
+            "doc": "Wait until input is available.",
+            "signature": "(self, timeout_ms: Optional[int] = None) -> bool"
+          },
+          "read": {
+            "doc": "Read one keyboard frame. The result includes events, chars, text and modifier states.",
+            "signature": "(self, timeout_ms: Optional[int] = None) -> dict"
+          },
+          "reconnect": {
+            "doc": "Try to reconnect after the device was unplugged.",
+            "signature": "(self) -> bool"
+          }
+        }
+      },
+      "Mouse": {
+        "attrs": {
+          "BTN_LEFT_MASK": "int",
+          "BTN_MIDDLE_MASK": "int",
+          "BTN_RIGHT_MASK": "int",
+          "BTN_TOUCH_MASK": "int"
+        },
+        "doc": "USB mouse input device.",
+        "init": "(self, path: Optional[str] = None, timeout_ms: int = 300, auto_reconnect: bool = True) -> None",
+        "kind": "class",
+        "methods": {
+          "close": {
+            "doc": "Close the HID device.",
+            "signature": "(self) -> None"
+          },
+          "info": {
+            "doc": "Return device information such as kind, name, path and capability bits.",
+            "signature": "(self) -> dict"
+          },
+          "is_open": {
+            "doc": "Return True when the HID device is connected.",
+            "signature": "(self) -> bool"
+          },
+          "open": {
+            "doc": "Open the HID device, optionally overriding the input event path.",
+            "signature": "(self, path: Optional[str] = None) -> bool"
+          },
+          "poll": {
+            "doc": "Wait until input is available.",
+            "signature": "(self, timeout_ms: Optional[int] = None) -> bool"
+          },
+          "read": {
+            "doc": "Read one mouse/touch frame. The result includes relative, absolute, wheel and button state fields.",
+            "signature": "(self, timeout_ms: Optional[int] = None) -> dict"
+          },
+          "reconnect": {
+            "doc": "Try to reconnect after the device was unplugged.",
+            "signature": "(self) -> bool"
+          }
+        }
+      },
+      "Serial": {
+        "attrs": {
+          "path": "str",
+          "timeout_ms": "int"
+        },
+        "doc": "USB serial device.",
+        "init": "(self, path: Optional[str] = None, timeout_ms: int = 300) -> None",
+        "kind": "class",
+        "methods": {
+          "close": {
+            "doc": "Close the serial device.",
+            "signature": "(self) -> None"
+          },
+          "open": {
+            "doc": "Open the serial device.",
+            "signature": "(self, path: Optional[str] = None) -> bool"
+          },
+          "read": {
+            "signature": "(self, nbytes: Optional[int] = None) -> bytes"
+          },
+          "readinto": {
+            "signature": "(self, buf: Any, nbytes: Optional[int] = None) -> int"
+          },
+          "readline": {
+            "signature": "(self) -> bytes"
+          },
+          "write": {
+            "signature": "(self, buf: Any) -> int"
+          }
+        }
+      },
+      "Touch": {
+        "attrs": {
+          "BTN_LEFT_MASK": "int",
+          "BTN_MIDDLE_MASK": "int",
+          "BTN_RIGHT_MASK": "int",
+          "BTN_TOUCH_MASK": "int"
+        },
+        "doc": "USB touch input device.",
+        "init": "(self, path: Optional[str] = None, timeout_ms: int = 300, auto_reconnect: bool = True) -> None",
+        "kind": "class",
+        "methods": {
+          "close": {
+            "doc": "Close the HID device.",
+            "signature": "(self) -> None"
+          },
+          "info": {
+            "doc": "Return device information such as kind, name, path and capability bits.",
+            "signature": "(self) -> dict"
+          },
+          "is_open": {
+            "doc": "Return True when the HID device is connected.",
+            "signature": "(self) -> bool"
+          },
+          "open": {
+            "doc": "Open the HID device, optionally overriding the input event path.",
+            "signature": "(self, path: Optional[str] = None) -> bool"
+          },
+          "poll": {
+            "doc": "Wait until input is available.",
+            "signature": "(self, timeout_ms: Optional[int] = None) -> bool"
+          },
+          "read": {
+            "doc": "Read one mouse/touch frame. The result includes relative, absolute, wheel and button state fields.",
+            "signature": "(self, timeout_ms: Optional[int] = None) -> dict"
+          },
+          "reconnect": {
+            "doc": "Try to reconnect after the device was unplugged.",
+            "signature": "(self) -> bool"
+          }
+        }
+      }
+    }
+  },
+  "_media": {
+    "symbols": {
+      "Display": {
+        "kind": "class",
+        "methods": {
+          "bind_layer": {
+            "doc": "Bind an MPP source channel to a display layer.",
+            "signature": "(src: Any, *, rect: Any = None, pix_format: int = -1, layer: int = -1, alpha: int = 255, flag: int = 0) -> Any"
+          },
+          "width": {
+            "doc": "Return display or layer width.",
+            "signature": "(layer: Optional[int] = None) -> int"
+          },
+          "height": {
+            "doc": "Return display or layer height.",
+            "signature": "(layer: Optional[int] = None) -> int"
+          },
+          "writeback": {
+            "doc": "Read or set display writeback state.",
+            "signature": "(enable: Optional[bool] = None) -> bool"
+          },
+          "writeback_dump": {
+            "doc": "Capture a writeback frame.",
+            "signature": "(timeout: int = 1000) -> Any"
+          }
+        }
+      },
+      "UVC": {
+        "kind": "class",
+        "methods": {
+          "snapshot": {
+            "doc": "Capture one frame from the selected UVC video mode.",
+            "signature": "(timeout: int = ...) -> Any"
+          },
+          "video_mode": {
+            "doc": "Return the current UVC mode, or create a mode from width, height, fourcc and fps.",
+            "signature": "(width: int = ..., height: int = ..., fourcc: int = ..., fps: int = ...) -> Any"
+          }
+        }
+      }
+    }
+  },
+  "image": {
+    "symbols": {
+      "Image": {
+        "kind": "class",
+        "methods": {
+          "mask_circle": {
+            "doc": "Apply a circular mask to the image in place.",
+            "signature": "(self, cx: int = ..., cy: int = ..., cr: int = ...) -> Any"
+          },
+          "mask_ellipse": {
+            "doc": "Apply an elliptical mask to the image in place.",
+            "signature": "(self, cx: int = ..., cy: int = ..., rx: int = ..., ry: int = ..., r: int = 0) -> Any"
+          },
+          "mask_rectangle": {
+            "doc": "Apply a rectangular mask to the image in place.",
+            "signature": "(self, rx: int = ..., ry: int = ..., rw: int = ..., rh: int = ...) -> Any"
+          },
+          "mean_pooled": {
+            "doc": "Return a new image reduced by mean pooling.",
+            "signature": "(self, x_div: int, y_div: int, *, alloc: int = ..., cache: bool = ..., data: Any = ...) -> Any"
+          }
+        }
+      },
+      "rgb_to_binary": {
+        "kind": "function",
+        "doc": "Convert RGB components using rgb to binary.",
+        "signature": "(r: int, g: int, b: int) -> Any"
+      },
+      "rgb_to_grayscale": {
+        "kind": "function",
+        "doc": "Convert RGB components using rgb to grayscale.",
+        "signature": "(r: int, g: int, b: int) -> Any"
+      },
+      "rgb_to_lab": {
+        "kind": "function",
+        "doc": "Convert RGB components using rgb to lab.",
+        "signature": "(r: int, g: int, b: int) -> Any"
+      },
+      "rgb_to_yuv": {
+        "kind": "function",
+        "doc": "Convert RGB components using rgb to yuv.",
+        "signature": "(r: int, g: int, b: int) -> Any"
+      },
+      "lab_to_binary": {
+        "kind": "function",
+        "doc": "Convert LAB components using lab to binary.",
+        "signature": "(l: int, a: int, b: int) -> Any"
+      },
+      "lab_to_grayscale": {
+        "kind": "function",
+        "doc": "Convert LAB components using lab to grayscale.",
+        "signature": "(l: int, a: int, b: int) -> Any"
+      },
+      "lab_to_rgb": {
+        "kind": "function",
+        "doc": "Convert LAB components using lab to rgb.",
+        "signature": "(l: int, a: int, b: int) -> Any"
+      },
+      "lab_to_yuv": {
+        "kind": "function",
+        "doc": "Convert LAB components using lab to yuv.",
+        "signature": "(l: int, a: int, b: int) -> Any"
+      },
+      "yuv_to_binary": {
+        "kind": "function",
+        "doc": "Convert YUV components using yuv to binary.",
+        "signature": "(y: int, u: int, v: int) -> Any"
+      },
+      "yuv_to_grayscale": {
+        "kind": "function",
+        "doc": "Convert YUV components using yuv to grayscale.",
+        "signature": "(y: int, u: int, v: int) -> Any"
+      },
+      "yuv_to_lab": {
+        "kind": "function",
+        "doc": "Convert YUV components using yuv to lab.",
+        "signature": "(y: int, u: int, v: int) -> Any"
+      },
+      "yuv_to_rgb": {
+        "kind": "function",
+        "doc": "Convert YUV components using yuv to rgb.",
+        "signature": "(y: int, u: int, v: int) -> Any"
+      },
+      "HaarCascade": {
+        "kind": "function",
+        "doc": "Load a Haar cascade by path or built-in cascade name.",
+        "signature": "(path: str, stages: int = ...) -> Any"
+      },
+      "fb_stat": {
+        "kind": "function",
+        "doc": "Query framebuffer statistics.",
+        "signature": "(cmd: int = 0) -> Any"
+      },
+      "load_descriptor": {
+        "kind": "function",
+        "doc": "Load an image descriptor from a file.",
+        "signature": "(path: str) -> Any"
+      },
+      "save_descriptor": {
+        "kind": "function",
+        "doc": "Save an image descriptor to a file.",
+        "signature": "(desc_obj: Any, path: str) -> bool"
+      }
+    }
+  },
+  "media.media": {
+    "symbols": {
+      "MediaManager": {
+        "kind": "class",
+        "methods": {
+          "init": {
+            "doc": "Deprecated media manager initializer.",
+            "signature": "() -> Any"
+          },
+          "deinit": {
+            "doc": "Deprecated media manager deinitializer.",
+            "signature": "() -> Any"
+          },
+          "config_comm_pool": {
+            "doc": "Deprecated media manager common-pool configuration.",
+            "signature": "() -> Any"
+          }
+        }
+      }
+    }
+  },
+  "media.pyaudio": {
+    "symbols": {
+      "PyAudio": {
+        "kind": "class",
+        "methods": {
+          "open": {
+            "doc": "Open a playback or capture stream.",
+            "signature": "(self, rate: int, channels: int, format: int, input: bool = False, output: bool = False, input_device_index: Any = None, output_device_index: Any = None, enable_codec: bool = True, frames_per_buffer: int = 1024, start: bool = True, stream_callback: Any = None) -> Any"
+          }
+        }
+      }
+    }
+  }
+}

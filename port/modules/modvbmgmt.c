@@ -704,6 +704,13 @@ STATIC mp_obj_t py_media_vbmgmt_link(mp_obj_t src_obj, mp_obj_t dst_obj)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(py_media_vbmgmt_link_obj, py_media_vbmgmt_link);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(py_media_vbmgmt_link_method, MP_ROM_PTR(&py_media_vbmgmt_link_obj));
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| class _MediaManager:
+//|     """_media._MediaManager object."""
+//|     def _link(src: Any, dst: Any, /) -> Any:
+//|         """Perform link for _media._MediaManager."""
+
 
 STATIC const mp_rom_map_elem_t py_media_vbmgmt_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__MediaManager) },
