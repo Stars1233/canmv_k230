@@ -14,7 +14,7 @@ stop_flag = False        # 线程停止信号
 play_complete = False    # 播放完成标志
 play_thread_done = False # 播放线程是否结束
 record_thread_done = False # 录制线程是否结束
-DIV = 100
+DIV = 50
 
 def exit_check():
     try:
@@ -36,6 +36,14 @@ def terminate_global_pyaudio():
     if global_p is not None:
         global_p.terminate()
         global_p = None
+
+def get_wav_duration(wf):
+    """从WAV文件元数据计算播放时长（秒）"""
+    nframes = wf.get_frames()
+    framerate = wf.get_framerate()
+    if framerate > 0:
+        return nframes / framerate
+    return 0
 
 def play_thread_func(stream, wf):
     """播放线程函数"""
@@ -68,22 +76,21 @@ def play_thread_func(stream, wf):
         print("Playback thread finished")
 
 def record_thread_func(stream, filename, duration, channels, rate):
-    """录制线程函数"""
-    global stop_flag, play_complete, record_thread_done
+    """录制线程函数 - 基于时间驱动，精确控制录制时长"""
+    global stop_flag, record_thread_done
     CHUNK = rate // DIV
     frames = []
 
     try:
-        total_iter = int(rate / CHUNK * 2 * duration)
-        for _ in range(total_iter):
-            if stop_flag or exit_check() or play_complete:
+        start_time = time.time()
+        while (time.time() - start_time) < duration:
+            if stop_flag or exit_check():
                 break
             data = stream.read(block=False)
             if data:
                 frames.append(data)
             else:
                 time.sleep(0.01)
-                total_iter += 1
 
     except BaseException as e:
         import sys
@@ -124,13 +131,15 @@ def play_and_record(play_filename, record_filename, duration):
     wf_play = None
 
     try:
-        # 初始化全局PyAudio
         init_global_pyaudio()
 
-        # 初始化播放资源
         wf_play = wave.open(play_filename, 'rb')
         channels = wf_play.get_channels()
         rate = wf_play.get_framerate()
+        wav_duration = get_wav_duration(wf_play)
+        actual_duration = max(duration, wav_duration)
+        print(f"WAV duration: {wav_duration:.2f}s, record duration: {actual_duration:.2f}s")
+
         play_stream = global_p.open(
             format=global_p.get_format_from_width(wf_play.get_sampwidth()),
             channels=channels,
@@ -141,7 +150,6 @@ def play_and_record(play_filename, record_filename, duration):
         play_stream.volume(vol=85)
         print(f"Play volume: {play_stream.volume()}")
 
-        # 初始化录制资源
         record_stream = global_p.open(
             format=paInt16,
             channels=channels,
@@ -151,25 +159,21 @@ def play_and_record(play_filename, record_filename, duration):
         )
         record_stream.volume(70, LEFT)
         record_stream.volume(85, RIGHT)
-        record_stream.enable_audio3a(AUDIO_3A_ENABLE_AEC)
-        #record_stream.enable_audio3a(AUDIO_3A_ENABLE_ANS)
+        record_stream.enable_audio3a(AUDIO_3A_ENABLE_AEC | AUDIO_3A_ENABLE_AGC | AUDIO_3A_ENABLE_ANS)
         print(f"Record volume: {record_stream.volume()}")
 
-        # 启动线程
         _thread.start_new_thread(play_thread_func, (play_stream, wf_play))
-        _thread.start_new_thread(record_thread_func, (record_stream, record_filename, duration, channels, rate))
+        _thread.start_new_thread(record_thread_func, (record_stream, record_filename, actual_duration, channels, rate))
 
-        # 等待录制时长/用户退出/播放完成
         start_time = time.time()
         while True:
-            if (time.time()-start_time >= duration) or exit_check() or play_complete:
-                stop_flag = True  # 通知线程停止
+            if (time.time() - start_time >= actual_duration) or exit_check():
+                stop_flag = True
                 break
             time.sleep(0.1)
 
-        # 等待线程结束
         print("Waiting for threads to exit...")
-        timeout = time.time() + 10  # 10秒超时保护
+        timeout = time.time() + 10
         while not (play_thread_done and record_thread_done):
             if time.time() > timeout:
                 print("Warning: Thread wait timeout!")
