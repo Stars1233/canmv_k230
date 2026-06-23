@@ -39,12 +39,17 @@ include $(SDK_RTSMART_SRC_DIR)/libs/mk/lib3rdparty.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/librtsmart_hal.mk
 
 -include $(BUILD)/CANMV_VER
-CANMV_VER = $(shell git describe --tags --always `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
+CANMV_TAG_COMMIT := $(shell git rev-list --tags --max-count=1)
+CANMV_TAG := $(shell git describe --tags --always $(CANMV_TAG_COMMIT))
+CANMV_BUILD_COUNT := $(shell git rev-list --count $(CANMV_TAG_COMMIT)..HEAD)
+CANMV_VER = $(CANMV_TAG)-$(CANMV_BUILD_COUNT)-g$(shell git rev-parse --short HEAD)
+CANMV_VER_FULL = $(CANMV_TAG)-$(CANMV_BUILD_COUNT)-g$(shell git rev-parse HEAD)
+$(info [CANMV] VER=$(CANMV_VER) VER_FULL=$(CANMV_VER_FULL))
 ifneq ($(CANMV_VER),$(CANMV_VER_OLD))
 $(shell echo CANMV_VER_OLD=$(CANMV_VER) > $(BUILD)/CANMV_VER)
 $(shell touch core/main.c)
 endif
-CDEF = -DCANMV_VER="\"$(CANMV_VER)\""
+CDEF = -DCANMV_VER="\"$(CANMV_VER)\"" -DCANMV_VER_FULL="\"$(CANMV_VER_FULL)\""
 
 INC += -I.
 INC += -I$(BUILD)

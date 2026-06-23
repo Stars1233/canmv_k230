@@ -319,6 +319,31 @@ STATIC int do_str(const char *str) {
     return ret;
 }
 
+STATIC void run_ide_script_once(void) {
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        gc_collect();
+        char* script = ide_dbg_get_script();
+        if (script) {
+            exec_type_t etype = ide_dbg_get_exec_type();
+            if (etype == EXEC_FILE) {
+                char banner[320];
+                snprintf(banner, sizeof(banner), "[CanMV] Running: %s\n", script);
+                mp_hal_stdout_tx_str(banner);
+                int ret = pyexec_file(script);
+                mp_hal_stdout_tx_str(ret ? "[CanMV] Script completed\n"
+                                          : "[CanMV] Script failed\n");
+            } else {
+                do_str(script);
+            }
+        }
+        nlr_pop();
+    } else {
+        mp_obj_print_exception(&mp_plat_print, (mp_obj_t)nlr.ret_val);
+    }
+    ide_dbg_on_ide_script_end();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Entry point
 ///////////////////////////////////////////////////////////////////////////////
@@ -437,8 +462,9 @@ soft_reset:
     py_media_vbmgmt_init();
     mp_hal_stdin_clear();
     mp_hal_set_interrupt_char(-1);
+    ide_dbg_clear_soft_reset_request();
 
-    if (!ide_dbg_attach() && !is_repl_intr) {
+    if (!is_repl_intr) {
         FILE*      script_file = NULL;
         const int* stage_ptr   = NULL;
         char*      script_str  = NULL;
@@ -460,7 +486,7 @@ soft_reset:
 
         // Process both boot.py and main/fallback scripts
         for (size_t i = 0; i < sizeof(scripts_to_run) / sizeof(scripts_to_run[0]); i++) {
-            if (0x00 != access(scripts_to_run[i], F_OK)) {
+            if (ide_dbg_has_script() || 0x00 != access(scripts_to_run[i], F_OK)) {
                 continue;
             }
 
@@ -504,40 +530,35 @@ soft_reset:
             }
         }
 
-        if ((is_repl_intr) || ide_dbg_attach()) {
+        if (is_repl_intr && !ide_dbg_has_script()) {
             goto main_thread_exit;
         }
     }
 
-    if (ide_dbg_attach()) {
-        is_repl_intr = false;
-
-        mp_hal_stdout_tx_str(MICROPY_BANNER_NAME_AND_VERSION);
-        mp_hal_stdout_tx_str("; " MICROPY_BANNER_MACHINE);
-        mp_hal_stdout_tx_str("\r\n");
-
-        fprintf(stdout, "[mpy] enter script\n");
-        nlr_buf_t nlr;
-        if (nlr_push(&nlr) == 0) {
-            gc_collect();
-            char* script = ide_dbg_get_script();
-            if (script) {
-                do_str(script);
-            }
-            nlr_pop();
-        } else {
-            mp_obj_print_exception(&mp_plat_print, (mp_obj_t)nlr.ret_val);
+    for (;;) {
+        while (ide_dbg_has_script()) {
+            is_repl_intr = false;
+            fprintf(stdout, "[mpy] enter ide script\n");
+            run_ide_script_once();
         }
-        ide_dbg_on_script_end();
-    } else {
+
+        if (ide_dbg_take_soft_reset_request()) {
+            break;
+        }
+
         fprintf(stdout, "[mpy] enter repl\n");
         do_repl();
 
         is_repl_intr = false;
+
+        if (!ide_dbg_has_script()) {
+            break;
+        }
     }
 main_thread_exit:
     fprintf(stderr, "[mpy] exit, reset\n");
 
+    ide_dbg_on_soft_reset();
     ide_dbg_vo_wbc_stop();
     py_display_deinit();
 

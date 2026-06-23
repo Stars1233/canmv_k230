@@ -674,6 +674,10 @@ static void py_display_deinit_inst(void)
         return;
     }
 
+    // The IDE WBC encoder caches the display geometry, so reset it before
+    // changing the display instance.
+    ide_dbg_vo_wbc_stop();
+
     // Disable WBC first
     py_display_set_wbc_inst(0, 0);
 

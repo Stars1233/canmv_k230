@@ -26,6 +26,7 @@
 
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -64,6 +65,11 @@ static bool mp_hal_reader_running = false;
 
 drv_uart_inst_t *mp_hal_uart_get_instance(void) {
     return __atomic_load_n(&mp_hal_uart_inst, __ATOMIC_ACQUIRE);
+}
+
+bool mp_hal_uart_is_usb(void) {
+    drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+    return inst != NULL && drv_uart_get_id(inst) < 0;
 }
 
 static void mp_hal_uart_set_instance(drv_uart_inst_t *inst) {
@@ -144,10 +150,6 @@ static unsigned mp_hal_stdin_rptr = 0;
 
 static void mp_hal_interrupt(void)
 {
-    if (ide_dbg_attach()) {
-        ide_dbg_interrupt();
-    }
-
     mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
     mp_sched_keyboard_interrupt();
 }
@@ -305,10 +307,9 @@ void mp_hal_stdout_tx_str(const char *str) {
 }
 
 void mp_hal_stdout_tx_strn(const char *str, size_t len) {
-    if (ide_dbg_attach() || ide_dbg_is_script_running()) {
-        // When IDE is attached or a script is running at boot,
-        // buffer output so raw text never leaks onto the UART.
-        // The IDE will drain it via the USBDBG_TX_BUF protocol.
+    if (ide_dbg_attach()) {
+        // When the IDE protocol is attached, keep stdout framed through
+        // USBDBG_TX_BUF so raw text never leaks into protocol traffic.
         ide_dbg_stdout_tx(str, len);
     } else {
         mp_hal_uart_tx(str, len);

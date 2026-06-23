@@ -37,6 +37,7 @@
 
 #include "drv_i2c.h"
 #include "drv_touch.h"
+#include "ide_dbg.h"
 
 typedef struct _machine_touch_obj_t {
     mp_obj_base_t base;
@@ -44,6 +45,7 @@ typedef struct _machine_touch_obj_t {
     int index; // touch device index, 0: system default, others created.
     int rotate;
     int range_x, range_y;
+    bool vtouch_open;
 
     drv_touch_inst_t*         inst;
     struct drv_touch_info     info;
@@ -210,6 +212,20 @@ static inline void rotate_touch_point(machine_touch_obj_t* self, struct drv_touc
     }
 }
 
+static uint8_t virtual_touch_event_to_drv(uint8_t event)
+{
+    switch (event) {
+    case 1:
+        return DRV_TOUCH_EVENT_DOWN;
+    case 2:
+        return DRV_TOUCH_EVENT_UP;
+    case 3:
+        return DRV_TOUCH_EVENT_MOVE;
+    default:
+        return DRV_TOUCH_EVENT_NONE;
+    }
+}
+
 STATIC mp_obj_t machine_touch_read(size_t n_args, const mp_obj_t* args)
 {
     machine_touch_obj_t* self = MP_OBJ_TO_PTR(args[0]);
@@ -224,6 +240,22 @@ STATIC mp_obj_t machine_touch_read(size_t n_args, const mp_obj_t* args)
         if ((0 >= point_number) || (DRV_TOUCH_POINT_NUMBER_MAX < point_number)) {
             mp_raise_ValueError(MP_ERROR_TEXT("point_number invalid"));
         }
+    }
+
+    if (self->index == USBDBG_VTOUCH_DEVICE_ID) {
+        struct ide_dbg_vtouch_event events[DRV_TOUCH_POINT_NUMBER_MAX];
+        uint32_t event_count = ide_dbg_vtouch_read(events, point_number);
+        for (uint32_t i = 0; i < event_count; i++) {
+            touch_info_obj[i] = mp_obj_malloc(machine_touch_info_obj_t, &machine_touch_info_type);
+            memset(&touch_info_obj[i]->info, 0, sizeof(touch_info_obj[i]->info));
+            touch_info_obj[i]->info.track_id = events[i].track_id;
+            touch_info_obj[i]->info.event = virtual_touch_event_to_drv(events[i].event);
+            touch_info_obj[i]->info.width = events[i].width > UINT8_MAX ? UINT8_MAX : events[i].width;
+            touch_info_obj[i]->info.x_coordinate = events[i].x;
+            touch_info_obj[i]->info.y_coordinate = events[i].y;
+            touch_info_obj[i]->info.timestamp = events[i].timestamp_ms;
+        }
+        return mp_obj_new_tuple(event_count, (mp_obj_t*)touch_info_obj);
     }
 
     result = drv_touch_read(self->inst, touch_data, point_number);
@@ -246,6 +278,15 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_touch_read_obj, 1, 2, machine
 STATIC mp_obj_t machine_touch_deinit(mp_obj_t self_in)
 {
     machine_touch_obj_t* self = MP_OBJ_TO_PTR(self_in);
+
+    if (self->index == USBDBG_VTOUCH_DEVICE_ID) {
+        if (self->vtouch_open) {
+            ide_dbg_vtouch_close();
+            self->vtouch_open = false;
+        }
+        self->inst = NULL;
+        return mp_const_none;
+    }
 
     drv_touch_inst_destroy(&self->inst);
 
@@ -281,10 +322,35 @@ STATIC mp_obj_t machine_touch_make_new(const mp_obj_type_t* type, size_t n_args,
 
     // Create a new instance of the Touch object
     machine_touch_obj_t* self = m_new_obj_with_finaliser(machine_touch_obj_t);
+    self->vtouch_open = false;
 
     // Extract the dev parameter
     self->index  = args_parsed[ARG_dev].u_int;
     self->rotate = args_parsed[ARG_rotate].u_int;
+
+    if (self->index == USBDBG_VTOUCH_DEVICE_ID) {
+        memset(&self->info, 0x00, sizeof(self->info));
+        memset(&self->config_set, 0x00, sizeof(self->config_set));
+        memset(&self->config_get, 0x00, sizeof(self->config_get));
+
+        self->range_x = args_parsed[ARG_range_x].u_int > 0 ? args_parsed[ARG_range_x].u_int : 320;
+        self->range_y = args_parsed[ARG_range_y].u_int > 0 ? args_parsed[ARG_range_y].u_int : 240;
+        if (-1 == self->rotate) {
+            self->rotate = DRV_TOUCH_ROTATE_DEGREE_0;
+        }
+
+        self->info.range_x = self->range_x;
+        self->info.range_y = self->range_y;
+        self->info.point_num = DRV_TOUCH_POINT_NUMBER_MAX;
+        self->config_get.touch_dev_index = self->index;
+        self->config_get.range_x = self->range_x;
+        self->config_get.range_y = self->range_y;
+        self->inst = NULL;
+        self->base.type = &machine_touch_type;
+        ide_dbg_vtouch_open(self->range_x, self->range_y);
+        self->vtouch_open = true;
+        return MP_OBJ_FROM_PTR(self);
+    }
 
     if (0x00 != self->index) {
         memset(&self->config_set, 0x00, sizeof(self->config_set));
@@ -399,6 +465,8 @@ STATIC const mp_rom_map_elem_t machine_touch_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ROTATE_180), MP_ROM_INT(DRV_TOUCH_ROTATE_DEGREE_180) },
     { MP_ROM_QSTR(MP_QSTR_ROTATE_270), MP_ROM_INT(DRV_TOUCH_ROTATE_DEGREE_270) },
     { MP_ROM_QSTR(MP_QSTR_ROTATE_SWAP_XY), MP_ROM_INT(DRV_TOUCH_ROTATE_SWAP_XY) },
+
+    { MP_ROM_QSTR(MP_QSTR_DEV_IDE), MP_ROM_INT(USBDBG_VTOUCH_DEVICE_ID) },
 
     // system touch driver type
     // { MP_ROM_QSTR(MP_QSTR_TYPE_CST128), MP_ROM_INT(TOUCH_TYPE_CST128) },

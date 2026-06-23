@@ -3,11 +3,11 @@ menu "CanMV OpenMV Components Configurations"
     config CANMV_IDE_SUPPORT
         bool "Enable CanMV IDE Support"
         default y
-        depends on CANMV_REPL_UART_USB
         help
-          Enable the CanMV IDE debug protocol over UART.
+          Enable the CanMV IDE debug protocol over the selected REPL UART.
           When disabled, only the REPL is available on the
-          selected UART.
+          selected UART. Hardware UARTs support the command/file/terminal
+          protocol but not high-throughput frame dump.
 
     comment "FB Configuration"
 
