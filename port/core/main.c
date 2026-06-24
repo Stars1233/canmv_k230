@@ -464,7 +464,7 @@ soft_reset:
     mp_hal_set_interrupt_char(-1);
     ide_dbg_clear_soft_reset_request();
 
-    if (!is_repl_intr) {
+    if (!is_repl_intr && !ide_dbg_is_connected()) {
         FILE*      script_file = NULL;
         const int* stage_ptr   = NULL;
         char*      script_str  = NULL;
@@ -486,7 +486,7 @@ soft_reset:
 
         // Process both boot.py and main/fallback scripts
         for (size_t i = 0; i < sizeof(scripts_to_run) / sizeof(scripts_to_run[0]); i++) {
-            if (ide_dbg_has_script() || 0x00 != access(scripts_to_run[i], F_OK)) {
+            if (ide_dbg_is_connected() || ide_dbg_has_script() || 0x00 != access(scripts_to_run[i], F_OK)) {
                 continue;
             }
 

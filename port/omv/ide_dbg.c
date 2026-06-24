@@ -460,6 +460,13 @@ bool ide_dbg_attach(void) {
     return ide_dbg_is_attached();
 }
 
+bool ide_dbg_is_connected(void) {
+    drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+    return inst != NULL &&
+           drv_uart_is_dtr_asserted(inst) > 0 &&
+           ide_dbg_is_attached();
+}
+
 void ide_dbg_on_script_start(void) {
     ide_dbg_set_repl_script_running(true);
 }
@@ -505,14 +512,22 @@ void interrupt_repl(void) {
 }
 
 static void ide_dbg_request_soft_reset(void) {
+    bool script_running = ide_dbg_is_script_running();
     ide_dbg_set_soft_reset_request(true);
     mp_hal_stdin_clear();
     wait_mp_irq_handler_done();
-    if (ide_dbg_is_script_running()) {
+    if (script_running) {
         mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
     }
     const uint8_t ctrl_d = CHAR_CTRL_D;
     mp_hal_stdin_push(&ctrl_d, 1);
+}
+
+static void ide_dbg_disconnect_and_soft_reset(void) {
+    pr_verb("[usb] IDE disconnected");
+    ide_dbg_set_disconnect(false);
+    ide_dbg_set_attached(false);
+    ide_dbg_request_soft_reset();
 }
 
 void ide_dbg_interrupt(void) {
@@ -1539,6 +1554,9 @@ static void ide_dbg_route_protocol_start(ide_dbg_rx_router_t *router, ide_dbg_st
     }
     router->pending_len = 0;
     ide_dbg_set_attached(true);
+    if (ide_dbg_repl_script_running()) {
+        ide_dbg_request_soft_reset();
+    }
     ide_dbg_update(state, frame, frame_len);
     free(frame);
 }
@@ -1919,12 +1937,9 @@ static void* ide_dbg_task(void* args) {
                 gettimeofday(&tval, NULL);
                 timersub(&tval, &tval_last, &tval_sub);
                 if (tval_sub.tv_sec >= 1) {
-                    if (ide_dbg_is_script_running()) {
-                        ide_dbg_set_disconnect(true);
-                        mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
-                    } else {
-                        ide_dbg_interrupt();
-                    }
+                    router.pending_len = 0;
+                    state.state = FRAME_HEAD;
+                    ide_dbg_disconnect_and_soft_reset();
                     tval_last = tval;
                 }
             }
