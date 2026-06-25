@@ -307,11 +307,7 @@ void mp_hal_stdout_tx_str(const char *str) {
 }
 
 void mp_hal_stdout_tx_strn(const char *str, size_t len) {
-    if (ide_dbg_attach()) {
-        // When the IDE protocol is attached, keep stdout framed through
-        // USBDBG_TX_BUF so raw text never leaks into protocol traffic.
-        ide_dbg_stdout_tx(str, len);
-    } else {
+    if (!ide_dbg_stdout_capture(str, len)) {
         mp_hal_uart_tx(str, len);
     }
     mp_os_dupterm_tx_strn(str, len);

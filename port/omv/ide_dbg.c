@@ -157,10 +157,19 @@ void print_raw(const uint8_t* data, size_t size) {
 ///////////////////////////////////////////////////////////////////////////////
 
 #define TX_BUF_SIZE (1024 * 128)
+#define STDOUT_PROBE_GUARD_MS (2000)
 static char tx_buf[TX_BUF_SIZE];
 static uint32_t tx_buf_w = 0;
 static uint32_t tx_buf_r = 0;
 static pthread_mutex_t tx_buf_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Hold early USB CDC stdout briefly so OpenMV IDE's fixed-length reads do not
+// consume boot-script text as command responses before USBDBG attaches.
+static pthread_mutex_t stdout_probe_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool stdout_probe_dtr = false;
+static bool stdout_probe_active = false;
+static bool stdout_probe_raw = false;
+static uint64_t stdout_probe_start_ms = 0;
 
 static inline uint32_t tx_buf_readable(void) {
     return (tx_buf_w >= tx_buf_r)
@@ -180,6 +189,11 @@ static uint32_t tx_buf_readable_locked(void) {
     pthread_mutex_unlock(&tx_buf_mutex);
 
     return len;
+}
+
+static void tx_buf_clear_locked(void) {
+    tx_buf_w = 0;
+    tx_buf_r = 0;
 }
 
 static void tx_buf_write(const char* data, size_t len) {
@@ -211,6 +225,14 @@ static void tx_buf_drain(uint32_t len) {
     pthread_mutex_lock(&tx_buf_mutex);
 }
 
+static void tx_buf_drain_all_raw(void) {
+    pthread_mutex_lock(&tx_buf_mutex);
+    while (tx_buf_readable() > 0) {
+        tx_buf_drain(tx_buf_readable());
+    }
+    pthread_mutex_unlock(&tx_buf_mutex);
+}
+
 void ide_dbg_stdout_tx(const char* data, size_t size) {    
     pthread_mutex_lock(&tx_buf_mutex);
     if (size > tx_buf_writable()) {
@@ -221,6 +243,93 @@ void ide_dbg_stdout_tx(const char* data, size_t size) {
     }
     tx_buf_write(data, size);
     pthread_mutex_unlock(&tx_buf_mutex);
+}
+
+static void ide_dbg_stdout_probe_reset_locked(bool clear_buffer) {
+    stdout_probe_dtr = false;
+    stdout_probe_active = false;
+    stdout_probe_raw = false;
+    stdout_probe_start_ms = 0;
+    if (clear_buffer) {
+        pthread_mutex_lock(&tx_buf_mutex);
+        tx_buf_clear_locked();
+        pthread_mutex_unlock(&tx_buf_mutex);
+    }
+}
+
+static void ide_dbg_stdout_protocol_attach(void) {
+    pthread_mutex_lock(&stdout_probe_mutex);
+    stdout_probe_dtr = true;
+    stdout_probe_active = false;
+    stdout_probe_raw = false;
+    pthread_mutex_unlock(&stdout_probe_mutex);
+}
+
+void ide_dbg_stdout_raw_input(void) {
+    if (ide_dbg_attach()) {
+        return;
+    }
+
+    pthread_mutex_lock(&stdout_probe_mutex);
+    stdout_probe_dtr = true;
+    stdout_probe_active = false;
+    stdout_probe_raw = true;
+    pthread_mutex_unlock(&stdout_probe_mutex);
+
+    tx_buf_drain_all_raw();
+}
+
+bool ide_dbg_stdout_capture(const char* data, size_t size) {
+    if (data == NULL || size == 0) {
+        return true;
+    }
+
+    if (ide_dbg_attach()) {
+        ide_dbg_stdout_tx(data, size);
+        return true;
+    }
+
+    drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+    if (inst == NULL || drv_uart_get_id(inst) >= 0) {
+        return false;
+    }
+
+    int dtr = drv_uart_is_dtr_asserted(inst);
+    pthread_mutex_lock(&stdout_probe_mutex);
+    if (dtr <= 0) {
+        ide_dbg_stdout_probe_reset_locked(true);
+        pthread_mutex_unlock(&stdout_probe_mutex);
+        return false;
+    }
+
+    uint64_t now_ms = mp_hal_ticks_ms();
+    if (!stdout_probe_dtr) {
+        stdout_probe_dtr = true;
+        stdout_probe_active = true;
+        stdout_probe_raw = false;
+        stdout_probe_start_ms = now_ms;
+        pthread_mutex_lock(&tx_buf_mutex);
+        tx_buf_clear_locked();
+        pthread_mutex_unlock(&tx_buf_mutex);
+    }
+
+    if (stdout_probe_raw) {
+        pthread_mutex_unlock(&stdout_probe_mutex);
+        return false;
+    }
+
+    if (stdout_probe_active && (now_ms - stdout_probe_start_ms) < STDOUT_PROBE_GUARD_MS) {
+        pthread_mutex_unlock(&stdout_probe_mutex);
+        ide_dbg_stdout_tx(data, size);
+        return true;
+    }
+
+    stdout_probe_active = false;
+    stdout_probe_raw = true;
+    pthread_mutex_unlock(&stdout_probe_mutex);
+
+    tx_buf_drain_all_raw();
+    return false;
 }
 
 static void read_until(void* buffer, size_t size) {
@@ -1527,6 +1636,7 @@ static void ide_dbg_route_repl(const uint8_t *data, size_t size) {
         return;
     }
 
+    ide_dbg_stdout_raw_input();
     pr_verb("[uart] repl %zu bytes", size);
     print_raw(data, size);
     mp_hal_stdin_push(data, size);
@@ -1556,6 +1666,7 @@ static void ide_dbg_route_protocol_start(ide_dbg_rx_router_t *router, ide_dbg_st
         hal_rvv_memcpy(frame + router->pending_len, rest, rest_len);
     }
     router->pending_len = 0;
+    ide_dbg_stdout_protocol_attach();
     ide_dbg_set_attached(true);
     if (ide_dbg_repl_script_running()) {
         ide_dbg_request_soft_reset();

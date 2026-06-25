@@ -217,6 +217,8 @@ void ide_dbg_vo_wbc_stop(void);
 void ide_dbg_vo_wbc_start(int enable);
 void ide_dbg_interrupt(void);
 void ide_dbg_stdout_tx(const char *data, size_t size);
+bool ide_dbg_stdout_capture(const char *data, size_t size);
+void ide_dbg_stdout_raw_input(void);
 void interrupt_repl(void);
 void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height);
 void ide_dbg_enable_vo_wbc(void);
@@ -245,6 +247,8 @@ static inline void ide_dbg_vo_wbc_stop(void) {}
 static inline void ide_dbg_vo_wbc_start(int enable) { (void)enable; }
 static inline void ide_dbg_interrupt(void) {}
 static inline void ide_dbg_stdout_tx(const char *data, size_t size) { (void)data; (void)size; }
+static inline bool ide_dbg_stdout_capture(const char *data, size_t size) { (void)data; (void)size; return false; }
+static inline void ide_dbg_stdout_raw_input(void) {}
 static inline void interrupt_repl(void) {}
 static inline void ide_set_fb(const void* data, uint32_t size, uint32_t width, uint32_t height) { (void)data; (void)size; (void)width; (void)height; }
 static inline void ide_dbg_enable_vo_wbc(void) {}
