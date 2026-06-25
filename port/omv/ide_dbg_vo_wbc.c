@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "k_vb_comm.h"
 #include "py/runtime.h"
@@ -79,9 +80,19 @@ static ide_dbg_vo_wbc_ctx_t g_wbc_ctx = {
 
 static int g_wbc_enable = 0;
 
+// Serializes the writeback encoder lifecycle across threads. The IDE task
+// thread runs ide_dbg_vo_wbc_dump_and_encode() (driven by USBDBG_FRAME_SIZE)
+// while the main thread can tear the encoder down via ide_dbg_vo_wbc_stop()
+// during a soft reset. Without this lock the teardown destroys the VENC
+// channel / VB pool while an encode is still reading from it (use-after-free).
+// Held only across the encoder entry points; the helpers below assume it is
+// already held by their caller, so they must never re-acquire it.
+static pthread_mutex_t g_wbc_lock = PTHREAD_MUTEX_INITIALIZER;
+
 /**
  * @brief Cleanup resources without checking inited flag
- * @note Internal cleanup function that always releases resources
+ * @note Internal cleanup function that always releases resources.
+ *       Caller must hold g_wbc_lock.
  */
 static void wbc_cleanup_resources(void)
 {
@@ -137,7 +148,9 @@ void ide_dbg_vo_wbc_start(int enable)
         ide_dbg_enable_vo_wbc();
     }
 
+    pthread_mutex_lock(&g_wbc_lock);
     g_wbc_enable = enable;
+    pthread_mutex_unlock(&g_wbc_lock);
 }
 
 /**
@@ -145,6 +158,10 @@ void ide_dbg_vo_wbc_start(int enable)
  */
 void ide_dbg_vo_wbc_stop(void)
 {
+    // Take the lifecycle lock so we wait for any in-flight encode on the IDE
+    // task thread to finish before destroying the channel/pool it reads from.
+    pthread_mutex_lock(&g_wbc_lock);
+
     g_wbc_enable = 0;
 
     // Always cleanup resources regardless of inited flag
@@ -153,6 +170,8 @@ void ide_dbg_vo_wbc_stop(void)
 
     // Reset the inited flag after cleanup
     g_wbc_ctx.inited = 0;
+
+    pthread_mutex_unlock(&g_wbc_lock);
 }
 
 /**
@@ -303,8 +322,9 @@ _err:
 
 /**
  * @brief High-speed dump and encode. Operates purely on cached state.
+ * @note Caller must hold g_wbc_lock (see ide_dbg_vo_wbc_dump_and_encode).
  */
-int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t* image_width, uint32_t* image_height)
+static int ide_dbg_vo_wbc_dump_and_encode_locked(void** buffer, size_t* buffer_size, uint32_t* image_width, uint32_t* image_height)
 {
     if (!g_wbc_enable) {
         return -1;
@@ -440,6 +460,18 @@ int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t*
     //        stream.pack_cnt);
 
     return 0;
+}
+
+int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t* image_width, uint32_t* image_height)
+{
+    // Hold the lifecycle lock for the whole encode so a concurrent soft-reset
+    // teardown (ide_dbg_vo_wbc_stop) cannot destroy the VENC channel / VB pool
+    // while we are still reading from them.
+    pthread_mutex_lock(&g_wbc_lock);
+    int ret = ide_dbg_vo_wbc_dump_and_encode_locked(buffer, buffer_size, image_width, image_height);
+    pthread_mutex_unlock(&g_wbc_lock);
+
+    return ret;
 }
 
 #endif // CONFIG_CANMV_IDE_SUPPORT

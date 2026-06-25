@@ -152,6 +152,43 @@ void print_raw(const uint8_t* data, size_t size) {
 #endif
 }
 
+// USBDBG command replies are fixed-size on the host side. A short CDC write is
+// recoverable, but dropping the remainder desynchronizes the protocol.
+#define IDE_DBG_UART_TX_IDLE_TIMEOUT_MS (900)
+#define IDE_DBG_UART_TX_RETRY_US (1000)
+static int ide_dbg_uart_tx_all(const void* buffer, size_t size) {
+    const uint8_t *ptr = (const uint8_t*)buffer;
+    size_t sent = 0;
+    uint64_t last_progress_ms = mp_hal_ticks_ms();
+
+    while (sent < size) {
+        drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+        if (inst == NULL || drv_uart_is_dtr_asserted(inst) <= 0) {
+            return -1;
+        }
+
+        int n = mp_hal_uart_tx(ptr + sent, size - sent);
+        if (n > 0) {
+            sent += (size_t)n;
+            last_progress_ms = mp_hal_ticks_ms();
+            continue;
+        }
+
+        if ((mp_hal_ticks_ms() - last_progress_ms) >= IDE_DBG_UART_TX_IDLE_TIMEOUT_MS) {
+            return -1;
+        }
+        usleep(IDE_DBG_UART_TX_RETRY_US);
+    }
+
+    return (int)sent;
+}
+
+static int ide_dbg_uart_tx_best_effort(const void* buffer, size_t size) {
+    return mp_hal_uart_tx(buffer, size);
+}
+
+#define mp_hal_uart_tx ide_dbg_uart_tx_all
+
 ///////////////////////////////////////////////////////////////////////////////
 // TX ring buffer (stdout -> IDE) /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -162,6 +199,14 @@ static char tx_buf[TX_BUF_SIZE];
 static uint32_t tx_buf_w = 0;
 static uint32_t tx_buf_r = 0;
 static pthread_mutex_t tx_buf_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Serializes a whole drain operation (copy into the shared tx_tmp_buf + the
+// physical UART write). tx_buf_drain releases tx_buf_mutex during the UART
+// write so producers can keep filling the ring; without this second lock two
+// threads (the IDE task draining USBDBG_TX_BUF and the stdout raw path) could
+// reuse tx_tmp_buf and interleave bytes on the wire. Always acquire this
+// BEFORE tx_buf_mutex to keep a consistent lock order.
+static pthread_mutex_t tx_drain_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Hold early USB CDC stdout briefly so OpenMV IDE's fixed-length reads do not
 // consume boot-script text as command responses before USBDBG attaches.
@@ -209,6 +254,8 @@ static void tx_buf_write(const char* data, size_t len) {
 
 static uint8_t tx_tmp_buf[TX_BUF_SIZE];
 
+// Caller must hold both tx_drain_mutex and tx_buf_mutex. Uses the shared
+// tx_tmp_buf and briefly releases tx_buf_mutex during the UART write.
 static void tx_buf_drain(uint32_t len) {
     uint32_t tail = TX_BUF_SIZE - tx_buf_r;
     uint8_t *tmp_buf = tx_tmp_buf;
@@ -221,16 +268,18 @@ static void tx_buf_drain(uint32_t len) {
         tx_buf_r = len - tail;
     }
     pthread_mutex_unlock(&tx_buf_mutex);
-    mp_hal_uart_tx(tmp_buf, len);
+    ide_dbg_uart_tx_best_effort(tmp_buf, len);
     pthread_mutex_lock(&tx_buf_mutex);
 }
 
 static void tx_buf_drain_all_raw(void) {
+    pthread_mutex_lock(&tx_drain_mutex);
     pthread_mutex_lock(&tx_buf_mutex);
     while (tx_buf_readable() > 0) {
         tx_buf_drain(tx_buf_readable());
     }
     pthread_mutex_unlock(&tx_buf_mutex);
+    pthread_mutex_unlock(&tx_drain_mutex);
 }
 
 void ide_dbg_stdout_tx(const char* data, size_t size) {    
@@ -262,6 +311,12 @@ static void ide_dbg_stdout_protocol_attach(void) {
     stdout_probe_dtr = true;
     stdout_probe_active = false;
     stdout_probe_raw = false;
+    pthread_mutex_unlock(&stdout_probe_mutex);
+}
+
+static void ide_dbg_stdout_protocol_detach(void) {
+    pthread_mutex_lock(&stdout_probe_mutex);
+    ide_dbg_stdout_probe_reset_locked(true);
     pthread_mutex_unlock(&stdout_probe_mutex);
 }
 
@@ -486,6 +541,7 @@ static exec_type_t exec_type = EXEC_STRING;
 static sem_t script_sem;
 static bool ide_attached = false;
 static bool ide_disconnect = false;
+static bool ide_auto_exec_suppressed = false;
 static enum {
     FB_FROM_NONE,
     FB_FROM_USER_SET,
@@ -539,8 +595,21 @@ static inline bool ide_dbg_is_attached(void) {
 
 static void ide_dbg_clear_fb(void);
 
+static inline void ide_dbg_set_auto_exec_suppressed(bool suppressed) {
+    __atomic_store_n(&ide_auto_exec_suppressed, suppressed, __ATOMIC_RELEASE);
+}
+
+bool ide_dbg_auto_exec_allowed(void) {
+    return !__atomic_load_n(&ide_auto_exec_suppressed, __ATOMIC_ACQUIRE);
+}
+
 static inline void ide_dbg_set_attached(bool attached) {
     __atomic_store_n(&ide_attached, attached, __ATOMIC_RELEASE);
+    if (attached) {
+        ide_dbg_set_auto_exec_suppressed(true);
+    } else {
+        ide_dbg_stdout_protocol_detach();
+    }
 }
 
 static inline bool ide_dbg_should_disconnect(void) {
@@ -782,7 +851,7 @@ static bool is_dot_or_dotdot(const char *name) {
 }
 
 static void cmd_arch_str(ide_dbg_state_t* state) {
-    char buffer[0x40];
+    char buffer[0x40] = {0};
     char unit;
     int value;
 
@@ -1094,7 +1163,7 @@ static void cmd_frame_size(void) {
         }
     }
 
-    mp_hal_uart_tx(&resp, sizeof(resp));
+    ide_dbg_uart_tx_best_effort(&resp, sizeof(resp));
 }
 
 static void cmd_frame_dump(void) {
@@ -1105,17 +1174,23 @@ static void cmd_frame_dump(void) {
     if (fb_from_current == FB_FROM_NONE)
         return;
 
+    void *dump_data = NULL;
+    size_t dump_size = 0;
+    bool free_dump_data = false;
+
     pthread_mutex_lock(&fb_mutex);
     if (FB_FROM_USER_SET == fb_from_current) {
         if (fb_data && fb_size) {
-            mp_hal_uart_tx((void*)fb_data, fb_size);
-            free((void*)fb_data);
+            dump_data = fb_data;
+            dump_size = fb_size;
+            free_dump_data = true;
             fb_data = NULL;
             fb_size = 0;
         }
     } else if (FB_FROM_VO_WRITEBACK == fb_from_current) {
         if (fb_vo_wbc_data && fb_vo_wbc_data_size) {
-            mp_hal_uart_tx((void*)fb_vo_wbc_data, fb_vo_wbc_data_size);
+            dump_data = fb_vo_wbc_data;
+            dump_size = fb_vo_wbc_data_size;
             fb_vo_wbc_data = NULL;
             fb_vo_wbc_data_size = 0;
             fb_vo_wbc_width = 0;
@@ -1123,6 +1198,13 @@ static void cmd_frame_dump(void) {
         }
     }
     pthread_mutex_unlock(&fb_mutex);
+
+    if (dump_data && dump_size) {
+        ide_dbg_uart_tx_best_effort(dump_data, dump_size);
+        if (free_dump_data) {
+            free(dump_data);
+        }
+    }
 }
 
 static size_t read_from_frame(ide_dbg_state_t* state, void* buf, size_t size) {
@@ -1933,6 +2015,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         break;
                     }
                     case USBDBG_TX_BUF: {
+                        pthread_mutex_lock(&tx_drain_mutex);
                         pthread_mutex_lock(&tx_buf_mutex);
                         uint32_t len = tx_buf_readable();
                         if (len > state->data_length) {
@@ -1941,6 +2024,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         pr_dbg("cmd: USBDBG_TX_BUF drain %u (requested %u)", len, state->data_length);
                         tx_buf_drain(len);
                         pthread_mutex_unlock(&tx_buf_mutex);
+                        pthread_mutex_unlock(&tx_drain_mutex);
                         break;
                     }
                     case USBDBG_FRAME_SIZE:

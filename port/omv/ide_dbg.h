@@ -203,6 +203,7 @@ typedef struct {
 void ide_dbg_start(void);
 bool ide_dbg_attach(void);
 bool ide_dbg_is_connected(void);
+bool ide_dbg_auto_exec_allowed(void);
 bool ide_dbg_is_script_running(void);
 bool ide_dbg_has_script(void);
 char *ide_dbg_get_script(void);
@@ -233,6 +234,7 @@ uint32_t ide_dbg_vtouch_read(struct ide_dbg_vtouch_event *out, uint32_t max_even
 static inline void ide_dbg_start(void) {}
 static inline bool ide_dbg_attach(void) { return false; }
 static inline bool ide_dbg_is_connected(void) { return false; }
+static inline bool ide_dbg_auto_exec_allowed(void) { return true; }
 static inline bool ide_dbg_is_script_running(void) { return false; }
 static inline bool ide_dbg_has_script(void) { return false; }
 static inline char *ide_dbg_get_script(void) { return NULL; }

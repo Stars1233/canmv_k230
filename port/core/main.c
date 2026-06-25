@@ -464,7 +464,14 @@ soft_reset:
     mp_hal_set_interrupt_char(-1);
     ide_dbg_clear_soft_reset_request();
 
-    if (!is_repl_intr && !ide_dbg_is_connected()) {
+    // Auto-run boot.py/main.py immediately -- never block boot waiting for an IDE
+    // that may never connect. Only skip auto-exec if the IDE/extension is already
+    // attached right now (e.g. it stayed connected across a soft reset). If it
+    // attaches later while a script runs, the attach path soft-resets and
+    // ide_dbg_auto_exec_allowed() then keeps boot.py/main.py idle until hard reboot.
+    bool ide_connected = ide_dbg_is_connected();
+
+    if (!is_repl_intr && !ide_connected && ide_dbg_auto_exec_allowed()) {
         FILE*      script_file = NULL;
         const int* stage_ptr   = NULL;
         char*      script_str  = NULL;
