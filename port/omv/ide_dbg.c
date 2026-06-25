@@ -395,9 +395,12 @@ static inline uint32_t ide_dbg_script_running(void) {
     return __atomic_load_n(&ide_script_running, __ATOMIC_ACQUIRE);
 }
 
+static inline bool ide_dbg_python_running(void) {
+    return ide_dbg_script_running() != 0 || ide_dbg_repl_script_running();
+}
+
 bool ide_dbg_is_script_running(void) {
-    return ide_dbg_script_running() != 0 ||
-           ide_dbg_repl_script_running() ||
+    return ide_dbg_python_running() ||
            __atomic_load_n(&ide_soft_reset_requested, __ATOMIC_ACQUIRE);
 }
 
@@ -512,11 +515,11 @@ void interrupt_repl(void) {
 }
 
 static void ide_dbg_request_soft_reset(void) {
-    bool script_running = ide_dbg_is_script_running();
+    bool interrupt_running_script = ide_dbg_python_running() && !ide_dbg_take_soft_reset_request();
     ide_dbg_set_soft_reset_request(true);
     mp_hal_stdin_clear();
     wait_mp_irq_handler_done();
-    if (script_running) {
+    if (interrupt_running_script) {
         mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
     }
     const uint8_t ctrl_d = CHAR_CTRL_D;
@@ -699,7 +702,7 @@ static void cmd_arch_str(ide_dbg_state_t* state) {
 
 static void cmd_script_exec(ide_dbg_state_t* state) {
     pr_verb("cmd: USBDBG_SCRIPT_EXEC size %u", state->data_length);
-    if (ide_dbg_repl_script_running()) {
+    if (ide_dbg_python_running() && !ide_dbg_take_soft_reset_request()) {
         mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
     }
     usleep(1000);
@@ -1843,7 +1846,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         ide_dbg_clear_fb();
                         if (ide_dbg_is_script_running()) {
                             ide_dbg_set_disconnect(true);
-                            mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&ide_exception));
+                            ide_dbg_request_soft_reset();
                         } else {
                             ide_dbg_interrupt();
                         }
