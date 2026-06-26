@@ -256,7 +256,11 @@ static uint8_t tx_tmp_buf[TX_BUF_SIZE];
 
 // Caller must hold both tx_drain_mutex and tx_buf_mutex. Uses the shared
 // tx_tmp_buf and briefly releases tx_buf_mutex during the UART write.
-static void tx_buf_drain(uint32_t len) {
+// When `full` is set the bytes are sent with the looping full-write path: the
+// USBDBG_TX_BUF command makes the host read exactly `len` bytes, so a short CDC
+// write that dropped the tail would desync every later response. The raw
+// pre-attach drain passes full=false (no fixed-length host read; must not block).
+static void tx_buf_drain(uint32_t len, bool full) {
     uint32_t tail = TX_BUF_SIZE - tx_buf_r;
     uint8_t *tmp_buf = tx_tmp_buf;
     if (len <= tail) {
@@ -268,7 +272,11 @@ static void tx_buf_drain(uint32_t len) {
         tx_buf_r = len - tail;
     }
     pthread_mutex_unlock(&tx_buf_mutex);
-    ide_dbg_uart_tx_best_effort(tmp_buf, len);
+    if (full) {
+        mp_hal_uart_tx(tmp_buf, len);
+    } else {
+        ide_dbg_uart_tx_best_effort(tmp_buf, len);
+    }
     pthread_mutex_lock(&tx_buf_mutex);
 }
 
@@ -276,7 +284,7 @@ static void tx_buf_drain_all_raw(void) {
     pthread_mutex_lock(&tx_drain_mutex);
     pthread_mutex_lock(&tx_buf_mutex);
     while (tx_buf_readable() > 0) {
-        tx_buf_drain(tx_buf_readable());
+        tx_buf_drain(tx_buf_readable(), false);
     }
     pthread_mutex_unlock(&tx_buf_mutex);
     pthread_mutex_unlock(&tx_drain_mutex);
@@ -1163,7 +1171,9 @@ static void cmd_frame_size(void) {
         }
     }
 
-    ide_dbg_uart_tx_best_effort(&resp, sizeof(resp));
+    // Use the full-write path: the host reads exactly sizeof(resp) bytes, so a
+    // short CDC write that dropped the tail would desync every later response.
+    mp_hal_uart_tx(&resp, sizeof(resp));
 }
 
 static void cmd_frame_dump(void) {
@@ -1200,7 +1210,9 @@ static void cmd_frame_dump(void) {
     pthread_mutex_unlock(&fb_mutex);
 
     if (dump_data && dump_size) {
-        ide_dbg_uart_tx_best_effort(dump_data, dump_size);
+        // Full-write: the host reads exactly dump_size bytes (the value reported
+        // by FRAME_SIZE), so a dropped tail would desync the protocol stream.
+        mp_hal_uart_tx(dump_data, dump_size);
         if (free_dump_data) {
             free(dump_data);
         }
@@ -2022,7 +2034,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                             len = state->data_length;
                         }
                         pr_dbg("cmd: USBDBG_TX_BUF drain %u (requested %u)", len, state->data_length);
-                        tx_buf_drain(len);
+                        tx_buf_drain(len, true);
                         pthread_mutex_unlock(&tx_buf_mutex);
                         pthread_mutex_unlock(&tx_drain_mutex);
                         break;
