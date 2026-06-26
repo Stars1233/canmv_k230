@@ -81,7 +81,7 @@ DEFAULT_MANIFEST = PORT_DIR / "boards" / "manifest.py"
 DEFAULT_OVERRIDES = CANMV_DIR / "tools" / "canmv_stub_overrides.json"
 
 ENTRY_RE = re.compile(
-    r"\{\s*MP_ROM_QSTR\(MP_QSTR_(?P<name>[A-Za-z0-9_]+)\)\s*,\s*(?P<rhs>[^}]+)\}",
+    r"\{\s*(?:MP_ROM_QSTR|MP_OBJ_NEW_QSTR)\(MP_QSTR_(?P<name>[A-Za-z0-9_]+)\)\s*,\s*(?P<rhs>[^}]+)\}",
     re.DOTALL,
 )
 ROM_MAP_RE = re.compile(
@@ -269,6 +269,8 @@ def expand_c_macro(name: str, macros: dict[str, str], seen: set[str] | None = No
 
 
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"(?P<path>[^"]+)"', re.MULTILINE)
+_ANGLE_INCLUDE_RE = re.compile(r"^\s*#\s*include\s+<(?P<path>[^>]+)>", re.MULTILINE)
+_MACRO_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+(?P<macro>[A-Z][A-Z0-9_]+(?:\([A-Za-z0-9_]*\))?)\s*$', re.MULTILINE)
 _INCLUDE_SEARCH_DIRS: list[Path] | None = None
 
 
@@ -284,31 +286,110 @@ def _include_search_dirs() -> list[Path]:
     return _INCLUDE_SEARCH_DIRS
 
 
-def resolve_local_includes(source_path: Path) -> dict[str, str]:
+def _resolve_include_file(include_path: str, source_dir: Path, seen: set[Path]) -> Path | None:
+    """Resolve an include path to an existing file on disk.
+
+    Searches the source file directory first, then project-wide directories
+    (PORT_DIR, MICROPY_DIR, CANMV_DIR).
+    """
+    paths: list[Path] = [source_dir / include_path]
+    for root in _include_search_dirs():
+        paths.append(root / include_path)
+        paths.append(root / "include" / include_path)
+
+    for candidate in paths:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if resolved.exists() and resolved not in seen:
+            return resolved
+    return None
+
+
+def _resolve_conf_chain(source_path: Path) -> dict[str, str]:
+    """Follow ``#include`` directives transitively to collect build‑time macros.
+
+    Handles ``#include "..."``, ``#include <...>`` and ``#include MACRO_NAME``
+    (macro‑expanded include paths).  Uses a two‑pass approach: first walk the
+    direct include tree to collect macros, then resolve any macro‑expanded
+    includes that became resolvable after the first pass.
+    """
+    result: dict[str, str] = {}
+    visited: set[Path] = set()
+    scanned: set[Path] = set()
+    text_cache: dict[Path, str] = {}
+
+    def _read(path: Path) -> str | None:
+        if path in text_cache:
+            return text_cache[path]
+        if path in visited:
+            return None
+        visited.add(path)
+        try:
+            t = path.read_text(errors="ignore")
+        except OSError:
+            return None
+        text_cache[path] = t
+        return t
+
+    def _scan(path: Path, depth: int) -> None:
+        if depth > 12 or path in scanned:
+            return
+        scanned.add(path)
+        text = _read(path)
+        if text is None:
+            return
+        result.update(collect_c_macros(text))
+        source_dir = path.parent
+        for match in _INCLUDE_RE.finditer(text):
+            candidate = _resolve_include_file(match.group("path"), source_dir, visited)
+            if candidate is not None:
+                _scan(candidate, depth + 1)
+        for match in _ANGLE_INCLUDE_RE.finditer(text):
+            candidate = _resolve_include_file(match.group("path"), source_dir, visited)
+            if candidate is not None:
+                _scan(candidate, depth + 1)
+
+    def _resolve_macro_includes() -> bool:
+        """Resolve ``#include MACRO`` directives using current *result* macros.
+        Returns True if any new file was included.
+        """
+        progress = False
+        for path in list(scanned):
+            text = text_cache.get(path)
+            if text is None:
+                continue
+            source_dir = path.parent
+            for match in _MACRO_INCLUDE_RE.finditer(text):
+                macro_name = match.group("macro").split("(")[0]
+                expanded = result.get(macro_name, "").strip().strip('"')
+                if expanded:
+                    candidate = _resolve_include_file(expanded, source_dir, visited)
+                    if candidate is not None and candidate not in scanned:
+                        _scan(candidate, 0)
+                        progress = True
+        return progress
+
+    # Pass 1: walk the direct include tree
+    _scan(source_path, 0)
+
+    # Pass 2: resolve macro-expanded includes (iterate until stable)
+    for _ in range(5):
+        if not _resolve_macro_includes():
+            break
+
+    return result
+
+
+def resolve_local_includes(source_path: Path, macros: dict[str, str] | None = None) -> dict[str, str]:
     """Read source file, find ``#include "..."`` directives, resolve them against
     the project tree, and return a merged dict of all macros from those headers.
+
+    Also resolves ``#include MACRO_NAME`` directives when *macros* supplies the
+    expansion (e.g. ``MICROPY_PY_TIME_INCLUDEFILE``).
     """
-    try:
-        text = source_path.read_text(errors="ignore")
-    except OSError:
-        return {}
-    macros: dict[str, str] = {}
-    source_dir = source_path.parent
-    search_dirs = [source_dir] + _include_search_dirs()
-    seen: set[Path] = set()
-    for match in _INCLUDE_RE.finditer(text):
-        include_path = match.group("path")
-        for base in search_dirs:
-            candidate = (base / include_path).resolve()
-            if candidate.exists() and candidate not in seen:
-                seen.add(candidate)
-                try:
-                    header_text = candidate.read_text(errors="ignore")
-                except OSError:
-                    continue
-                macros.update(collect_c_macros(header_text))
-                break
-    return macros
+    return _resolve_conf_chain(source_path)
 
 
 def expand_table_body_macros(body: str, macros: dict[str, str]) -> str:
@@ -1996,13 +2077,49 @@ def analyze_c_sources(sources: Iterable[Path]) -> CAnalysis:
     source_text: dict[Path, str] = {}
     c_macros: dict[str, str] = {}
 
+    _EXTRA_GLOBALS_PATTERN = re.compile(r"MICROPY_PY_(\w+)_EXTRA_GLOBALS")
+
+    # Pass 1: collect macros from all sources and their included files.
+    # Also discover and add C sources pulled in via macro-expanded includes.
     for src in analysis.sources:
         text = src.read_text(errors="ignore")
         source_text[src] = text
         c_macros.update(collect_c_macros(text))
-        # Also collect macros from locally-included headers so that table-body
-        # macros like OPENCV_CORE_GLOBALS can be expanded.
         c_macros.update(resolve_local_includes(src))
+
+    # Add C source files that define EXTRA_GLOBALS macros, so their
+    # function objects and types are parsed.
+    extra_sources_seen: set[Path] = set(analysis.sources)
+    for macro_name in sorted(c_macros):
+        m = _EXTRA_GLOBALS_PATTERN.match(macro_name)
+        if not m:
+            continue
+        module_upper = m.group(1).upper()
+        included_file = c_macros.get(f"MICROPY_PY_{module_upper}_INCLUDEFILE", "")
+        if not included_file:
+            continue
+        included_file = included_file.strip().strip('"')
+        for root in _include_search_dirs():
+            candidate = (root / included_file).resolve()
+            if candidate.exists() and candidate not in extra_sources_seen:
+                extra_sources_seen.add(candidate)
+                analysis.sources.append(candidate)
+                try:
+                    text = candidate.read_text(errors="ignore")
+                    source_text[candidate] = text
+                    c_macros.update(collect_c_macros(text))
+                    c_macros.update(resolve_local_includes(candidate))
+                except OSError:
+                    continue
+                break
+
+    # Pass 2: parse ROM tables, functions, types, and modules using the
+    # complete macro dictionary.  Apply macro expansion so that constructs
+    # like MICROPY_PY_TIME_EXTRA_GLOBALS are expanded in table bodies.
+    # We intentionally do NOT strip #ifdef blocks – many guard macros
+    # (IMLIB_ENABLE_*, MICROPY_PY_*) come from board-specific config headers
+    # that sit outside our include search path.
+    for src, text in source_text.items():
         for match in ROM_MAP_RE.finditer(text):
             body = expand_table_body_macros(match.group("body"), c_macros)
             analysis.table_bodies[match.group("name")] = body
@@ -2041,6 +2158,22 @@ def analyze_c_sources(sources: Iterable[Path]) -> CAnalysis:
     network_interfaces = expand_c_macro("MICROPY_PORT_NETWORK_INTERFACES", c_macros)
     if network_interfaces:
         analysis.module_extra_bodies["network"] = network_interfaces
+
+    # Expand EXTRA_GLOBALS macros so that port-specific symbols added via
+    # e.g. MICROPY_PY_TIME_EXTRA_GLOBALS are included in the module's table.
+    for macro_name in sorted(c_macros):
+        m = _EXTRA_GLOBALS_PATTERN.match(macro_name)
+        if m:
+            module_name = m.group(1).lower()
+            expanded = expand_c_macro(macro_name, c_macros)
+            if expanded and expanded not in (
+                analysis.module_extra_bodies.get(module_name, ""),
+                "",
+            ):
+                existing = analysis.module_extra_bodies.get(module_name, "")
+                analysis.module_extra_bodies[module_name] = (
+                    expanded if not existing else existing + "\n" + expanded
+                )
 
     for ctype in analysis.types.values():
         if not ctype.locals_dict:
@@ -2344,7 +2477,18 @@ def generate_c_module_stub(module_name: str, module: CModule, analysis: CAnalysi
     qstr_types = types_by_qstr(analysis)
     for name, override in symbols.items():
         if isinstance(override, dict):
-            entries.setdefault(name, (override.get("kind", "function"), None))
+            override_kind = override.get("kind", "function")
+            existing = entries.get(name)
+            # If the C analysis already found this entry with a concrete
+            # type/function reference and the override does not change the
+            # kind, keep the C‑discovered reference (which carries attrs,
+            # method signatures, etc.) while applying the override's
+            # docstrings and signature refinements in render_ctype_class /
+            # render_function.
+            if existing is not None and existing[1] is not None and override_kind == existing[0]:
+                pass  # keep existing C‑discovered (kind, ref)
+            else:
+                entries[name] = (override_kind, None)
     if not entries:
         return False
 

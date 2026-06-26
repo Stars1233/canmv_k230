@@ -637,6 +637,39 @@
       }
     }
   },
+  "time": {
+    "symbols": {
+      "clock": {
+        "kind": "class",
+        "doc": "FPS / frame-rate tracking clock.",
+        "init": "(self) -> None",
+        "init_doc": "Create a clock object for tracking frame rates.",
+        "methods": {
+          "tick": {
+            "doc": "Mark the start of a new frame.",
+            "signature": "(self) -> None"
+          },
+          "fps": {
+            "doc": "Return the current frames-per-second after calling tick().",
+            "signature": "(self) -> float"
+          },
+          "avg": {
+            "doc": "Return the average millisecond cost per frame.",
+            "signature": "(self) -> float"
+          },
+          "reset": {
+            "doc": "Reset the clock statistics.",
+            "signature": "(self) -> None"
+          }
+        }
+      },
+      "ntp_sync": {
+        "kind": "function",
+        "doc": "Synchronise the system RTC via NTP (deprecated – use machine.RTC.ntp_sync() instead).",
+        "signature": "() -> bool"
+      }
+    }
+  },
   "network": {
     "symbols": {
       "WLAN": {
