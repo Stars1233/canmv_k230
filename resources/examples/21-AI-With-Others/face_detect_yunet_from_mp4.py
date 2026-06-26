@@ -150,7 +150,7 @@ def demuxer_mp4(filename):
     bind_info = vdec.bind_info(width=video_info.width, height=video_info.height,chn=vdec.get_vdec_channel())
     Display.bind_layer(**bind_info, layer = Display.LAYER_VIDEO1)
 
-    vdec_link = MediaManager.link((VIDEO_DECODE_MOD_ID, VDEC_DEV_ID, vdec.get_vdec_channel()), (NONAI_2D_CSC_MOD_ID, 0, 2))
+    vdec_link = MediaManager.link((VIDEO_DECODE_MOD_ID, VDEC_DEV_ID, vdec.get_vdec_channel()), (NONAI_2D_CSC_MOD_ID, 0, csc.chn))
     vdec.start()
 
     # 记录初始系统时间
