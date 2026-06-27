@@ -164,7 +164,9 @@ static int ide_dbg_uart_tx_all(const void* buffer, size_t size) {
     while (sent < size) {
         drv_uart_inst_t *inst = mp_hal_uart_get_instance();
         if (inst == NULL || drv_uart_is_dtr_asserted(inst) <= 0) {
-            return -1;
+            // Host gone. Report partial progress so the caller can advance its
+            // read pointer by exactly what reached the wire and retain the rest.
+            return (sent > 0) ? (int)sent : -1;
         }
 
         int n = mp_hal_uart_tx(ptr + sent, size - sent);
@@ -175,7 +177,10 @@ static int ide_dbg_uart_tx_all(const void* buffer, size_t size) {
         }
 
         if ((mp_hal_ticks_ms() - last_progress_ms) >= IDE_DBG_UART_TX_IDLE_TIMEOUT_MS) {
-            return -1;
+            // Give up so the IDE task can return to servicing commands (e.g. a
+            // host resync probe). Return the count actually sent rather than -1
+            // so the undelivered tail stays buffered instead of being dropped.
+            return (int)sent;
         }
         usleep(IDE_DBG_UART_TX_RETRY_US);
     }
@@ -261,23 +266,40 @@ static uint8_t tx_tmp_buf[TX_BUF_SIZE];
 // write that dropped the tail would desync every later response. The raw
 // pre-attach drain passes full=false (no fixed-length host read; must not block).
 static void tx_buf_drain(uint32_t len, bool full) {
-    uint32_t tail = TX_BUF_SIZE - tx_buf_r;
+    // Snapshot the read pointer but DO NOT advance it yet: the pointer is moved
+    // only after the UART write, by the number of bytes that actually reached
+    // the wire. Leaving it in place keeps the in-flight region reserved (so a
+    // producer racing on the released tx_buf_mutex can't overwrite it) and lets
+    // a short write retain its undelivered tail for the next drain instead of
+    // dropping it. Dropping the tail of a fixed-length USBDBG_TX_BUF reply is
+    // exactly what desyncs the host's stream.
+    uint32_t start_r = tx_buf_r;
+    uint32_t tail = TX_BUF_SIZE - start_r;
     uint8_t *tmp_buf = tx_tmp_buf;
     if (len <= tail) {
-        hal_rvv_memcpy(tmp_buf, tx_buf + tx_buf_r, len);
-        tx_buf_r += len;
+        hal_rvv_memcpy(tmp_buf, tx_buf + start_r, len);
     } else {
-        hal_rvv_memcpy(tmp_buf, tx_buf + tx_buf_r, tail);
+        hal_rvv_memcpy(tmp_buf, tx_buf + start_r, tail);
         hal_rvv_memcpy(tmp_buf + tail, tx_buf, len - tail);
-        tx_buf_r = len - tail;
     }
     pthread_mutex_unlock(&tx_buf_mutex);
+    int sent;
     if (full) {
-        mp_hal_uart_tx(tmp_buf, len);
+        sent = mp_hal_uart_tx(tmp_buf, len);
     } else {
-        ide_dbg_uart_tx_best_effort(tmp_buf, len);
+        sent = ide_dbg_uart_tx_best_effort(tmp_buf, len);
     }
     pthread_mutex_lock(&tx_buf_mutex);
+    // The protocol path (full) must not desync the host: advance only by the
+    // bytes actually delivered so the undelivered tail is re-sent next time.
+    // The raw pre-attach path is best-effort and must keep making forward
+    // progress (its caller loops until the ring drains), so it always advances
+    // by the full chunk even if the underlying write was short.
+    uint32_t advance = len;
+    if (full) {
+        advance = (sent > 0) ? (uint32_t)sent : 0;
+    }
+    tx_buf_r = (start_r + advance) % TX_BUF_SIZE;
 }
 
 static void tx_buf_drain_all_raw(void) {
