@@ -184,6 +184,7 @@ STATIC const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_SPI), MP_ROM_PTR(&machine_spi_type) },
     { MP_ROM_QSTR(MP_QSTR_SPI_LCD), MP_ROM_PTR(&machine_spi_lcd_type) },
     { MP_ROM_QSTR(MP_QSTR_RTC), MP_ROM_PTR(&machine_rtc_type) },
+    { MP_ROM_QSTR(MP_QSTR_OTP), MP_ROM_PTR(&machine_otp_type) },
     { MP_ROM_QSTR(MP_QSTR_TOUCH), MP_ROM_PTR(&machine_touch_type) },
     { MP_ROM_QSTR(MP_QSTR_LED), MP_ROM_PTR(&machine_led_type) },
     { MP_ROM_QSTR(MP_QSTR_I2C_Slave), MP_ROM_PTR(&machine_i2c_slave_type) },
