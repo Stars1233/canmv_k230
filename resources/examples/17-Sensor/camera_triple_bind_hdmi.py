@@ -47,20 +47,20 @@ try:
     # set chn0 output size
     sensor2.set_framesize(width = 960, height = 540)
     # set chn0 out format
-    sensor2.set_pixformat(Sensor.RGB888)
+    sensor2.set_pixformat(Sensor.YUV420SP)
+    
+    bind_info = sensor2.bind_info(x = 0, y = 540)
+    Display.bind_layer(**bind_info, layer = Display.LAYER_VIDEO3)
 
     # use hdmi as display output
     Display.init(Display.LT9611, to_ide = True)
-
-
 
     # multiple sensor only need one excute run()
     sensor0.run()
 
     while True:
         os.exitpoint()
-        img = sensor2.snapshot()
-        Display.show_image(img, x = 0, y = 540)
+        time.sleep(1)
 except KeyboardInterrupt as e:
     print("user stop: ", e)
 except BaseException as e:
@@ -83,4 +83,3 @@ finally:
     os.exitpoint(os.EXITPOINT_ENABLE_SLEEP)
     time.sleep_ms(100)
     # deinit media buffer
-
