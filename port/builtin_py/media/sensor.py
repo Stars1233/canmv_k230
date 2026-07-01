@@ -24,6 +24,9 @@ class Sensor:
     YUV420SP = PIXEL_FORMAT_YUV_SEMIPLANAR_420
     GRAYSCALE = PIXEL_FORMAT_GRAYSCALE
 
+    DATABASE_PARSE_XML_JSON = VICAP_DATABASE_PARSE_XML_JSON
+    DATABASE_PARSE_BIN = VICAP_DATABASE_PARSE_HEADER
+
     # QQSIF           #: 88x60
     # QQQQVGA         #: 40x30
     # QQQVGA          #: 80x60
@@ -99,6 +102,13 @@ class Sensor:
     def _needs_sw_tile_mode(cls, w, h):
         return w > VICAP_SENSOR_MAX_WIDTH or h > VICAP_SENSOR_MAX_HEIGHT
 
+    def _apply_database_parse_mode(self):
+        if self._database_parse_mode is None:
+            return
+        ret = kd_mpi_vicap_set_database_parse_mode(self._dev_id, self._database_parse_mode)
+        if ret:
+            raise RuntimeError("sensor(%d) run error, set database parse mode failed(%d)" % (self._dev_id, ret))
+
     @classmethod
     def _check_mcm_sw_tile_at_run(cls):
         """4K (SW_TILE) mode only supports one sensor; check at run() only."""
@@ -148,6 +158,8 @@ class Sensor:
                 sensor = cls._devs[i]
                 if not sensor._dev_attr.dev_enable or sensor._is_started:
                     continue
+                sensor._apply_database_parse_mode()
+
                 ret = kd_mpi_vicap_set_dev_attr(i, sensor._dev_attr)
                 if ret:
                     raise RuntimeError(f"sensor({i}) run error, set dev attr failed({ret})")
@@ -157,6 +169,7 @@ class Sensor:
                     if not sensor._chn_attr[chn_num].chn_enable:
                         continue
                     sensor._calculate_buffer_size(chn_num)
+
                     ret = kd_mpi_vicap_set_chn_attr(i, chn_num, sensor._chn_attr[chn_num])
                     if ret:
                         raise RuntimeError(f"sensor({i}) run error, set chn({chn_num}) attr failed({ret})")
@@ -196,6 +209,7 @@ class Sensor:
 
                 vb_mgmt_vicap_dev_inited(i)
 
+
     @classmethod
     def _get_dev_id(self):
         dev_id = 0
@@ -215,6 +229,10 @@ class Sensor:
     # type
     # force
     def __init__(self, **kwargs):
+        self._database_parse_mode = kwargs.get('database_parse_mode', None)
+        if self._database_parse_mode is not None and self._database_parse_mode not in (VICAP_DATABASE_PARSE_XML_JSON, VICAP_DATABASE_PARSE_HEADER):
+            raise ValueError("database_parse_mode should be Sensor.DATABASE_PARSE_XML_JSON or Sensor.DATABASE_PARSE_BIN")
+
         self._dft_input_buff_num = 4
         self._dft_output_buff_num = 4
 
@@ -998,6 +1016,8 @@ class Sensor:
         if self._is_started:
             return
 
+        self._apply_database_parse_mode()
+
         ret = kd_mpi_vicap_set_dev_attr(self._dev_id, self._dev_attr)
         if ret:
             raise RuntimeError(f"sensor({self._dev_id}) run error, set dev attr failed({ret})")
@@ -1007,6 +1027,7 @@ class Sensor:
             if not self._chn_attr[chn_num].chn_enable:
                 continue
             self._calculate_buffer_size(chn_num)
+
             ret = kd_mpi_vicap_set_chn_attr(self._dev_id, chn_num, self._chn_attr[chn_num])
             if ret:
                 raise RuntimeError(f"sensor({self._dev_id}) run error, set chn({chn_num}) attr failed({ret})")
@@ -1061,6 +1082,7 @@ class Sensor:
                 raise RuntimeError(f"sensor({self._dev_id}) stop error, vicap deinit failed({ret})")
 
             vb_mgmt_vicap_dev_deinited(self._dev_id)
+
 
         self._dev_attr.dev_enable = False
         self._is_started = False
