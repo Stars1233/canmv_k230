@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -30,10 +31,8 @@
 /* vicap mgmt */
 static k_u8 vicap_dev_stat[VICAP_MAX_DEV_NUMS];
 
-static k_s32 vb_mgmt_deinit_vicap(k_u32 id)
+static k_s32 vb_mgmt_stop_vicap_stream(k_u32 id)
 {
-    k_s32 ret = 0;
-
     if (0x00 == vicap_dev_stat[id])
     {
         return 0;
@@ -41,19 +40,30 @@ static k_s32 vb_mgmt_deinit_vicap(k_u32 id)
 
     if (0x00 != kd_mpi_vicap_stop_stream(id))
     {
-        ret += 1;
         printf("vb_mgmt stop vicap %d stream failed.\n", id);
+        return 1;
+    }
+
+    return 0;
+}
+
+static k_s32 vb_mgmt_deinit_vicap(k_u32 id)
+{
+    if (0x00 == vicap_dev_stat[id])
+    {
+        return 0;
     }
 
     if (0x00 != kd_mpi_vicap_deinit(id))
     {
-        ret += 1;
-        printf("vb_mgmt stop vicap %d failed.\n", id);
+        printf("vb_mgmt deinit vicap %d failed.\n", id);
+        vicap_dev_stat[id] = 0;
+        return 1;
     }
 
     vicap_dev_stat[id] = 0;
 
-    return ret;
+    return 0;
 }
 
 k_s32 vb_mgmt_vicap_dev_inited(k_u32 id)
@@ -227,9 +237,15 @@ k_s32 vb_mgmt_deinit(void)
 
     for (int i = 0; i < VICAP_MAX_DEV_NUMS; i++)
     {
+        vb_mgmt_stop_vicap_stream(i);
+    }
+
+    usleep(1000 * 10);
+
+    for (int i = 0; i < VICAP_MAX_DEV_NUMS; i++)
+    {
         vb_mgmt_deinit_vicap(i);
     }
-    usleep(1000 * 50);
 
     return 0;
 }
