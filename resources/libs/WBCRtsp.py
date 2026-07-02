@@ -14,22 +14,21 @@ class RtspServer:
         self.enable_audio = enable_audio
         self.port = port
         self.rtspserver = mm.rtsp_server()
-        self.venc_chn = VENC_CHN_ID_0
         self.start_stream = False
         self.width=ALIGN_UP(width, 16)
         self.height=height
         self.encoder = Encoder()
-        self.encoder.SetOutBufs(self.venc_chn, 16, self.width, self.height)
 
     def start(self):
         if (self.start_stream == True):
             return
+        self.encoder.SetOutBufs(16, self.width, self.height)
         chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, self.width, self.height,bit_rate=2048)
-        self.encoder.Create(self.venc_chn, chnAttr)
+        self.encoder.Create(chnAttr)
         self.rtspserver.rtspserver_init(self.port)
         self.rtspserver.rtspserver_createsession(self.session_name,self.video_type,self.enable_audio)
         self.rtspserver.rtspserver_start()
-        self.encoder.Start(self.venc_chn)
+        self.encoder.Start()
         self.start_stream = True
 
     def stop(self):
@@ -40,14 +39,14 @@ class RtspServer:
         # 清空编码器缓存
         while True:
             streamData = StreamData()
-            ret= self.encoder.GetStream(self.venc_chn, streamData,timeout = 0) # 获取一帧码流
+            ret= self.encoder.GetStream(streamData, timeout = 0) # 获取一帧码流
             if ret != 0:
                 break
-            self.encoder.ReleaseStream(self.venc_chn, streamData) # 释放一帧码流
+            self.encoder.ReleaseStream(streamData) # 释放一帧码流
 
         # 停止销毁编码器
-        self.encoder.Stop(self.venc_chn)
-        self.encoder.Destroy(self.venc_chn)
+        self.encoder.Stop()
+        self.encoder.Destroy()
         #停止销毁rtsp 服务器
         self.rtspserver.rtspserver_stop()
         self.rtspserver.rtspserver_deinit()
@@ -62,19 +61,19 @@ class RtspServer:
 
         # print("frame_info width:%d,height:%d,pyaddr:0x%x_0x%x" % (frame_info.v_frame.width, frame_info.v_frame.height, frame_info.v_frame.phys_addr[0], frame_info.v_frame.phys_addr[1]))
         #encode frame
-        ret = self.encoder.SendFrame(self.venc_chn,frame_info,timeout=-1)
+        ret = self.encoder.SendFrame(frame_info, timeout=-1)
         if ret != 0:
             return -1
 
         streamData = StreamData()
-        ret= self.encoder.GetStream(self.venc_chn, streamData,timeout = -1) # 获取码流
+        ret= self.encoder.GetStream(streamData, timeout = -1) # 获取码流
         if ret != 0:
             return -1
 
         for pack_idx in range(0, streamData.pack_cnt):
             self.rtspserver.rtspserver_sendvideodata_byphyaddr(self.session_name,streamData.phy_addr[pack_idx], streamData.data_size[pack_idx],1000)
 
-        self.encoder.ReleaseStream(self.venc_chn, streamData) # 释放一帧码流
+        self.encoder.ReleaseStream(streamData) # 释放一帧码流
         return 0
 
 class WBCRtsp:

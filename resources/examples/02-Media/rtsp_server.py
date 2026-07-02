@@ -19,7 +19,6 @@ class RtspServer:
         self.enable_audio = enable_audio # 是否启用音频
         self.port = port   #rtsp 端口号
         self.rtspserver = mm.rtsp_server() # 实例化rtsp server
-        self.venc_chn = VENC_CHN_ID_0 #venc通道
         self.start_stream = False #是否启动推流线程
         self.runthread_over = False #推流线程是否结束
 
@@ -67,16 +66,16 @@ class RtspServer:
         self.sensor.set_pixformat(Sensor.YUV420SP)
         # 实例化video encoder
         self.encoder = Encoder()
-        self.encoder.SetOutBufs(self.venc_chn, 8, width, height)
-        # 绑定camera和venc
-        self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.venc_chn))
+        self.encoder.SetOutBufs(8, width, height)
         # 创建编码器
         chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, width, height)
-        self.encoder.Create(self.venc_chn, chnAttr)
+        self.encoder.Create(chnAttr)
+        # 绑定camera和venc
+        self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.encoder.chn))
 
     def _start_stream(self):
         # 开始编码
-        self.encoder.Start(self.venc_chn)
+        self.encoder.Start()
         # 启动camera
         self.sensor.run()
 
@@ -86,8 +85,8 @@ class RtspServer:
         # 接绑定camera和venc
         del self.link
         # 停止编码
-        self.encoder.Stop(self.venc_chn)
-        self.encoder.Destroy(self.venc_chn)
+        self.encoder.Stop()
+        self.encoder.Destroy()
 
     def _do_rtsp_stream(self):
         try:
@@ -95,14 +94,14 @@ class RtspServer:
             while self.start_stream:
                 os.exitpoint()
                 # 获取一帧码流
-                self.encoder.GetStream(self.venc_chn, streamData)
+                self.encoder.GetStream(streamData)
                 # 推流
                 for pack_idx in range(0, streamData.pack_cnt):
                     stream_data = bytes(uctypes.bytearray_at(streamData.data[pack_idx], streamData.data_size[pack_idx]))
                     self.rtspserver.rtspserver_sendvideodata(self.session_name,stream_data, streamData.data_size[pack_idx],1000)
                     #print("stream size: ", streamData.data_size[pack_idx], "stream type: ", streamData.stream_type[pack_idx])
                 # 释放一帧码流
-                self.encoder.ReleaseStream(self.venc_chn, streamData)
+                self.encoder.ReleaseStream(streamData)
 
         except BaseException as e:
             import sys

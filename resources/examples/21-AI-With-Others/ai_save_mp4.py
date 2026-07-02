@@ -151,7 +151,6 @@ def ai_and_save_mp4():
     # 保存视频参数
     mp4_id=0
     mp4_size=[1280,720]
-    venc_chn = VENC_CHN_ID_0
     venc_payload_type = K_PT_H264
     video_payload_type=K_MP4_CODEC_ID_H264
 
@@ -182,7 +181,7 @@ def ai_and_save_mp4():
     # 实例化video encoder
     encoder = Encoder()
     # 设置video encoder 输出buffer
-    encoder.SetOutBufs(venc_chn, 8, mp4_size[0], mp4_size[1])
+    encoder.SetOutBufs(8, mp4_size[0], mp4_size[1])
 
 
 
@@ -226,9 +225,9 @@ def ai_and_save_mp4():
             mp4_video_track_handle = mp4_muxer_create_video_track(mp4_handle, mp4_size[0], mp4_size[1], video_payload_type)
 
              # 创建编码器
-            encoder.Create(venc_chn, chnAttr)
+            encoder.Create(chnAttr)
             # 开始编码
-            encoder.Start(venc_chn)
+            encoder.Start()
             while True:
                 os.exitpoint()
                 yuv420sp_img = sensor.snapshot(chn=CAM_CHN_ID_2)
@@ -247,12 +246,12 @@ def ai_and_save_mp4():
                     frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height + 3072
                 else:
                     frame_info.v_frame.phys_addr[1] = frame_info.v_frame.phys_addr[0] + frame_info.v_frame.width*frame_info.v_frame.height
-                ret = encoder.SendFrame(venc_chn,frame_info)
+                ret = encoder.SendFrame(frame_info)
                 if ret != 0:
                     print("encoder send frame failed")
                     continue
 
-                ret = encoder.GetStream(venc_chn, streamData,timeout = -1) # 获取一帧或多帧码流
+                ret = encoder.GetStream(streamData,timeout = -1) # 获取一帧或多帧码流
                 if ret != 0:
                     print("encoder get stream failed")
                     continue
@@ -286,7 +285,7 @@ def ai_and_save_mp4():
                         else:
                             continue
 
-                    encoder.ReleaseStream(venc_chn, streamData)
+                    encoder.ReleaseStream(streamData)
                     continue
 
 
@@ -303,16 +302,18 @@ def ai_and_save_mp4():
                     if ret:
                         raise OSError("kd_mp4_write_frame failed.")
 
-                encoder.ReleaseStream(venc_chn, streamData) # 释放一帧码流
+                encoder.ReleaseStream(streamData) # 释放一帧码流
 
                 frame_count += 1
                 if frame_count >= 100:
                     break
 
-            encoder.Stop(venc_chn)
-            encoder.Destroy(venc_chn)
+            encoder.Stop()
+            encoder.Destroy()
             kd_mp4_destroy_tracks(mp4_handle)
             kd_mp4_destroy(mp4_handle)
+            # 重建VB pool，为下一轮Create准备
+            encoder.SetOutBufs(8, mp4_size[0], mp4_size[1])
             mp4_id+=1
             print("视频保存完成！")
         gc.collect()

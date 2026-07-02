@@ -78,7 +78,6 @@ class Mp4Container:
             # set chn0 output format
             self.sensor.set_pixformat(Sensor.YUV420SP)
 
-            self.venc.SetOutBufs(VENC_CHN_ID_0, 15, mp4Cfg.muxerCfg.pic_width, mp4Cfg.muxerCfg.pic_height)
             # audio init
             FORMAT = paInt16
             CHANNELS = 1
@@ -92,12 +91,6 @@ class Mp4Container:
             elif mp4Cfg.muxerCfg.audio_payload_type == self.MP4_CODEC_ID_G711A:
                 self.aenc = g711.Encoder(K_PT_G711A,CHUNK)
 
-            # 绑定camera和venc
-            self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, VENC_CHN_ID_0))
-
-            self.video_payload_type = mp4Cfg.muxerCfg.video_payload_type
-            self.audio_payload_type = mp4Cfg.muxerCfg.audio_payload_type
-
             profile = self.venc.H265_PROFILE_MAIN
             payload_type = self.venc.PAYLOAD_TYPE_H265
             if mp4Cfg.muxerCfg.video_payload_type == self.MP4_CODEC_ID_H265:
@@ -110,7 +103,14 @@ class Mp4Container:
             width = ALIGN_UP(mp4Cfg.muxerCfg.pic_width, 16)
             chnAttr = ChnAttrStr(payload_type, profile, width, mp4Cfg.muxerCfg.pic_height)
             self.save_idr = bytearray(width * mp4Cfg.muxerCfg.pic_height * 3 // 4)
-            self.venc.Create(VENC_CHN_ID_0, chnAttr)
+            self.venc.SetOutBufs(15, mp4Cfg.muxerCfg.pic_width, mp4Cfg.muxerCfg.pic_height)
+            self.venc.Create(chnAttr)
+
+            # 绑定camera和venc
+            self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.venc.chn))
+
+            self.video_payload_type = mp4Cfg.muxerCfg.video_payload_type
+            self.audio_payload_type = mp4Cfg.muxerCfg.audio_payload_type
 
             self.aenc.create()
             self.audio_stream = self.pyaudio.open(format=FORMAT,
@@ -161,12 +161,12 @@ class Mp4Container:
             self.mp4_audio_track_handle = audio_track_handle.value
 
     def Start(self):
-        self.venc.Start(VENC_CHN_ID_0)
+        self.venc.Start()
         self.sensor.run()
 
     def Process(self):
         frame_data = k_mp4_frame_data_s()
-        self.venc.GetStream(VENC_CHN_ID_0, self.stream_data)
+        self.venc.GetStream(self.stream_data)
 
         for pack_idx in range(0, self.stream_data.pack_cnt):
             if self.get_idr == 0:
@@ -189,7 +189,7 @@ class Mp4Container:
                 self.get_idr = 1
                 self.video_start_timestamp = frame_data.time_stamp
             else:
-                self.venc.ReleaseStream(VENC_CHN_ID_0, self.stream_data)
+                self.venc.ReleaseStream(self.stream_data)
                 return
 
         frame_data.time_stamp = frame_data.time_stamp - self.video_start_timestamp
@@ -198,7 +198,7 @@ class Mp4Container:
         if ret:
             raise OSError("Mp4Container, kd_mp4_write_frame failed.")
 
-        self.venc.ReleaseStream(VENC_CHN_ID_0, self.stream_data)
+        self.venc.ReleaseStream(self.stream_data)
 
         audio_data = self.audio_stream.read(block=False)
         if (audio_data):
@@ -218,8 +218,8 @@ class Mp4Container:
         self.sensor.stop()
 
         # 销毁camera和venc的绑定
-        del self.link
-        self.venc.Stop(VENC_CHN_ID_0)
+        self.link.destroy()
+        self.venc.Stop()
         self.audio_stream.stop_stream()
         self.audio_stream.close()
         self.pyaudio.terminate()
@@ -234,4 +234,4 @@ class Mp4Container:
         if ret:
             raise OSError("Mp4Container, kd_mp4_destroy failed.")
 
-        self.venc.Destroy(VENC_CHN_ID_0)
+        self.venc.Destroy()

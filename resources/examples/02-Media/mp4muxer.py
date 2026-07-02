@@ -54,7 +54,6 @@ def mp4_muxer_create_audio_track(mp4_handle,channel,sample_rate, bit_per_sample 
 
 def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K_PT_H264,fmp4_flag = False):
     print("venc_test start")
-    venc_chn = VENC_CHN_ID_0
     width = ALIGN_UP(width, 16)
 
     frame_data = k_mp4_frame_data_s()
@@ -83,10 +82,7 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
     # 实例化video encoder
     encoder = Encoder()
     # 设置video encoder 输出buffer
-    encoder.SetOutBufs(venc_chn, 8, width, height)
-
-    # 绑定camera和venc
-    link = MediaManager.link(sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, venc_chn))
+    encoder.SetOutBufs(8, width, height)
 
     if (venc_payload_type == K_PT_H264):
         chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
@@ -96,10 +92,13 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
     streamData = StreamData()
 
     # 创建编码器
-    encoder.Create(venc_chn, chnAttr)
+    encoder.Create(chnAttr)
+
+    # 绑定camera和venc
+    link = MediaManager.link(sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, encoder.chn))
 
     # 开始编码
-    encoder.Start(venc_chn)
+    encoder.Start()
     # 启动camera
     sensor.run()
 
@@ -112,7 +111,7 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
     try:
         while True:
             os.exitpoint()
-            ret = encoder.GetStream(venc_chn, streamData,timeout = -1) # 获取一帧或多帧码流
+            ret = encoder.GetStream(streamData,timeout = -1) # 获取一帧或多帧码流
             if ret != 0:
                 continue
 
@@ -144,7 +143,7 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
                     else:
                         continue
 
-                encoder.ReleaseStream(venc_chn, streamData)
+                encoder.ReleaseStream(streamData)
                 continue
 
             # Write video stream to MP4 file （not first idr frame）
@@ -160,7 +159,7 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
                     raise OSError("kd_mp4_write_frame failed.")
                 frame_count += 1
 
-            encoder.ReleaseStream(venc_chn, streamData) # 释放一帧码流
+            encoder.ReleaseStream(streamData) # 释放一帧码流
 
             print("frame_count = ", frame_count)
             if frame_count >= 200:
@@ -175,11 +174,11 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
     # 停止camera
     sensor.stop()
     # 销毁camera和venc的绑定
-    del link
+    link.destroy()
     # 停止编码
-    encoder.Stop(venc_chn)
+    encoder.Stop()
     # 销毁编码器
-    encoder.Destroy(venc_chn)
+    encoder.Destroy()
 
     # mp4 muxer destroy
     kd_mp4_destroy_tracks(mp4_handle)

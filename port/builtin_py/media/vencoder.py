@@ -3,6 +3,7 @@ from mpp.venc import *
 from mpp.sys import *
 from mpp.payload_struct import *
 from mpp.venc_struct import *
+from mpp.common_struct import *
 from media.media import *
 from mpp.video_struct import *
 
@@ -45,11 +46,9 @@ class Encoder:
         self.output = k_venc_stream()
         self.outbuf_num = 0
         self.private_poolid = -1
+        self.chn = -1
 
-    def SetOutBufs(self, chn, buf_num, width, height):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc create, chn id: ", chn, " out of range 0 ~ 3")
-
+    def SetOutBufs(self, buf_num, width, height):
         if buf_num and width and height:
             pool_config = k_vb_pool_config()
             pool_config.blk_cnt = buf_num
@@ -57,11 +56,14 @@ class Encoder:
             pool_config.mode = VB_REMAP_MODE_NOCACHE
             self.private_poolid = kd_mpi_vb_create_pool(pool_config)
 
-    def Create(self, chn, chnAttr):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc create, chn id: ", chn, " out of range 0 ~ 3")
+    def Create(self, chnAttr):
+        chn_ptr = k_u32_ptr()
+        ret = kd_mpi_venc_request_chn(chn_ptr)
+        if ret != 0:
+            raise OSError("mpi venc request chn failed.")
+        self.chn = chn_ptr.value
 
-        kd_mpi_venc_attach_vb_pool(chn,self.private_poolid);
+        kd_mpi_venc_attach_vb_pool(self.chn, self.private_poolid);
 
         venc_chn_attr = k_venc_chn_attr()
         venc_chn_attr.venc_attr.type = chnAttr.payload_type
@@ -82,29 +84,31 @@ class Encoder:
             venc_chn_attr.rc_attr.mjpeg_fixqp.dst_frame_rate = 30
             venc_chn_attr.rc_attr.mjpeg_fixqp.q_factor = chnAttr.mjpeg_quality_factor
 
-        ret = kd_mpi_venc_create_chn(chn, venc_chn_attr)
+        ret = kd_mpi_venc_create_chn(self.chn, venc_chn_attr)
         if ret != 0:
+            kd_mpi_venc_release_chn(self.chn)
+            self.chn = -1
             raise OSError("mpi venc create chn failed.")
 
         if (chnAttr.payload_type == K_PT_H264 or chnAttr.payload_type == K_PT_H265):
-            ret = kd_mpi_venc_enable_idr(chn, True)
+            ret = kd_mpi_venc_enable_idr(self.chn, True)
             if ret != 0:
                 raise OSError("mpi venc enable idr failed.")
 
-    def Start(self, chn):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc Start, chn id: ", chn, " out of range 0 ~ 3")
+    def Start(self):
+        if self.chn < 0:
+            raise ValueError("venc Start, chn not requested yet")
 
-        ret = kd_mpi_venc_start_chn(chn)
+        ret = kd_mpi_venc_start_chn(self.chn)
         if ret != 0:
             raise OSError("mpi venc start failed.")
 
-    def GetStream(self, chn, streamData,timeout=-1):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc GetStream, chn id: ", chn, " out of range 0 ~ 3")
+    def GetStream(self, streamData, timeout=-1):
+        if self.chn < 0:
+            raise ValueError("venc GetStream, chn not requested yet")
 
         status = k_venc_chn_status()
-        ret = kd_mpi_venc_query_status(chn, status)
+        ret = kd_mpi_venc_query_status(self.chn, status)
         if ret != 0:
             raise OSError("mpi venc query status failed.")
 
@@ -118,7 +122,7 @@ class Encoder:
         buf = bytearray(uctypes.sizeof(venc_def.k_venc_pack_desc, uctypes.NATIVE) * self.output.pack_cnt)
         self.output.pack = uctypes.addressof(buf)
 
-        ret = kd_mpi_venc_get_stream(chn, self.output, timeout)
+        ret = kd_mpi_venc_get_stream(self.chn, self.output, timeout)
         if ret != 0:
             #raise OSError("mpi venc get stream failed.")
             return -1
@@ -133,45 +137,50 @@ class Encoder:
 
         return 0
 
-    def ReleaseStream(self, chn, streamData):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc ReleaseStream, chn id: ", chn, " out of range 0 ~ 3")
+    def ReleaseStream(self, streamData):
+        if self.chn < 0:
+            raise ValueError("venc ReleaseStream, chn not requested yet")
 
         for pack_idx in range(0, streamData.pack_cnt):
             ret = kd_mpi_sys_munmap(streamData.data[pack_idx], streamData.data_size[pack_idx])
             if ret != 0:
                 raise OSError("mpi sys munmap failed.")
 
-        ret = kd_mpi_venc_release_stream(chn, self.output)
+        ret = kd_mpi_venc_release_stream(self.chn, self.output)
         if ret != 0:
             raise OSError("mpi venc release stream failed.")
 
-    def SendFrame(self, chn, frame,timeout=1000):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc SendFrame, chn id: ", chn, " out of range 0 ~ 3")
+    def SendFrame(self, frame, timeout=1000):
+        if self.chn < 0:
+            raise ValueError("venc SendFrame, chn not requested yet")
 
-        ret = kd_mpi_venc_send_frame(chn, frame, timeout)
+        ret = kd_mpi_venc_send_frame(self.chn, frame, timeout)
         return ret
 
-    def Stop(self, chn):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc Stop, chn id: ", chn, " out of range 0 ~ 3")
+    def Stop(self):
+        if self.chn < 0:
+            raise ValueError("venc Stop, chn not requested yet")
 
-        ret = kd_mpi_venc_stop_chn(chn)
+        ret = kd_mpi_venc_stop_chn(self.chn)
         if ret != 0:
             raise OSError("mpi venc stop failed.")
 
-        ret= kd_mpi_venc_detach_vb_pool(chn)
+        ret= kd_mpi_venc_detach_vb_pool(self.chn)
         if ret != 0:
             raise OSError("mpi venc detach vb pool failed.")
 
-    def Destroy(self, chn):
-        if (chn > VENC_CHN_ID_MAX - 1):
-            raise ValueError("venc Destroy, chn id: ", chn, " out of range 0 ~ 3")
+    def Destroy(self):
+        if self.chn < 0:
+            raise ValueError("venc Destroy, chn not requested yet")
 
-        ret = kd_mpi_venc_destroy_chn(chn)
+        ret = kd_mpi_venc_destroy_chn(self.chn)
         if ret != 0:
             raise OSError("mpi venc destroy failed.")
+
+        ret = kd_mpi_venc_release_chn(self.chn)
+        if ret != 0:
+            raise OSError("mpi venc release chn failed.")
+        self.chn = -1
 
         if (self.private_poolid != -1):
             kd_mpi_vb_destory_pool(self.private_poolid)

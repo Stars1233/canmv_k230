@@ -11,7 +11,6 @@ import time, os
 
 def vi_bind_venc_test(file_name,width=1280, height=720):
     print("venc_test start")
-    venc_chn = VENC_CHN_ID_0
     width = ALIGN_UP(width, 16)
     venc_payload_type = K_PT_H264
 
@@ -38,10 +37,7 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     # 实例化video encoder
     encoder = Encoder()
     # 设置video encoder 输出buffer
-    encoder.SetOutBufs(venc_chn, 8, width, height)
-
-    # 绑定camera和venc
-    link = MediaManager.link(sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, venc_chn))
+    encoder.SetOutBufs(8, width, height)
 
     if (venc_payload_type == K_PT_H264):
         chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
@@ -51,10 +47,13 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     streamData = StreamData()
 
     # 创建编码器
-    encoder.Create(venc_chn, chnAttr)
+    encoder.Create(chnAttr)
+
+    # 绑定camera和venc
+    link = MediaManager.link(sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, encoder.chn))
 
     # 开始编码
-    encoder.Start(venc_chn)
+    encoder.Start()
     # 启动camera
     sensor.run()
 
@@ -65,14 +64,14 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
         try:
             while True:
                 os.exitpoint()
-                encoder.GetStream(venc_chn, streamData) # 获取一帧码流
+                encoder.GetStream(streamData) # 获取一帧码流
 
                 for pack_idx in range(0, streamData.pack_cnt):
                     stream_data = uctypes.bytearray_at(streamData.data[pack_idx], streamData.data_size[pack_idx])
                     fo.write(stream_data) # 码流写文件
                     print("stream size: ", streamData.data_size[pack_idx], "stream type: ", streamData.stream_type[pack_idx])
 
-                encoder.ReleaseStream(venc_chn, streamData) # 释放一帧码流
+                encoder.ReleaseStream(streamData) # 释放一帧码流
 
                 frame_count += 1
                 if frame_count >= 200:
@@ -86,16 +85,15 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     # 停止camera
     sensor.stop()
     # 销毁camera和venc的绑定
-    del link
+    link.destroy()
     # 停止编码
-    encoder.Stop(venc_chn)
+    encoder.Stop()
     # 销毁编码器
-    encoder.Destroy(venc_chn)
+    encoder.Destroy()
     print("venc_test stop")
 
 def stream_venc_test(file_name,width=1280, height=720):
     print("venc_test start")
-    venc_chn = VENC_CHN_ID_0
     width = ALIGN_UP(width, 16)
     venc_payload_type = K_PT_H264
 
@@ -122,7 +120,7 @@ def stream_venc_test(file_name,width=1280, height=720):
     # 实例化video encoder
     encoder = Encoder()
     # 设置video encoder 输出buffer
-    encoder.SetOutBufs(venc_chn, 8, width, height)
+    encoder.SetOutBufs(8, width, height)
 
     if (venc_payload_type == K_PT_H264):
         chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
@@ -132,10 +130,10 @@ def stream_venc_test(file_name,width=1280, height=720):
     streamData = StreamData()
 
     # 创建编码器
-    encoder.Create(venc_chn, chnAttr)
+    encoder.Create(chnAttr)
 
     # 开始编码
-    encoder.Start(venc_chn)
+    encoder.Start()
     # 启动camera
     sensor.run()
 
@@ -150,15 +148,15 @@ def stream_venc_test(file_name,width=1280, height=720):
                 os.exitpoint()
                 frame_info  = sensor.snapshot(chn=CAM_CHN_ID_0,dump_frame=True)
                 #frame_info.v_frame.nv12_to_grayscale() # convert to grayscale
-                encoder.SendFrame(venc_chn,frame_info)
-                encoder.GetStream(venc_chn, streamData) # 获取一帧码流
+                encoder.SendFrame(frame_info)
+                encoder.GetStream(streamData) # 获取一帧码流
 
                 for pack_idx in range(0, streamData.pack_cnt):
                     stream_data = uctypes.bytearray_at(streamData.data[pack_idx], streamData.data_size[pack_idx])
                     fo.write(stream_data) # 码流写文件
                     print("stream size: ", streamData.data_size[pack_idx], "stream type: ", streamData.stream_type[pack_idx])
 
-                encoder.ReleaseStream(venc_chn, streamData) # 释放一帧码流
+                encoder.ReleaseStream(streamData) # 释放一帧码流
 
                 frame_count += 1
                 if frame_count >= 200:
@@ -172,9 +170,9 @@ def stream_venc_test(file_name,width=1280, height=720):
     # 停止camera
     sensor.stop()
     # 停止编码
-    encoder.Stop(venc_chn)
+    encoder.Stop()
     # 销毁编码器
-    encoder.Destroy(venc_chn)
+    encoder.Destroy()
     print("venc_test stop")
 
 if __name__ == "__main__":
