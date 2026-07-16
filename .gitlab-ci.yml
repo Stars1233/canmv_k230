@@ -1,6 +1,6 @@
 variables:
   MANIFEST: "git@g.a-bug.org:canmv/k230/manifest.git"
-  REPO_URL: "https://gitee.com/mamh-mixed/git-repo"
+  REPO_URL: "git@g.a-bug.org:canmv/k230/git-repo.git"
   STUB_BOARD: "k230_canmv_01studio"
   CANMV_VSCODE_EXTENSION_PUBLIC_URL: "https://download.kendryte.com/developer/tools/canmv_vscode_extension"
 
@@ -123,7 +123,7 @@ build-image-and-stubs:
 
     - echo '---------- Init and Sync Repo ----------'
     - mkdir -p ${HOME}/canmv_k230 && cd ${HOME}/canmv_k230
-    - time repo init -u ${MANIFEST} --repo-url=${REPO_URL}
+    - time repo init -u ${MANIFEST} --repo-url=${REPO_URL} --repo-rev=main
     - time repo sync -j$(nproc)
 
     - echo "---------- Checkout canmv ${CI_COMMIT_BRANCH}/${CI_COMMIT_SHA} ----------"
