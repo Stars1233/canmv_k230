@@ -133,6 +133,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_os_uname_obj, mp_os_uname);
 //|     """Perform listdir for os."""
 //| def mkdir(path: Any, /) -> Any:
 //|     """Perform mkdir for os."""
+//| def mkfs(mount_path: str, /) -> None:
+//|     """Reformat the file system mounted at mount_path.
+//|
+//|     Raises OSError if mount_path is unsupported or not mounted.
+//|     """
 //| def mount(*, readonly: Any = ..., mkfs: Any = ...) -> Any:
 //|     """Perform mount for os."""
 //| def remove(path: Any, /) -> Any:
@@ -227,6 +232,7 @@ STATIC const mp_rom_map_elem_t os_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_tid), MP_ROM_PTR(&mp_os_tid_obj) },
     { MP_ROM_QSTR(MP_QSTR_cpu_usage), MP_ROM_PTR(&mp_os_get_cpu_usage_obj) },
     { MP_ROM_QSTR(MP_QSTR_exitpoint), MP_ROM_PTR(&mp_os_exitpoint_obj) },
+    { MP_ROM_QSTR(MP_QSTR_mkfs), MP_ROM_PTR(&mp_os_mkfs_obj) },
     { MP_ROM_QSTR(MP_QSTR_EXITPOINT_DISABLE), MP_ROM_INT(EXITPOINT_DISABLE) },
     { MP_ROM_QSTR(MP_QSTR_EXITPOINT_ENABLE), MP_ROM_INT(EXITPOINT_ENABLE) },
     { MP_ROM_QSTR(MP_QSTR_EXITPOINT_ENABLE_SLEEP), MP_ROM_INT(EXITPOINT_ENABLE_SLEEP) },

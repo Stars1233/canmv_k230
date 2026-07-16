@@ -152,3 +152,16 @@ STATIC mp_obj_t mp_os_tid(void)
     return MP_OBJ_NEW_SMALL_INT(tid);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mp_os_tid_obj, mp_os_tid);
+
+STATIC mp_obj_t mp_os_mkfs(mp_obj_t mount_path_in)
+{
+    const char *mount_path = mp_obj_str_get_str(mount_path_in);
+
+    errno = 0;
+    if (canmv_misc_mkfs(mount_path) != 0) {
+        mp_raise_OSError(errno != 0 ? errno : EIO);
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_os_mkfs_obj, mp_os_mkfs);
