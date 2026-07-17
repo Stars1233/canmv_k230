@@ -70,6 +70,8 @@ class Sensor:
     SNAPSHOT_FAILURE_LIMIT = const(3)
     # Rolling failure window in milliseconds for auto_reboot snapshot calls.
     SNAPSHOT_FAILURE_WINDOW_MS = const(10000)
+    # VICAP stops the capture pipeline asynchronously before deinit can release it.
+    VICAP_STOP_STREAM_DELAY_MS = const(100)
 
     _devs = [None for i in range(0, CAM_DEV_ID_MAX)]
     _csis = [False for i in range(0, CAM_DEV_ID_MAX)]
@@ -179,6 +181,7 @@ class Sensor:
                 sensor = cls._devs[i]
                 if not sensor._dev_attr.dev_enable or sensor._is_started:
                     continue
+                sensor._vicap_init_started = True
                 ret = kd_mpi_vicap_init(i)
                 if ret:
                     # if sensor._framesize[chn_num] is None:
@@ -201,12 +204,13 @@ class Sensor:
                 if not sensor._dev_attr.dev_enable or sensor._is_started:
                     continue
                 print(f"sensor({i}), mode {sensor._dev_attr.mode}, buffer_num {sensor._dev_attr.buffer_num}, buffer_size {sensor._dev_attr.buffer_size}")
+                sensor._vicap_stream_start_started = True
                 ret = kd_mpi_vicap_start_stream(i)
                 if ret:
                     raise RuntimeError(f"sensor({i}) run error, vicap start stream failed({ret})")
 
                 sensor._is_started = True
-
+                sensor._vb_mgmt_registered = True
                 vb_mgmt_vicap_dev_inited(i)
 
 
@@ -295,6 +299,10 @@ class Sensor:
         self.sensor_name = ""
 
         self._is_started = False
+        # Native calls can be interrupted before their Python assignments run.
+        self._vicap_init_started = False
+        self._vicap_stream_start_started = False
+        self._vb_mgmt_registered = False
 
         for i in range(0, VICAP_CHN_ID_MAX):
             self._chn_attr[i].buffer_num = self._dft_output_buff_num
@@ -1032,6 +1040,7 @@ class Sensor:
             if ret:
                 raise RuntimeError(f"sensor({self._dev_id}) run error, set chn({chn_num}) attr failed({ret})")
 
+        self._vicap_init_started = True
         ret = kd_mpi_vicap_init(self._dev_id)
         if ret:
             # if self._framesize[chn_num] is None:
@@ -1049,14 +1058,14 @@ class Sensor:
         self.fd = sensor_attr.sensor_fd
 
         print(f"sensor({self._dev_id}), mode {self._dev_attr.mode}, buffer_num {self._dev_attr.buffer_num}, buffer_size {self._dev_attr.buffer_size}")
+        self._vicap_stream_start_started = True
         ret = kd_mpi_vicap_start_stream(self._dev_id)
         if ret:
-            kd_mpi_vicap_deinit(self._dev_id)
             raise RuntimeError(f"sensor({self._dev_id}) run error, vicap start stream failed({ret})")
 
-        vb_mgmt_vicap_dev_inited(self._dev_id)
-
         self._is_started = True
+        self._vb_mgmt_registered = True
+        vb_mgmt_vicap_dev_inited(self._dev_id)
 
     def stop(self, is_del = False):
         # if (self._dev_id > CAM_DEV_ID_MAX - 1):
@@ -1067,28 +1076,52 @@ class Sensor:
         if not is_del and not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
-        if not is_del and not self._is_started:
+        cleanup_needed = (
+            self._vicap_init_started
+            or self._vicap_stream_start_started
+            or self._is_started
+        )
+        was_started = self._is_started
+
+        if not is_del and not cleanup_needed:
             print("warning: sensor not call run()")
 
         self._release_all_chn_image()
 
-        if self._is_started:
-            ret = kd_mpi_vicap_stop_stream(self._dev_id)
-            if not is_del and ret:
-                raise RuntimeError(f"sensor({self._dev_id}) stop error, stop stream failed({ret})")
+        stop_error = 0
+        deinit_error = 0
+        if cleanup_needed:
+            if self._vicap_stream_start_started or was_started:
+                ret = kd_mpi_vicap_stop_stream(self._dev_id)
+                if ret:
+                    stop_error = ret
 
-            ret = kd_mpi_vicap_deinit(self._dev_id)
-            if not is_del and ret:
-                raise RuntimeError(f"sensor({self._dev_id}) stop error, vicap deinit failed({ret})")
+                time.sleep_ms(Sensor.VICAP_STOP_STREAM_DELAY_MS)
 
-            vb_mgmt_vicap_dev_deinited(self._dev_id)
+            if self._vicap_init_started:
+                ret = kd_mpi_vicap_deinit(self._dev_id)
+                if ret:
+                    deinit_error = ret
 
+            if self._vb_mgmt_registered and not deinit_error:
+                vb_mgmt_vicap_dev_deinited(self._dev_id)
 
         self._dev_attr.dev_enable = False
         self._is_started = False
+        self._vicap_init_started = False
+        self._vicap_stream_start_started = False
+        self._vb_mgmt_registered = False
 
         Sensor._csis[self._csi_bus] = False
         Sensor._devs[self._dev_id] = None
+
+        # Preserve the old error behavior for a fully started sensor, but do
+        # not replace an IDE interrupt with a cleanup error for partial state.
+        if not is_del and was_started:
+            if stop_error:
+                raise RuntimeError(f"sensor({self._dev_id}) stop error, stop stream failed({stop_error})")
+            if deinit_error:
+                raise RuntimeError(f"sensor({self._dev_id}) stop error, vicap deinit failed({deinit_error})")
 
     def _set_chn_fps(self, chn = CAM_CHN_ID_0, fps = 30):
         if (chn > CAM_CHN_ID_MAX - 1):

@@ -10,6 +10,8 @@
 #include "mpp_vb_mgmt.h"
 
 #include "mpi_vicap_api.h"
+
+#define VB_MGMT_VICAP_STOP_STREAM_DELAY_US (1000 * 100)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -240,7 +242,7 @@ k_s32 vb_mgmt_deinit(void)
         vb_mgmt_stop_vicap_stream(i);
     }
 
-    usleep(1000 * 10);
+    usleep(VB_MGMT_VICAP_STOP_STREAM_DELAY_US);
 
     for (int i = 0; i < VICAP_MAX_DEV_NUMS; i++)
     {
