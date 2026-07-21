@@ -18,6 +18,9 @@ BAUDRATE = 115200
 PERIOD_MS = 50
 TEST_DURATION_MS = 5000
 UPDATE_PERIOD_MS = 50
+# True: send the most recently published frame on every timer tick.
+# False: send each successfully updated frame once, then skip until update().
+REPEAT_LAST = True
 
 FRAME_HEADER = b"\xA5\x5A"
 FRAME_TRAILER = 0x0D
@@ -105,6 +108,7 @@ def run_test():
             bits=UART.EIGHTBITS,
             parity=UART.PARITY_NONE,
             stop=UART.STOPBITS_ONE,
+            repeat_last=REPEAT_LAST,
         )
 
         sequence = 0
@@ -113,7 +117,11 @@ def run_test():
 
         start_ms = time.ticks_ms()
         next_update_ms = time.ticks_add(start_ms, UPDATE_PERIOD_MS)
-        print("UARTPeriodicTx loopback test: period={} ms, duration={} ms".format(PERIOD_MS, TEST_DURATION_MS))
+        print(
+            "UARTPeriodicTx loopback test: period={} ms, duration={} ms, repeat_last={}".format(
+                PERIOD_MS, TEST_DURATION_MS, REPEAT_LAST
+            )
+        )
 
         while time.ticks_diff(time.ticks_ms(), start_ms) < TEST_DURATION_MS:
             now_ms = time.ticks_ms()
@@ -156,8 +164,15 @@ def run_test():
                 )
             )
 
-        expected = TEST_DURATION_MS // PERIOD_MS
-        if received >= expected - 3 and invalid == 0 and short_write == 0 and errors == 0 and skipped == 0:
+        expected = TEST_DURATION_MS // (PERIOD_MS if REPEAT_LAST else UPDATE_PERIOD_MS)
+        expected_skipped = 0 if REPEAT_LAST else None
+        if (
+            received >= expected - 3
+            and invalid == 0
+            and short_write == 0
+            and errors == 0
+            and (expected_skipped is None or skipped == expected_skipped)
+        ):
             print("PASS")
         else:
             print("FAIL: verify the IO50-to-IO51 loopback wire and UART configuration")

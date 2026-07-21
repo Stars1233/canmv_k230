@@ -65,6 +65,7 @@ struct _uart_periodic_tx_obj_t {
 
     uint8_t* buffers[UART_PERIODIC_TX_BUFFER_COUNT];
     size_t buffer_len[UART_PERIODIC_TX_BUFFER_COUNT];
+    uint32_t volatile buffer_generation[UART_PERIODIC_TX_BUFFER_COUNT];
     size_t capacity;
 
     struct uart_configure uart_config;
@@ -74,9 +75,12 @@ struct _uart_periodic_tx_obj_t {
 
     bool timer_claimed;
     bool uart_claimed;
+    bool repeat_last;
     uint32_t volatile running;
     uint32_t volatile active_idx;
     uint32_t volatile reader_idx;
+    uint32_t volatile next_generation;
+    uint32_t volatile last_sent_generation;
     uint32_t volatile sent_count;
     uint32_t volatile short_write_count;
     uint32_t volatile error_count;
@@ -175,7 +179,11 @@ STATIC void uart_periodic_tx_callback(void* arg)
 
         if (index != UART_PERIODIC_TX_NO_READER) {
             size_t len = self->buffer_len[index];
-            if (len != 0) {
+            uint32_t generation = __atomic_load_n(&self->buffer_generation[index], __ATOMIC_ACQUIRE);
+            bool should_send = len != 0 && (self->repeat_last ||
+                generation != __atomic_load_n(&self->last_sent_generation, __ATOMIC_ACQUIRE));
+
+            if (should_send) {
                 uart_periodic_tx_uart_state_t* uart_state = self->uart_state;
                 if (uart_state == NULL ||
                     __atomic_exchange_n(&uart_state->tx_busy, 1, __ATOMIC_ACQUIRE) != 0) {
@@ -184,6 +192,11 @@ STATIC void uart_periodic_tx_callback(void* arg)
                     ssize_t written = write(uart_state->fd, self->buffers[index], len);
                     if (written == (ssize_t)len) {
                         __atomic_fetch_add(&self->sent_count, 1, __ATOMIC_RELAXED);
+                        // In one-shot mode, retain data after a short or failed
+                        // write so it can be retried by a later timer tick.
+                        if (!self->repeat_last) {
+                            __atomic_store_n(&self->last_sent_generation, generation, __ATOMIC_RELEASE);
+                        }
                     } else if (written >= 0) {
                         __atomic_fetch_add(&self->short_write_count, 1, __ATOMIC_RELAXED);
                     } else {
@@ -263,7 +276,7 @@ void uart_periodic_tx_deinit_all(void)
 
 STATIC mp_obj_t uart_periodic_tx_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args)
 {
-    enum { ARG_uart_id, ARG_timer_id, ARG_period, ARG_max_len, ARG_baudrate, ARG_bits, ARG_parity, ARG_stop };
+    enum { ARG_uart_id, ARG_timer_id, ARG_period, ARG_max_len, ARG_baudrate, ARG_bits, ARG_parity, ARG_stop, ARG_repeat_last };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_uart_id, MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = -1 } },
         { MP_QSTR_timer_id, MP_ARG_REQUIRED | MP_ARG_INT, { .u_int = -1 } },
@@ -273,6 +286,7 @@ STATIC mp_obj_t uart_periodic_tx_make_new(const mp_obj_type_t* type, size_t n_ar
         { MP_QSTR_bits, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = DATA_BITS_8 } },
         { MP_QSTR_parity, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = PARITY_NONE } },
         { MP_QSTR_stop, MP_ARG_KW_ONLY | MP_ARG_INT, { .u_int = STOP_BITS_1 } },
+        { MP_QSTR_repeat_last, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = true } },
     };
     mp_map_t kw_args;
     mp_arg_val_t parsed_args[MP_ARRAY_SIZE(allowed_args)];
@@ -289,6 +303,7 @@ STATIC mp_obj_t uart_periodic_tx_make_new(const mp_obj_type_t* type, size_t n_ar
     int bits = parsed_args[ARG_bits].u_int;
     int parity = parsed_args[ARG_parity].u_int;
     int stop = parsed_args[ARG_stop].u_int;
+    bool repeat_last = parsed_args[ARG_repeat_last].u_bool;
     if (uart_id < 0 || uart_id >= KD_HARD_UART_MAX_NUM) {
         mp_raise_ValueError(MP_ERROR_TEXT("invalid UART id"));
     }
@@ -317,6 +332,7 @@ STATIC mp_obj_t uart_periodic_tx_make_new(const mp_obj_type_t* type, size_t n_ar
     self->timer_id = timer_id;
     self->period_ms = period_ms;
     self->capacity = max_len;
+    self->repeat_last = repeat_last;
     self->uart_config = (struct uart_configure) {
         .baud_rate = baudrate,
         .data_bits = bits,
@@ -329,6 +345,8 @@ STATIC mp_obj_t uart_periodic_tx_make_new(const mp_obj_type_t* type, size_t n_ar
     };
     __atomic_store_n(&self->active_idx, 0, __ATOMIC_RELAXED);
     __atomic_store_n(&self->reader_idx, UART_PERIODIC_TX_NO_READER, __ATOMIC_RELAXED);
+    __atomic_store_n(&self->next_generation, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&self->last_sent_generation, UINT32_MAX, __ATOMIC_RELAXED);
 
     for (size_t i = 0; i < UART_PERIODIC_TX_BUFFER_COUNT; ++i) {
         self->buffers[i] = malloc(self->capacity);
@@ -336,6 +354,7 @@ STATIC mp_obj_t uart_periodic_tx_make_new(const mp_obj_type_t* type, size_t n_ar
             uart_periodic_tx_deinit_internal(self);
             mp_raise_OSError(MP_ENOMEM);
         }
+        __atomic_store_n(&self->buffer_generation[i], 0, __ATOMIC_RELAXED);
     }
 
     return MP_OBJ_FROM_PTR(self);
@@ -435,6 +454,8 @@ STATIC mp_obj_t uart_periodic_tx_update(mp_obj_t self_in, mp_obj_t data_in)
         memcpy(self->buffers[target], bufinfo.buf, bufinfo.len);
     }
     self->buffer_len[target] = bufinfo.len;
+    uint32_t generation = __atomic_add_fetch(&self->next_generation, 1, __ATOMIC_RELAXED);
+    __atomic_store_n(&self->buffer_generation[target], generation, __ATOMIC_RELEASE);
     __atomic_store_n(&self->active_idx, target, __ATOMIC_RELEASE);
 
     return mp_const_none;
@@ -471,7 +492,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(uart_periodic_tx_stats_obj, uart_periodic_tx_st
 //|     machine.FPIOA before calling start(). A tick that overlaps another
 //|     UARTPeriodicTx on the same UART is skipped.
 //|     """
-//|     def __init__(self, uart_id: int, timer_id: int, period: int = 50, *, max_len: int = 64, baudrate: int = 115200, bits: int = 8, parity: int = 0, stop: int = 0) -> None:
+//|     def __init__(self, uart_id: int, timer_id: int, period: int = 50, *, max_len: int = 64, baudrate: int = 115200, bits: int = 8, parity: int = 0, stop: int = 0, repeat_last: bool = True) -> None:
 //|         """Create a hardware-timer UART transmitter."""
 //|     def start(self) -> None:
 //|         """Start periodic transmission."""
@@ -510,8 +531,6 @@ MP_DEFINE_CONST_OBJ_TYPE(
 STATIC const mp_rom_map_elem_t uart_periodic_tx_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_uart_periodic_tx) },
     { MP_ROM_QSTR(MP_QSTR_UARTPeriodicTx), MP_ROM_PTR(&uart_periodic_tx_type) },
-    // Compatibility alias for scripts written before the UART-specific rename.
-    { MP_ROM_QSTR(MP_QSTR_HardTimerTx), MP_ROM_PTR(&uart_periodic_tx_type) },
 };
 STATIC MP_DEFINE_CONST_DICT(uart_periodic_tx_module_globals, uart_periodic_tx_module_globals_table);
 
