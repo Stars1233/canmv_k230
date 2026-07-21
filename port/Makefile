@@ -196,7 +196,14 @@ CANMV_SRC_C += $(wildcard multi_media/*.c)
 # drivers
 CANMV_SRC_C += $(wildcard drivers/*.c)
 # modules
-CANMV_SRC_C += $(wildcard modules/*.c)
+OPTIONAL_MODULE_SRCS := \
+	modules/moduart_periodic_tx.c
+
+CANMV_SRC_C += $(filter-out $(OPTIONAL_MODULE_SRCS),$(wildcard modules/*.c))
+
+ifeq ($(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX),y)
+CANMV_SRC_C += modules/moduart_periodic_tx.c
+endif
 
 ifeq ($(CONFIG_ENABLE_MODULE_CV_LITE),y)
 $(info Enable CV_Lite)

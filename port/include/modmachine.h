@@ -32,6 +32,9 @@
 
 void *machine_i2c_obj_get_inst(mp_obj_t self_in);
 
+int  machine_timer_native_claim(int timer_id);
+void machine_timer_native_release(int timer_id);
+
 int  machine_pin_get_pin_numer(mp_obj_t self_in);
 void machine_pin_value_set(mp_obj_t self_in, int value);
 int  machine_pin_value_get(mp_obj_t self_in);

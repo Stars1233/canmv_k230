@@ -27,7 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "generated/autoconf.h"
+
 #include "py/mpprint.h"
+#include "py/mperrno.h"
 #include "py/obj.h"
 #include "py/runtime.h"
 #include "shared/runtime/mpirq.h"
@@ -46,6 +49,36 @@ MP_REGISTER_ROOT_POINTER(void* machine_timer_soft_irq_obj);
 // Global timer objects registration for tracking existing instances
 MP_REGISTER_ROOT_POINTER(void* machine_timer_obj[KD_TIMER_MAX_NUM]);
 MP_REGISTER_ROOT_POINTER(void* machine_timer_soft_obj);
+
+#if defined(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX)
+// These helpers run with the MicroPython GIL held. The hard-timer callback
+// never accesses this state, so the claim check and update are intentionally
+// non-atomic.
+STATIC bool machine_timer_native_claimed[KD_TIMER_MAX_NUM];
+
+int machine_timer_native_claim(int timer_id)
+{
+    if (timer_id < 0 || timer_id >= KD_TIMER_MAX_NUM) {
+        return -1;
+    }
+    if (machine_timer_native_claimed[timer_id] || MP_STATE_PORT(machine_timer_obj[timer_id]) != NULL) {
+        return -1;
+    }
+
+    machine_timer_native_claimed[timer_id] = true;
+    return 0;
+}
+
+void machine_timer_native_release(int timer_id)
+{
+    // The caller must already have stopped and destroyed its native timer.
+    // While this flag is set, machine_timer_make_new() rejects a Python Timer
+    // for the same ID, so a live Python timer cannot share this reservation.
+    if (timer_id >= 0 && timer_id < KD_TIMER_MAX_NUM) {
+        machine_timer_native_claimed[timer_id] = false;
+    }
+}
+#endif
 
 /** soft timer wrap **********************************************************/
 
@@ -345,6 +378,11 @@ STATIC mp_obj_t machine_timer_make_new(const mp_obj_type_t* type, size_t n_args,
     if (((-1) != index) && ((0 > index) || (KD_TIMER_MAX_NUM <= index))) {
         mp_raise_ValueError(MP_ERROR_TEXT("invalid timer number"));
     }
+    #if defined(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX)
+    if (index >= 0 && machine_timer_native_claimed[index]) {
+        mp_raise_OSError(MP_EBUSY);
+    }
+    #endif
 
     // Check if timer object already exists
     machine_timer_obj_t* self = machine_timer_get_or_create(index);
@@ -475,6 +513,9 @@ void machine_timer_irq_init(void)
     for (size_t i = 0; i < KD_TIMER_MAX_NUM; i++) {
         MP_STATE_PORT(machine_timer_irq_obj[i]) = NULL;
         MP_STATE_PORT(machine_timer_obj[i])     = NULL;
+        #if defined(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX)
+        machine_timer_native_claimed[i]         = false;
+        #endif
     }
     MP_STATE_PORT(machine_timer_soft_irq_obj) = NULL;
     MP_STATE_PORT(machine_timer_soft_obj)     = NULL;

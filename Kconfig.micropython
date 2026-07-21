@@ -38,4 +38,12 @@ menu "CanMV Micropython Components Configurations"
         bool "Enable CV_Lite Module"
         default y
 
+    config ENABLE_MODULE_UART_PERIODIC_TX
+        bool "Enable UART periodic TX module"
+        default n
+        help
+          Build the uart_periodic_tx module, which transmits complete UART
+          frames from a hardware timer without executing Python in the timer
+          callback.
+
 endmenu

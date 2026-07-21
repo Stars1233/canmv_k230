@@ -99,6 +99,9 @@ void mp_hal_stdin_clear(void);
 // K230 subsystem init/deinit
 void machine_pin_irq_init(void);
 void machine_timer_irq_init(void);
+#if defined(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX)
+void uart_periodic_tx_deinit_all(void);
+#endif
 void fb_alloc_init0(void);
 void fb_free_all(void);
 void py_display_deinit(void);
@@ -565,6 +568,9 @@ soft_reset:
 main_thread_exit:
     fprintf(stderr, "[mpy] exit, reset\n");
 
+    #if defined(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX)
+    uart_periodic_tx_deinit_all();
+    #endif
     ide_dbg_on_soft_reset();
     ide_dbg_vo_wbc_stop();
     py_display_deinit();
