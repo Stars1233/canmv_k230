@@ -369,13 +369,16 @@ void mp_hal_delay_us(mp_uint_t us) {
 
     if (stop > start) {
         mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);
-        mp_handle_pending(true);
-        mp_hal_poll_dupterm();
-
         MP_THREAD_GIL_EXIT();
         usleep(stop - start);
         MP_THREAD_GIL_ENTER();
     }
+
+    // Service callbacks that arrived during the final sleep interval before
+    // returning control to Python code that may immediately deinitialize them.
+    mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);
+    mp_handle_pending(true);
+    mp_hal_poll_dupterm();
 }
 
 void mp_hal_delay_ms(mp_uint_t ms) {

@@ -328,6 +328,9 @@ STATIC void run_ide_script_once(void) {
         gc_collect();
         char* script = ide_dbg_get_script();
         if (script) {
+            // interrupt_repl() suppresses IRQ callbacks while the previous
+            // execution context is being left. The new script has a valid VM.
+            system_set_exiting_flag(false);
             exec_type_t etype = ide_dbg_get_exec_type();
             if (etype == EXEC_FILE) {
                 char banner[320];
