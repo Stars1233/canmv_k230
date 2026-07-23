@@ -13,6 +13,7 @@
 #include "../misc/lv_gc.h"
 #include "../misc/lv_printf.h"
 #include "../misc/lv_profiler.h"
+#include "../lv_mp_thread.h"
 
 /*********************
  *      DEFINES
@@ -75,16 +76,20 @@ void _lv_timer_core_init(void)
  */
 LV_ATTRIBUTE_TIMER_HANDLER uint32_t lv_timer_handler(void)
 {
+    lv_mp_thread_lock();
+
     TIMER_TRACE("begin");
 
     if(timer_already_running) {
         TIMER_TRACE("already running, concurrent calls are not allow, returning");
+        lv_mp_thread_unlock();
         return 1;
     }
     timer_already_running = true;
 
     if(lv_timer_run == false) {
         timer_already_running = false; /*Release mutex*/
+        lv_mp_thread_unlock();
         return 1;
     }
 
@@ -152,6 +157,7 @@ LV_ATTRIBUTE_TIMER_HANDLER uint32_t lv_timer_handler(void)
 
     TIMER_TRACE("finished (%" LV_PRIu32 " ms until the next timer call)", time_until_next);
     LV_PROFILER_END;
+    lv_mp_thread_unlock();
     return time_until_next;
 }
 
@@ -159,11 +165,13 @@ LV_ATTRIBUTE_TIMER_HANDLER void lv_timer_periodic_handler(void)
 {
     static uint32_t last_tick = 0;
 
+    lv_mp_thread_lock();
     if(lv_tick_elaps(last_tick) >= timer_time_until_next) {
         TIMER_TRACE("calling lv_timer_handler()");
         lv_timer_handler();
         last_tick = lv_tick_get();
     }
+    lv_mp_thread_unlock();
 }
 
 /**

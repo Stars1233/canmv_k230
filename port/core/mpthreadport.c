@@ -326,7 +326,13 @@ void mp_thread_finish(void) {
 }
 
 void mp_thread_mutex_init(mp_thread_mutex_t *mutex) {
-    pthread_mutex_init(mutex, NULL);
+    // The MicroPython GIL may be entered by an LVGL callback on the same
+    // thread that is already executing a binding call.
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
 }
 
 int mp_thread_mutex_lock(mp_thread_mutex_t *mutex, int wait) {

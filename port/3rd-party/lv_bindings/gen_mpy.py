@@ -684,10 +684,15 @@ print ("""
 #include "py/objint.h"
 #include "py/objstr.h"
 #include "py/runtime.h"
+#include "py/mpthread.h"
+#include "py/nlr.h"
 #include "py/binary.h"
 #include "py/objarray.h"
 #include "py/objtype.h"
 #include "py/objexcept.h"
+#include "lv_mp_thread.h"
+
+STATIC void lv_mp_thread_nlr_unlock(void *ctx);
 
 /*
  * {module_name} includes
@@ -782,7 +787,22 @@ STATIC mp_obj_t lv_fun_builtin_var_call(mp_obj_t self_in, size_t n_args, size_t 
            MP_OBJ_IS_TYPE(self_in, &mp_lv_type_fun_builtin_static_var));
     mp_lv_obj_fun_builtin_var_t *self = MP_OBJ_TO_PTR(self_in);
     mp_arg_check_num(n_args, n_kw, self->n_args, self->n_args, false);
-    return self->mp_fun(n_args, args, self->lv_fun);
+    nlr_buf_t nlr;
+
+    // Do not hold the GIL while waiting for LVGL; a native callback may need it.
+    MP_THREAD_GIL_EXIT();
+    lv_mp_thread_lock();
+    MP_THREAD_GIL_ENTER();
+    if (nlr_push(&nlr) == 0) {
+        mp_obj_t result = self->mp_fun(n_args, args, self->lv_fun);
+        nlr_pop();
+        lv_mp_thread_unlock();
+        return result;
+    }
+    else {
+        lv_mp_thread_unlock();
+        nlr_jump(nlr.ret_val);
+    }
 }
 
 STATIC mp_int_t mp_func_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
@@ -1129,40 +1149,61 @@ STATIC mp_obj_t lv_struct_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t
 
 STATIC mp_obj_t lv_struct_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value)
 {
+    nlr_jump_callback_node_t lock_cleanup;
+
+    // Do not hold the GIL while waiting for LVGL-backed memory access.
+    MP_THREAD_GIL_EXIT();
+    lv_mp_thread_lock();
+    nlr_push_jump_callback(&lock_cleanup, lv_mp_thread_nlr_unlock);
+    MP_THREAD_GIL_ENTER();
+
+    mp_obj_t result = NULL;
     mp_lv_struct_t *self = mp_to_lv_struct(self_in);
+    const mp_obj_type_t *type = NULL;
+    size_t element_size = 0;
+    size_t element_index = 0;
+    void *element_addr = NULL;
+    mp_lv_struct_t *element_at_index = NULL;
+    mp_lv_struct_t *other = NULL;
 
     if ((!self) || (!self->data))
-        return NULL;
+        goto lv_struct_subscr_done;
     if (!mp_obj_is_int(index)) {
         nlr_raise(
             mp_obj_new_exception_msg(
                 &mp_type_SyntaxError, MP_ERROR_TEXT("Subscript index must be an integer!")));
     }
 
-    const mp_obj_type_t *type = mp_obj_get_type(self_in);
-    size_t element_size = get_lv_struct_size(type);
-    size_t element_index = mp_obj_get_int(index);
-    void *element_addr = (byte*)self->data + element_size*element_index;
+    type = mp_obj_get_type(self_in);
+    element_size = get_lv_struct_size(type);
+    element_index = mp_obj_get_int(index);
+    element_addr = (byte*)self->data + element_size*element_index;
 
     if (value == MP_OBJ_NULL) {
         memset(element_addr, 0, element_size);
-        return self_in;
+        result = self_in;
+        goto lv_struct_subscr_done;
     }
 
-    mp_lv_struct_t *element_at_index = m_new_obj(mp_lv_struct_t);
+    element_at_index = m_new_obj(mp_lv_struct_t);
     *element_at_index = (mp_lv_struct_t){
         .base = {type},
         .data = element_addr
     };
 
     if (value != MP_OBJ_SENTINEL){
-        mp_lv_struct_t *other = mp_to_lv_struct(cast(value, type));
+        other = mp_to_lv_struct(cast(value, type));
         if ((!other) || (!other->data))
-            return NULL;
+            goto lv_struct_subscr_done;
         memcpy(element_at_index->data, other->data, element_size);
     }
 
-    return MP_OBJ_FROM_PTR(element_at_index);
+    result = MP_OBJ_FROM_PTR(element_at_index);
+
+lv_struct_subscr_done:
+    nlr_pop_jump_callback(false);
+    lv_mp_thread_unlock();
+    return result;
 }
 
 GENMPY_UNUSED STATIC void *copy_buffer(const void *buffer, size_t size)
@@ -1438,6 +1479,18 @@ STATIC void *mp_lv_callback(mp_obj_t mp_callback, void *lv_callback, qstr callba
 
 static int _nesting = 0;
 
+STATIC void lv_mp_callback_nesting_cleanup(void *ctx)
+{
+    (void)ctx;
+    _nesting--;
+}
+
+STATIC void lv_mp_thread_nlr_unlock(void *ctx)
+{
+    (void)ctx;
+    lv_mp_thread_unlock();
+}
+
 // Function pointers wrapper
 
 STATIC mp_obj_t mp_lv_funcptr(const mp_lv_obj_fun_builtin_var_t *mp_fun, void *lv_fun, void *lv_callback, qstr func_name, void *user_data)
@@ -1490,32 +1543,45 @@ STATIC void mp_lv_array_print(const mp_print_t *print,
 
 STATIC mp_obj_t lv_array_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value)
 {
+    nlr_jump_callback_node_t lock_cleanup;
+
+    MP_THREAD_GIL_EXIT();
+    lv_mp_thread_lock();
+    nlr_push_jump_callback(&lock_cleanup, lv_mp_thread_nlr_unlock);
+    MP_THREAD_GIL_ENTER();
+
+    mp_obj_t result = NULL;
     mp_lv_array_t *self = MP_OBJ_TO_PTR(self_in);
-
-    if ((!self) || (!self->base.data))
-        return NULL;
-    if (!mp_obj_is_int(index)) {
-        nlr_raise(
-            mp_obj_new_exception_msg(
-                &mp_type_SyntaxError, MP_ERROR_TEXT("Subscript index must be an integer!")));
-    }
-
-    size_t element_size = self->element_size;
-    size_t element_index = mp_obj_get_int(index);
-    void *element_addr = (byte*)self->base.data + element_size*element_index;
-    bool is_signed = self->is_signed;
+    size_t element_size = 0;
+    size_t element_index = 0;
+    void *element_addr = NULL;
+    bool is_signed = false;
     union {
         long long val;
         unsigned long long uval;
     } element;
     memset(&element, 0, sizeof(element));
 
+    if ((!self) || (!self->base.data))
+        goto lv_array_subscr_done;
+    if (!mp_obj_is_int(index)) {
+        nlr_raise(
+            mp_obj_new_exception_msg(
+                &mp_type_SyntaxError, MP_ERROR_TEXT("Subscript index must be an integer!")));
+    }
+
+    element_size = self->element_size;
+    element_index = mp_obj_get_int(index);
+    element_addr = (byte*)self->base.data + element_size*element_index;
+    is_signed = self->is_signed;
+
     if (value == MP_OBJ_NULL){
         memset(element_addr, 0, element_size);
     }
     else if (value == MP_OBJ_SENTINEL){
         memcpy(&element, element_addr, element_size);
-        return is_signed? mp_obj_new_int_from_ll(element.val): mp_obj_new_int_from_ull(element.uval);
+        result = is_signed? mp_obj_new_int_from_ll(element.val): mp_obj_new_int_from_ull(element.uval);
+        goto lv_array_subscr_done;
     } else {
         if (!mp_obj_is_int(value)) {
             nlr_raise(
@@ -1526,7 +1592,12 @@ STATIC mp_obj_t lv_array_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value
         memcpy(element_addr, &element, element_size);
     }
 
-    return self_in;
+    result = self_in;
+
+lv_array_subscr_done:
+    nlr_pop_jump_callback(false);
+    lv_mp_thread_unlock();
+    return result;
 }
 
 STATIC const mp_rom_map_elem_t mp_base_struct_locals_dict_table[] = {
@@ -1906,6 +1977,13 @@ STATIC inline mp_obj_t mp_read_ptr_{sanitized_struct_name}(void *field)
 
 STATIC void mp_{sanitized_struct_name}_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest)
 {{
+    nlr_jump_callback_node_t lock_cleanup;
+
+    MP_THREAD_GIL_EXIT();
+    lv_mp_thread_lock();
+    nlr_push_jump_callback(&lock_cleanup, lv_mp_thread_nlr_unlock);
+    MP_THREAD_GIL_ENTER();
+
     mp_lv_struct_t *self = MP_OBJ_TO_PTR(self_in);
     GENMPY_UNUSED {struct_tag}{struct_name} *data = ({struct_tag}{struct_name}*)self->data;
 
@@ -1923,12 +2001,16 @@ STATIC void mp_{sanitized_struct_name}_attr(mp_obj_t self_in, qstr attr, mp_obj_
             switch(attr)
             {{
                 {write_cases};
-                default: return;
+                default: goto attr_done;
             }}
 
             dest[0] = MP_OBJ_NULL; // indicate success
         }}
     }}
+
+attr_done:
+    nlr_pop_jump_callback(false);
+    lv_mp_thread_unlock();
 }}
 
 STATIC void mp_{sanitized_struct_name}_print(const mp_print_t *print,
@@ -2304,12 +2386,31 @@ def gen_callback_func(func, func_name = None, user_data_argument = False):
 GENMPY_UNUSED STATIC {return_type} {func_name}_callback({func_args})
 {{
     mp_obj_t mp_args[{num_args}];
-    {build_args}
-    mp_obj_t callbacks = get_callback_dict_from_user_data({user_data});
-    _nesting++;
-    {return_value_assignment}mp_call_function_n_kw(mp_obj_dict_get(callbacks, MP_OBJ_NEW_QSTR(MP_QSTR_{func_name})) , {num_args}, 0, mp_args);
-    _nesting--;
-    return{return_value};
+    {callback_return_declaration}
+    nlr_buf_t nlr;
+    nlr_jump_callback_node_t nesting_cleanup;
+
+    lv_mp_thread_lock();
+    MP_THREAD_GIL_ENTER();
+    if (nlr_push(&nlr) == 0) {{
+        {build_args}
+        mp_obj_t callbacks = get_callback_dict_from_user_data({user_data});
+        _nesting++;
+        nlr_push_jump_callback(&nesting_cleanup, lv_mp_callback_nesting_cleanup);
+        {return_value_assignment}mp_call_function_n_kw(mp_obj_dict_get(callbacks, MP_OBJ_NEW_QSTR(MP_QSTR_{func_name})) , {num_args}, 0, mp_args);
+        nlr_pop_jump_callback(false);
+        _nesting--;
+        {return_value_conversion}
+        nlr_pop();
+        MP_THREAD_GIL_EXIT();
+        lv_mp_thread_unlock();
+        {return_statement}
+    }}
+    else {{
+        MP_THREAD_GIL_EXIT();
+        lv_mp_thread_unlock();
+        nlr_jump(nlr.ret_val);
+    }}
 }}
 """.format(
         func_prototype = gen.visit(func),
@@ -2320,7 +2421,9 @@ GENMPY_UNUSED STATIC {return_type} {func_name}_callback({func_args})
         build_args="\n    ".join([build_callback_func_arg(arg, i, func, func_name=func_name) for i,arg in enumerate(args)]),
         user_data=full_user_data,
         return_value_assignment = '' if return_type == 'void' else 'mp_obj_t callback_result = ',
-        return_value='' if return_type == 'void' else ' %s(callback_result)' % mp_to_lv[return_type]))
+        callback_return_declaration = '' if return_type == 'void' else '%s callback_return;' % return_type,
+        return_value_conversion = '' if return_type == 'void' else 'callback_return = %s(callback_result);' % mp_to_lv[return_type],
+        return_statement = 'return;' if return_type == 'void' else 'return callback_return;'))
     generated_callbacks[func_name] = True
 
 #
@@ -2472,6 +2575,7 @@ def gen_mp_func(func, obj_name):
     # print('/* --> return_type = %s, qualified_return_type = %s\n%s */' % (return_type, qualified_return_type, func.type.type))
     if return_type == "void":
         build_result = ""
+        build_result_assignment = ""
         build_return_value = "mp_const_none"
         func_metadata[func.name]['return_type'] = 'NoneType'
     else:
@@ -2479,7 +2583,8 @@ def gen_mp_func(func, obj_name):
             try_generate_type(func.type.type)
             if return_type not in lv_to_mp or not lv_to_mp[return_type]:
                 raise MissingConversionException("Missing conversion from %s" % return_type)
-        build_result = "%s _res = " % qualified_return_type
+        build_result = "%s _res;" % qualified_return_type
+        build_result_assignment = "_res = "
         cast = '(void*)' if isinstance(func.type.type, c_ast.PtrDecl) else '' # needed when field is const. casting to void overrides it
         build_return_value = "{type}({cast}_res)".format(type = lv_to_mp[return_type], cast = cast)
         func_metadata[func.name]['return_type'] = lv_mp_type[return_type]
@@ -2492,8 +2597,23 @@ def gen_mp_func(func, obj_name):
 STATIC mp_obj_t mp_{func}(size_t mp_n_args, const mp_obj_t *mp_args, void *lv_func_ptr)
 {{
     {build_args}
-    {build_result}(({func_ptr})lv_func_ptr)({send_args});
-    return {build_return_value};
+    {build_result}
+    {build_return_declaration}
+    nlr_buf_t nlr;
+
+    // Keep the LVGL mutex held while C runs, but let callbacks acquire the GIL.
+    MP_THREAD_GIL_EXIT();
+    if (nlr_push(&nlr) == 0) {{
+        {build_result_assignment}(({func_ptr})lv_func_ptr)({send_args});
+        nlr_pop();
+        MP_THREAD_GIL_ENTER();
+        {build_return_conversion}
+        {build_return_statement}
+    }}
+    else {{
+        MP_THREAD_GIL_ENTER();
+        nlr_jump(nlr.ret_val);
+    }}
 }}
 
  """.format(
@@ -2508,7 +2628,11 @@ STATIC mp_obj_t mp_{func}(size_t mp_n_args, const mp_obj_t *mp_args, void *lv_fu
                'void' not in arg.type.type.names]), # Handle the case of 'void' param which should be ignored
         send_args=", ".join([(arg.name if (hasattr(arg, 'name') and arg.name) else ("arg%d" % i)) for i,arg in enumerate(args)]),
         build_result=build_result,
-        build_return_value=build_return_value))
+        build_result_assignment=build_result_assignment,
+        build_return_value=build_return_value,
+        build_return_declaration='' if return_type == 'void' else 'mp_obj_t mp_result;',
+        build_return_conversion='' if return_type == 'void' else 'mp_result = %s;' % build_return_value,
+        build_return_statement='return mp_result;' if return_type != 'void' else 'return mp_const_none;'))
 
     emit_func_obj(func.name, func.name, param_count, func.name, is_static_member(func, base_obj_type))
     generated_funcs[func.name] = True # completed generating the function
@@ -2948,5 +3072,3 @@ if args.metadata:
 
     with open(args.metadata, 'w') as metadata_file:
         json.dump(metadata, metadata_file, indent=4)
-
-

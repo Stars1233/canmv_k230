@@ -24,6 +24,7 @@
 #include "../misc/lv_gc.h"
 #include "../misc/lv_math.h"
 #include "../misc/lv_log.h"
+#include "../lv_mp_thread.h"
 #include "../libs/bmp/lv_bmp.h"
 #include "../libs/ffmpeg/lv_ffmpeg.h"
 #include "../libs/freetype/lv_freetype.h"
@@ -107,11 +108,18 @@ const lv_obj_class_t lv_obj_class = {
 
 bool lv_is_initialized(void)
 {
-    return lv_initialized;
+    bool initialized;
+
+    lv_mp_thread_lock();
+    initialized = lv_initialized;
+    lv_mp_thread_unlock();
+    return initialized;
 }
 
 void lv_init(void)
 {
+    lv_mp_thread_lock();
+
     /*Do nothing if already initialized*/
     if(lv_initialized) {
         LV_LOG_WARN("lv_init: already inited");
@@ -277,14 +285,18 @@ void lv_init(void)
     lv_initialized = true;
 
     LV_LOG_TRACE("finished");
+    lv_mp_thread_unlock();
 }
 
 #if LV_ENABLE_GC || LV_USE_BUILTIN_MALLOC
 
 void lv_deinit(void)
 {
+    lv_mp_thread_lock();
+
     if(!lv_initialized) {
         LV_LOG_WARN("lv_deinit: already deinited");
+        lv_mp_thread_unlock();
         return;
     }
 
@@ -302,6 +314,8 @@ void lv_deinit(void)
 #if LV_USE_LOG
     lv_log_register_print_cb(NULL);
 #endif
+
+    lv_mp_thread_unlock();
 }
 #endif
 

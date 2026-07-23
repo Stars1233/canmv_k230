@@ -270,6 +270,7 @@ LVGL_SRC_C_EXCLUDE = \
 		core/lv_obj_tree.c \
 		core/lv_obj.c \
 		core/lv_refr.c \
+		widgets/img/lv_img.c \
 		misc/lv_timer.c \
 		misc/lv_color.c \
 		libs/png/lodepng.c \
@@ -283,8 +284,10 @@ LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj_pos.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj_tree.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_obj.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/core/lv_refr.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/widgets/img/lv_img.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_color.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/misc/lv_timer.c
+LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/lv_mp_thread.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lodepng.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/png/lv_png.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/src/libs/freetype/lv_freetype.c
@@ -301,6 +304,8 @@ LV_CFLAGS := -DLV_CONF_PATH=$(LVGL_BINDING_DIR)/yb_config/lv_conf_yb.h
 endif
 
 CFLAGS += -I$(LVGL_DIR)/src/core
+CFLAGS += -I$(LVGL_DIR)/src/widgets/img
+CFLAGS += -I$(LVGL_BINDING_DIR)/src
 
 CANMV_SRC_C += $(LVGL_SRC_C)
 CLEAN_EXTRA += $(LVGL_PP) $(LVGL_MPY)

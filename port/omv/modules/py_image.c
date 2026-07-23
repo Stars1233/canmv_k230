@@ -19,6 +19,7 @@
 #include "py/objtuple.h"
 #include "py/objtype.h"
 #include "py/runtime.h"
+#include "py/mpthread.h"
 #include "py/mphal.h"
 #include "py/gc.h"
 
@@ -33,6 +34,7 @@
 #include "py_image.h"
 #include "omv_boardconfig.h"
 #include "mpi_sys_api.h"
+#include "lv_mp_thread.h"
 #include "ndarray.h"
 #if defined(IMLIB_ENABLE_IMAGE_IO)
 #include "py_imageio.h"
@@ -6521,7 +6523,14 @@ static mp_obj_t py_image_as_lvgl_img_src(size_t n, const mp_obj_t* args)
 
     lv_obj_t* obj = *(lv_obj_t**)buffer_info.buf;
 
-    if (obj->class_p != &lv_img_class) {
+    bool is_img_obj;
+    MP_THREAD_GIL_EXIT();
+    lv_mp_thread_lock();
+    is_img_obj = obj->class_p == &lv_img_class;
+    lv_mp_thread_unlock();
+    MP_THREAD_GIL_ENTER();
+
+    if (!is_img_obj) {
         mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("not lv.img obj"));
     }
 
@@ -6542,7 +6551,18 @@ static mp_obj_t py_image_as_lvgl_img_src(size_t n, const mp_obj_t* args)
         rgb888_to_bgr888_inplace(image->data, image->w * image->h);
     }
 
-    lv_img_set_src(obj, dsc);
+    /* Let LVGL callbacks acquire the GIL while the native setter runs. */
+    nlr_buf_t nlr;
+    MP_THREAD_GIL_EXIT();
+    if (nlr_push(&nlr) == 0) {
+        lv_img_set_src(obj, dsc);
+        nlr_pop();
+        MP_THREAD_GIL_ENTER();
+    }
+    else {
+        MP_THREAD_GIL_ENTER();
+        nlr_jump(nlr.ret_val);
+    }
 
     return lv_img_obj;
 }
