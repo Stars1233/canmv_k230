@@ -131,9 +131,18 @@ enum usbdbg_cmd {
 #define USBDBG_CAP_FILE_EXEC              (1 << 7)
 #define USBDBG_CAP_VIRTUAL_TOUCH          (1 << 8)
 #define USBDBG_CAP_REPL_INPUT             (1 << 9)
+#define USBDBG_CAP_LIST_DIR_PAGED         (1 << 10)
 
 #define USBDBG_MAX_PATH_LEN               512
 #define USBDBG_FILE_CHUNK_MAX             (128 * 1024)
+
+// LIST_DIR accepts only this paged request form. Older firmware and new
+// firmware receiving an unpaged request reply with the normal invalid-path
+// header. The page payload starts with a uint32_t continuation index, followed
+// by normal ide_dbg_listdir_entry wire records.
+#define USBDBG_LISTDIR_PAGE_REQUEST_PREFIX "/\x1fl/"
+#define USBDBG_LISTDIR_PAGE_MAX_PAYLOAD    (8 * 1024)
+#define USBDBG_LISTDIR_PAGE_DONE           UINT32_MAX
 
 struct ide_dbg_listdir_entry {
     uint8_t  type;

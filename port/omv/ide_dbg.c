@@ -87,6 +87,14 @@
 pthread_t ide_dbg_task_p;
 static struct ide_dbg_svfil_t ide_dbg_sv_file;
 static uint8_t ide_dbg_file_read_buffer[USBDBG_FILE_CHUNK_MAX];
+static uint8_t ide_dbg_listdir_page_buffer[USBDBG_LISTDIR_PAGE_MAX_PAYLOAD];
+static struct {
+    DIR *dir;
+    char filepath[USBDBG_MAX_PATH_LEN + 64];
+    char pending_name[UINT8_MAX + 1];
+    uint32_t next_offset;
+    bool pending;
+} ide_dbg_listdir_page_state;
 static mp_obj_exception_t ide_exception; //IDE interrupt
 static mp_obj_str_t ide_exception_str;
 static mp_obj_tuple_t* ide_exception_str_tuple = NULL;
@@ -193,6 +201,11 @@ static int ide_dbg_uart_tx_best_effort(const void* buffer, size_t size) {
 }
 
 #define mp_hal_uart_tx ide_dbg_uart_tx_all
+
+static bool ide_dbg_host_attached(void) {
+    drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+    return inst != NULL && drv_uart_is_dtr_asserted(inst) > 0;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // TX ring buffer (stdout -> IDE) /////////////////////////////////////////////
@@ -1346,97 +1359,313 @@ static void cmd_query_file_stat(ide_dbg_state_t* state) {
     mp_hal_uart_tx(resp, sizeof(resp));
 }
 
-static uint32_t listdir_payload_size(DIR *dir, uint32_t *count) {
-    struct dirent *ent;
-    uint32_t bytes = 0;
-    *count = 0;
-    while ((ent = readdir(dir)) != NULL) {
-        if (is_dot_or_dotdot(ent->d_name)) continue;
-        size_t name_len = strlen(ent->d_name);
-        if (name_len > 255) name_len = 255;
-        bytes += 10 + (uint32_t)name_len;
-        (*count)++;
+static const char *const listdir_root_names[] = { "sdcard", "data", "udisk" };
+
+static void listdir_page_reset(void) {
+    if (ide_dbg_listdir_page_state.dir != NULL) {
+        closedir(ide_dbg_listdir_page_state.dir);
     }
-    rewinddir(dir);
-    return bytes;
+    hal_rvv_memset(&ide_dbg_listdir_page_state, 0, sizeof(ide_dbg_listdir_page_state));
 }
 
-static void cmd_listdir(ide_dbg_state_t* state) {
-    char path[USBDBG_MAX_PATH_LEN + 1];
-    char filepath[USBDBG_MAX_PATH_LEN + 64];
-    uint32_t header[3] = { 0, 0, 0 };
-
-    if (!read_path_nt(state, path, sizeof(path)) ||
-        !resolve_filepath(path, filepath, sizeof(filepath))) {
-        header[0] = USBDBG_SVFILE_ERR_INVALID_PATH;
-        mp_hal_uart_tx(header, sizeof(header));
+static void listdir_page_send(uint32_t errcode, uint32_t next_offset,
+                              uint32_t count, uint32_t payload_size) {
+    if (!ide_dbg_host_attached()) {
         return;
     }
+    // The header carries the number of entries; the payload starts with the
+    // continuation offset followed by the entry records.
+    uint32_t header[3] = { errcode, payload_size, count };
+    hal_rvv_memcpy(ide_dbg_listdir_page_buffer, &next_offset, sizeof(next_offset));
+    mp_hal_uart_tx(header, sizeof(header));
+    mp_hal_uart_tx(ide_dbg_listdir_page_buffer, payload_size);
+}
 
-    const char *root_names[] = { "sdcard", "data", "udisk" };
-    if (strcmp(path, "/") == 0) {
-        for (size_t i = 0; i < sizeof(root_names) / sizeof(root_names[0]); i++) {
-            char root_path[64];
-            struct stat st;
-            snprintf(root_path, sizeof(root_path), "/%s", root_names[i]);
-            if (stat(root_path, &st) == 0 && S_ISDIR(st.st_mode)) {
-                header[1] += 10 + (uint32_t)strlen(root_names[i]);
-                header[2]++;
-            }
-        }
-        mp_hal_uart_tx(header, sizeof(header));
-        for (size_t i = 0; i < sizeof(root_names) / sizeof(root_names[0]); i++) {
-            char root_path[64];
-            struct stat st;
-            snprintf(root_path, sizeof(root_path), "/%s", root_names[i]);
-            if (stat(root_path, &st) == 0 && S_ISDIR(st.st_mode)) {
-                uint8_t type = 1;
-                uint8_t name_len = (uint8_t)strlen(root_names[i]);
-                uint32_t size = 0;
-                uint32_t mtime = (uint32_t)st.st_mtime;
-                mp_hal_uart_tx(&type, 1);
-                mp_hal_uart_tx(&name_len, 1);
-                mp_hal_uart_tx(&size, 4);
-                mp_hal_uart_tx(&mtime, 4);
-                mp_hal_uart_tx(root_names[i], name_len);
-            }
-        }
-        return;
+static void listdir_page_send_error(uint32_t errcode) {
+    listdir_page_send(errcode, USBDBG_LISTDIR_PAGE_DONE, 0, sizeof(uint32_t));
+}
+
+static bool listdir_page_name_length(const char *name, uint8_t *name_len) {
+    size_t length = strlen(name);
+    if (length > UINT8_MAX) {
+        return false;
+    }
+    *name_len = (uint8_t)length;
+    return true;
+}
+
+static bool listdir_page_append(const char *name, const struct stat *st,
+                                uint32_t payload_limit, uint32_t *payload_size) {
+    uint8_t name_len;
+    if (!listdir_page_name_length(name, &name_len)) {
+        return false;
+    }
+    uint32_t entry_size = 10 + (uint32_t)name_len;
+    if (entry_size > payload_limit || *payload_size > payload_limit - entry_size) {
+        return false;
     }
 
+    uint8_t *entry = ide_dbg_listdir_page_buffer + *payload_size;
+    uint32_t size = S_ISREG(st->st_mode) ? (uint32_t)st->st_size : 0;
+    uint32_t mtime = (uint32_t)st->st_mtime;
+    entry[0] = stat_type_from_mode(st->st_mode);
+    entry[1] = (uint8_t)name_len;
+    hal_rvv_memcpy(entry + 2, &size, sizeof(size));
+    hal_rvv_memcpy(entry + 6, &mtime, sizeof(mtime));
+    hal_rvv_memcpy(entry + 10, name, name_len);
+    *payload_size += entry_size;
+    return true;
+}
+
+static bool listdir_page_has_space(const char *name, uint32_t payload_limit,
+                                   uint32_t payload_size) {
+    uint8_t name_len;
+    if (!listdir_page_name_length(name, &name_len)) {
+        return false;
+    }
+    uint32_t entry_size = 10 + (uint32_t)name_len;
+    return entry_size <= payload_limit && payload_size <= payload_limit - entry_size;
+}
+
+static bool listdir_page_set_pending(const char *name) {
+    size_t name_len = strlen(name);
+    if (name_len >= sizeof(ide_dbg_listdir_page_state.pending_name)) {
+        return false;
+    }
+    hal_rvv_memcpy(ide_dbg_listdir_page_state.pending_name, name, name_len + 1);
+    ide_dbg_listdir_page_state.pending = true;
+    return true;
+}
+
+static DIR *listdir_page_open(const char *filepath, uint32_t offset,
+                              uint32_t *entry_index, bool *offset_exhausted,
+                              bool *invalid_name) {
+    *offset_exhausted = false;
+    *invalid_name = false;
+
+    if (ide_dbg_listdir_page_state.dir != NULL &&
+        ide_dbg_listdir_page_state.next_offset == offset &&
+        strcmp(ide_dbg_listdir_page_state.filepath, filepath) == 0) {
+        *entry_index = offset;
+        return ide_dbg_listdir_page_state.dir;
+    }
+
+    listdir_page_reset();
+    const bool host_attached = ide_dbg_host_attached();
+    if (!host_attached) {
+        return NULL;
+    }
     DIR *dir = opendir(filepath);
     if (dir == NULL) {
-        header[0] = file_errno_to_usbdbg(errno);
-        mp_hal_uart_tx(header, sizeof(header));
+        return NULL;
+    }
+
+    ide_dbg_listdir_page_state.dir = dir;
+    snprintf(ide_dbg_listdir_page_state.filepath,
+             sizeof(ide_dbg_listdir_page_state.filepath), "%s", filepath);
+
+    uint32_t index = 0;
+    struct dirent *ent;
+    while (index < offset) {
+        ent = readdir(dir);
+        if (ent == NULL) {
+            listdir_page_reset();
+            *entry_index = index;
+            *offset_exhausted = true;
+            return NULL;
+        }
+        if (is_dot_or_dotdot(ent->d_name)) {
+            continue;
+        }
+        uint8_t name_len;
+        if (!listdir_page_name_length(ent->d_name, &name_len)) {
+            listdir_page_reset();
+            *invalid_name = true;
+            return NULL;
+        }
+        index++;
+    }
+    ide_dbg_listdir_page_state.next_offset = index;
+    *entry_index = index;
+    return dir;
+}
+
+static bool parse_listdir_page_request(const char *request, uint32_t *offset,
+                                       uint32_t *payload_limit, const char **path) {
+    const size_t prefix_len = sizeof(USBDBG_LISTDIR_PAGE_REQUEST_PREFIX) - 1;
+    const char *cursor;
+    char *end;
+    unsigned long value;
+
+    if (strncmp(request, USBDBG_LISTDIR_PAGE_REQUEST_PREFIX, prefix_len) != 0) {
+        return false;
+    }
+
+    cursor = request + prefix_len;
+    errno = 0;
+    value = strtoul(cursor, &end, 10);
+    if (errno != 0 || end == cursor || *end != '/' || value > UINT32_MAX) {
+        return false;
+    }
+    *offset = (uint32_t)value;
+
+    cursor = end + 1;
+    errno = 0;
+    value = strtoul(cursor, &end, 10);
+    if (errno != 0 || end == cursor || *end != '/' || value > UINT32_MAX) {
+        return false;
+    }
+    *payload_limit = (uint32_t)value;
+    *path = end + 1;
+    return **path != '\0';
+}
+
+static void cmd_listdir_page(const char *path, uint32_t offset,
+                             uint32_t payload_limit) {
+    const uint32_t min_payload = sizeof(uint32_t) + 10 + UINT8_MAX;
+    char filepath[USBDBG_MAX_PATH_LEN + 64];
+    uint32_t payload_size = sizeof(uint32_t);
+    uint32_t count = 0;
+    uint32_t next_offset = USBDBG_LISTDIR_PAGE_DONE;
+
+    if (payload_limit > USBDBG_LISTDIR_PAGE_MAX_PAYLOAD) {
+        payload_limit = USBDBG_LISTDIR_PAGE_MAX_PAYLOAD;
+    }
+    if (payload_limit < min_payload || !resolve_filepath(path, filepath, sizeof(filepath))) {
+        listdir_page_reset();
+        listdir_page_send_error(USBDBG_SVFILE_ERR_INVALID_PATH);
         return;
     }
 
-    header[1] = listdir_payload_size(dir, &header[2]);
-    mp_hal_uart_tx(header, sizeof(header));
+    if (strcmp(path, "/") == 0) {
+        listdir_page_reset();
+        if (!ide_dbg_host_attached()) {
+            return;
+        }
+        uint32_t entry_index = 0;
+        for (size_t i = 0; i < sizeof(listdir_root_names) / sizeof(listdir_root_names[0]); i++) {
+            char root_path[64];
+            struct stat st;
+            snprintf(root_path, sizeof(root_path), "/%s", listdir_root_names[i]);
+            if (stat(root_path, &st) != 0 || !S_ISDIR(st.st_mode)) {
+                continue;
+            }
+            if (entry_index < offset) {
+                entry_index++;
+                continue;
+            }
+            if (!listdir_page_append(listdir_root_names[i], &st, payload_limit, &payload_size)) {
+                next_offset = entry_index;
+                break;
+            }
+            count++;
+            entry_index++;
+        }
+        listdir_page_send(0, next_offset, count, payload_size);
+        return;
+    }
 
+    uint32_t entry_index = 0;
+    bool offset_exhausted = false;
+    bool invalid_name = false;
+    DIR *dir = listdir_page_open(filepath, offset, &entry_index,
+                                  &offset_exhausted, &invalid_name);
+    if (dir == NULL) {
+        if (!ide_dbg_host_attached()) {
+            return;
+        }
+        if (offset_exhausted) {
+            listdir_page_send(0, USBDBG_LISTDIR_PAGE_DONE, 0, sizeof(uint32_t));
+            return;
+        }
+        if (invalid_name) {
+            listdir_page_send_error(USBDBG_SVFILE_ERR_IO_ERROR);
+            return;
+        }
+        listdir_page_send_error(file_errno_to_usbdbg(errno));
+        return;
+    }
+
+    const bool host_attached = ide_dbg_host_attached();
+    if (!host_attached) {
+        listdir_page_reset();
+        return;
+    }
     struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (is_dot_or_dotdot(ent->d_name)) continue;
+    while (true) {
+        const char *name;
+        if (ide_dbg_listdir_page_state.pending) {
+            name = ide_dbg_listdir_page_state.pending_name;
+            ide_dbg_listdir_page_state.pending = false;
+        } else {
+            ent = readdir(dir);
+            if (ent == NULL) {
+                break;
+            }
+            if (is_dot_or_dotdot(ent->d_name)) {
+                continue;
+            }
+            name = ent->d_name;
+        }
+
+        uint8_t name_len;
+        if (!listdir_page_name_length(name, &name_len)) {
+            listdir_page_reset();
+            listdir_page_send_error(USBDBG_SVFILE_ERR_IO_ERROR);
+            return;
+        }
+        if (!listdir_page_has_space(name, payload_limit, payload_size)) {
+            if (!listdir_page_set_pending(name)) {
+                listdir_page_reset();
+                listdir_page_send_error(USBDBG_SVFILE_ERR_INVALID_PATH);
+                return;
+            }
+            next_offset = entry_index;
+            break;
+        }
 
         char child[USBDBG_MAX_PATH_LEN + 512];
         struct stat st;
-        snprintf(child, sizeof(child), "%s/%s", filepath, ent->d_name);
+        snprintf(child, sizeof(child), "%s/%s", filepath, name);
         if (stat(child, &st) != 0) {
             hal_rvv_memset(&st, 0, sizeof(st));
         }
-        size_t name_len = strlen(ent->d_name);
-        if (name_len > 255) name_len = 255;
-        uint8_t type = stat_type_from_mode(st.st_mode);
-        uint8_t nl = (uint8_t)name_len;
-        uint32_t size = S_ISREG(st.st_mode) ? (uint32_t)st.st_size : 0;
-        uint32_t mtime = (uint32_t)st.st_mtime;
-        mp_hal_uart_tx(&type, 1);
-        mp_hal_uart_tx(&nl, 1);
-        mp_hal_uart_tx(&size, 4);
-        mp_hal_uart_tx(&mtime, 4);
-        mp_hal_uart_tx(ent->d_name, nl);
+        if (!listdir_page_append(name, &st, payload_limit, &payload_size)) {
+            if (!listdir_page_set_pending(name)) {
+                listdir_page_reset();
+                listdir_page_send_error(USBDBG_SVFILE_ERR_INVALID_PATH);
+                return;
+            }
+            next_offset = entry_index;
+            break;
+        }
+        count++;
+        entry_index++;
     }
-    closedir(dir);
+
+    if (next_offset == USBDBG_LISTDIR_PAGE_DONE) {
+        listdir_page_reset();
+    } else {
+        ide_dbg_listdir_page_state.next_offset = next_offset;
+    }
+    listdir_page_send(0, next_offset, count, payload_size);
+}
+
+static void cmd_listdir(ide_dbg_state_t* state) {
+    char request[USBDBG_MAX_PATH_LEN + 64];
+    uint32_t offset = 0;
+    uint32_t payload_limit = 0;
+    const char *path = NULL;
+    uint32_t header[3] = { USBDBG_SVFILE_ERR_INVALID_PATH, 0, 0 };
+
+    if (!read_path_nt(state, request, sizeof(request)) ||
+        !parse_listdir_page_request(request, &offset, &payload_limit, &path)) {
+        listdir_page_reset();
+        mp_hal_uart_tx(header, sizeof(header));
+        return;
+    }
+
+    cmd_listdir_page(path, offset, payload_limit);
 }
 
 static void cmd_readfile(ide_dbg_state_t* state) {
@@ -1830,7 +2059,8 @@ static void cmd_capabilities(ide_dbg_state_t* state) {
                     USBDBG_CAP_WRITE_FILE | USBDBG_CAP_DELETE_FILE |
                     USBDBG_CAP_RENAME_FILE | USBDBG_CAP_MKDIR |
                     USBDBG_CAP_RMDIR | USBDBG_CAP_FILE_EXEC |
-                    USBDBG_CAP_VIRTUAL_TOUCH | USBDBG_CAP_REPL_INPUT)
+                    USBDBG_CAP_VIRTUAL_TOUCH | USBDBG_CAP_REPL_INPUT |
+                    USBDBG_CAP_LIST_DIR_PAGED)
     };
     mp_hal_uart_tx(resp, sizeof(resp));
 }
