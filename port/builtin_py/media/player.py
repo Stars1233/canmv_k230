@@ -103,8 +103,8 @@ class Player:
                 if (frame_data.codec_id == K_MP4_CODEC_ID_H264 or frame_data.codec_id == K_MP4_CODEC_ID_H265):
                     # control video play speed
                     if (not self.audio_track):
-                        # 计算视频时间戳经历的时长
-                        video_timestamp_elapsed = frame_data.time_stamp - start_video_timestamp
+                        # 计算视频时间戳经历的时长(time_stamp 单位为微秒，转换为毫秒)
+                        video_timestamp_elapsed = (frame_data.time_stamp - start_video_timestamp) // 1000
                         # 计算系统时间戳经历的时长
                         current_system_time = time.ticks_ms()
                         system_time_elapsed = current_system_time - start_system_time

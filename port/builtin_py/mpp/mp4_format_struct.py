@@ -13,7 +13,8 @@ K_MP4_CODEC_ID_H264 = const(0)
 K_MP4_CODEC_ID_H265 = const(1)
 K_MP4_CODEC_ID_G711A = const(2)
 K_MP4_CODEC_ID_G711U = const(3)
-K_MP4_CODEC_ID_BUTT = const(4)
+K_MP4_CODEC_ID_OPUS = const(4)
+K_MP4_CODEC_ID_BUTT = const(5)
 
 def k_mp4_config_muxer_s(**kwargs):
     layout = uctypes.NATIVE

@@ -49,6 +49,7 @@ class Mp4Container:
     MP4_CODEC_ID_H265 = K_MP4_CODEC_ID_H265
     MP4_CODEC_ID_G711A = K_MP4_CODEC_ID_G711A
     MP4_CODEC_ID_G711U = K_MP4_CODEC_ID_G711U
+    MP4_CODEC_ID_OPUS = K_MP4_CODEC_ID_OPUS
 
     def __init__(self,sensor_csi_id = -1):
         if sensor_csi_id in [0, 1, 2]:
