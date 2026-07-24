@@ -104,7 +104,7 @@ extern int mp_hal_uart_tx(const void* buffer, size_t size);
 extern bool mp_hal_uart_is_usb(void);
 extern void mp_hal_stdin_push(const uint8_t* data, size_t len);
 extern void mp_hal_stdin_clear(void);
-extern volatile bool is_repl_intr;
+extern bool is_repl_intr;
 
 static uint64_t sys_mem_total_size = 0;
 
@@ -589,7 +589,7 @@ static enum {
     FB_FROM_NONE,
     FB_FROM_USER_SET,
     FB_FROM_VO_WRITEBACK
-} fb_from = FB_FROM_NONE, fb_from_current;
+} fb_from = FB_FROM_NONE;
 
 static inline bool ide_dbg_repl_script_running(void) {
     return __atomic_load_n(&repl_script_running, __ATOMIC_ACQUIRE);
@@ -636,7 +636,7 @@ static inline bool ide_dbg_is_attached(void) {
     return __atomic_load_n(&ide_attached, __ATOMIC_ACQUIRE);
 }
 
-static void ide_dbg_clear_fb(void);
+static void ide_dbg_clear_fb(bool discard_pending);
 
 static inline void ide_dbg_set_auto_exec_suppressed(bool suppressed) {
     __atomic_store_n(&ide_auto_exec_suppressed, suppressed, __ATOMIC_RELEASE);
@@ -651,6 +651,7 @@ static inline void ide_dbg_set_attached(bool attached) {
     if (attached) {
         ide_dbg_set_auto_exec_suppressed(true);
     } else {
+        ide_dbg_clear_fb(true);
         ide_dbg_stdout_protocol_detach();
     }
 }
@@ -672,7 +673,12 @@ static void ide_dbg_queue_script(char *payload, exec_type_t type) {
 }
 
 char* ide_dbg_get_script() {
-    sem_wait(&script_sem);
+    while (sem_wait(&script_sem) != 0) {
+        if (errno != EINTR) {
+            pr_err("sem_wait(script_sem) failed: %s", strerror(errno));
+            return NULL;
+        }
+    }
     return ide_dbg_is_attached() ? exec_payload : NULL;
 }
 
@@ -696,13 +702,13 @@ void ide_dbg_on_script_start(void) {
 }
 
 void ide_dbg_on_script_end(void) {
-    ide_dbg_clear_fb();
+    ide_dbg_clear_fb(false);
     ide_dbg_set_repl_script_running(false);
     ide_dbg_vtouch_close();
 }
 
 void ide_dbg_on_soft_reset(void) {
-    ide_dbg_clear_fb();
+    ide_dbg_clear_fb(false);
     ide_dbg_set_repl_script_running(false);
     ide_dbg_vtouch_close();
 }
@@ -770,11 +776,15 @@ static bool enable_pic = true;
 static void* fb_data = NULL;
 static uint32_t fb_size = 0, fb_width = 0, fb_height = 0;
 
-static void* fb_vo_wbc_data = NULL;
-static size_t fb_vo_wbc_data_size = 0;
-static uint32_t fb_vo_wbc_width = 0, fb_vo_wbc_height = 0;
+// Once FRAME_SIZE advertises a buffer, detach it from the producer and keep it
+// alive until FRAME_DUMP. This preserves the fixed-size protocol transaction
+// even if the Python thread replaces or clears its framebuffer in between.
+static void* fb_pending_data = NULL;
+static size_t fb_pending_size = 0;
+static uint32_t fb_pending_width = 0, fb_pending_height = 0;
+static bool fb_pending_owned = false;
 
-static pthread_mutex_t fb_mutex;
+static pthread_mutex_t fb_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void ide_dbg_clear_fb_locked(void)
 {
@@ -786,18 +796,23 @@ static void ide_dbg_clear_fb_locked(void)
     fb_width = 0;
     fb_height = 0;
 
-    fb_vo_wbc_data = NULL;
-    fb_vo_wbc_data_size = 0;
-    fb_vo_wbc_width = 0;
-    fb_vo_wbc_height = 0;
     fb_from = FB_FROM_NONE;
-    fb_from_current = FB_FROM_NONE;
 }
 
-static void ide_dbg_clear_fb(void)
+static void ide_dbg_clear_fb(bool discard_pending)
 {
     pthread_mutex_lock(&fb_mutex);
     ide_dbg_clear_fb_locked();
+    if (discard_pending) {
+        if (fb_pending_owned) {
+            free(fb_pending_data);
+        }
+        fb_pending_data = NULL;
+        fb_pending_size = 0;
+        fb_pending_width = 0;
+        fb_pending_height = 0;
+        fb_pending_owned = false;
+    }
     pthread_mutex_unlock(&fb_mutex);
 }
 
@@ -994,7 +1009,7 @@ static void cmd_tx_input(ide_dbg_state_t* state) {
             pr_dbg("[ide] USBDBG_TX_INPUT requested soft reset");
         } else if (ctrl == CHAR_CTRL_C && ide_dbg_repl_script_running()) {
             wait_mp_irq_handler_done();
-            is_repl_intr = true;
+            __atomic_store_n(&is_repl_intr, true, __ATOMIC_RELEASE);
 #if MICROPY_KBD_EXCEPTION
             mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
 #endif
@@ -1014,7 +1029,7 @@ static void cmd_tx_input(ide_dbg_state_t* state) {
 
     if (ide_dbg_repl_script_running() && input[0] == CHAR_CTRL_C) {
         wait_mp_irq_handler_done();
-        is_repl_intr = true;
+        __atomic_store_n(&is_repl_intr, true, __ATOMIC_RELEASE);
 #if MICROPY_KBD_EXCEPTION
         mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
 #endif
@@ -1164,45 +1179,59 @@ static void cmd_frame_size(void) {
         return;
     }
 
-    if (enable_pic && fb_from != FB_FROM_NONE) {
+    if (enable_pic) {
         static uint64_t last_frame_ticks_ms = 0;
         uint64_t curr_frame_ticks_ms = mp_hal_ticks_ms();
         if (curr_frame_ticks_ms - last_frame_ticks_ms >= 33) {
             last_frame_ticks_ms = curr_frame_ticks_ms;
-            fb_from_current = fb_from;
-
+            bool capture_vo = false;
             pthread_mutex_lock(&fb_mutex);
-            if (FB_FROM_USER_SET == fb_from_current) {
+            if (fb_pending_data == NULL && FB_FROM_USER_SET == fb_from) {
                 if (fb_data && fb_size) {
-                    resp[0] = fb_width;
-                    resp[1] = fb_height;
-                    resp[2] = fb_size;
+                    fb_pending_data = fb_data;
+                    fb_pending_size = fb_size;
+                    fb_pending_width = fb_width;
+                    fb_pending_height = fb_height;
+                    fb_pending_owned = true;
+                    fb_data = NULL;
+                    fb_size = 0;
+                    fb_width = 0;
+                    fb_height = 0;
                 }
-            } else if (FB_FROM_VO_WRITEBACK == fb_from_current) {
-                extern int ide_dbg_vo_wbc_dump_and_encode(
-                    void** buffer, size_t* buffer_size,
-                    uint32_t* image_widht, uint32_t* image_height);
-                if (!fb_vo_wbc_data) {
-                    uint32_t img_width = 0, img_height = 0;
-                    if (0x00 != ide_dbg_vo_wbc_dump_and_encode(
-                            &fb_vo_wbc_data, &fb_vo_wbc_data_size,
-                            &img_width, &img_height)) {
-                        fb_vo_wbc_data = NULL;
-                        fb_vo_wbc_data_size = 0;
-                        fb_vo_wbc_width = 0;
-                        fb_vo_wbc_height = 0;
-                    } else {
-                        fb_vo_wbc_width = img_width;
-                        fb_vo_wbc_height = img_height;
-                    }
-                }
-                if (fb_vo_wbc_data && fb_vo_wbc_data_size) {
-                    resp[0] = fb_vo_wbc_width;
-                    resp[1] = fb_vo_wbc_height;
-                    resp[2] = fb_vo_wbc_data_size;
-                }
+            } else if (fb_pending_data == NULL && FB_FROM_VO_WRITEBACK == fb_from) {
+                capture_vo = true;
+            }
+            if (fb_pending_data != NULL && fb_pending_size != 0) {
+                resp[0] = fb_pending_width;
+                resp[1] = fb_pending_height;
+                resp[2] = fb_pending_size;
             }
             pthread_mutex_unlock(&fb_mutex);
+
+            if (capture_vo) {
+                extern int ide_dbg_vo_wbc_dump_and_encode(
+                    void** buffer, size_t* buffer_size,
+                    uint32_t* image_width, uint32_t* image_height);
+                void *captured_data = NULL;
+                size_t captured_size = 0;
+                uint32_t captured_width = 0, captured_height = 0;
+                if (ide_dbg_vo_wbc_dump_and_encode(
+                        &captured_data, &captured_size,
+                        &captured_width, &captured_height) == 0) {
+                    pthread_mutex_lock(&fb_mutex);
+                    if (fb_pending_data == NULL && fb_from == FB_FROM_VO_WRITEBACK) {
+                        fb_pending_data = captured_data;
+                        fb_pending_size = captured_size;
+                        fb_pending_width = captured_width;
+                        fb_pending_height = captured_height;
+                        fb_pending_owned = false;
+                        resp[0] = fb_pending_width;
+                        resp[1] = fb_pending_height;
+                        resp[2] = fb_pending_size;
+                    }
+                    pthread_mutex_unlock(&fb_mutex);
+                }
+            }
         }
     }
 
@@ -1216,32 +1245,19 @@ static void cmd_frame_dump(void) {
         return;
     }
 
-    if (fb_from_current == FB_FROM_NONE)
-        return;
-
     void *dump_data = NULL;
     size_t dump_size = 0;
     bool free_dump_data = false;
 
     pthread_mutex_lock(&fb_mutex);
-    if (FB_FROM_USER_SET == fb_from_current) {
-        if (fb_data && fb_size) {
-            dump_data = fb_data;
-            dump_size = fb_size;
-            free_dump_data = true;
-            fb_data = NULL;
-            fb_size = 0;
-        }
-    } else if (FB_FROM_VO_WRITEBACK == fb_from_current) {
-        if (fb_vo_wbc_data && fb_vo_wbc_data_size) {
-            dump_data = fb_vo_wbc_data;
-            dump_size = fb_vo_wbc_data_size;
-            fb_vo_wbc_data = NULL;
-            fb_vo_wbc_data_size = 0;
-            fb_vo_wbc_width = 0;
-            fb_vo_wbc_height = 0;
-        }
-    }
+    dump_data = fb_pending_data;
+    dump_size = fb_pending_size;
+    free_dump_data = fb_pending_owned;
+    fb_pending_data = NULL;
+    fb_pending_size = 0;
+    fb_pending_width = 0;
+    fb_pending_height = 0;
+    fb_pending_owned = false;
     pthread_mutex_unlock(&fb_mutex);
 
     if (dump_data && dump_size) {
@@ -2114,7 +2130,7 @@ static void cmd_fb_enable(ide_dbg_state_t* state) {
         enable_pic = enable;
     }
     if (!enable_pic) {
-        ide_dbg_clear_fb();
+        ide_dbg_clear_fb(true);
     }
     pr_verb("cmd: USBDBG_FB_ENABLE, enable(%u)", enable_pic);
 }
@@ -2302,7 +2318,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                     case USBDBG_SYS_RESET: {
                         // TODO: reset serialport to REPL mode
                         pr_verb("cmd: USBDBG_SYS_RESET");
-                        ide_dbg_clear_fb();
+                        ide_dbg_clear_fb(true);
                         if (ide_dbg_is_script_running()) {
                             ide_dbg_set_disconnect(true);
                             ide_dbg_request_soft_reset();
@@ -2375,8 +2391,14 @@ static void* ide_dbg_task(void* args) {
     static uint8_t read_buf[512];
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     struct sched_param param;
+    // RT-Smart uses lower numeric values for higher priorities. Keep the IDE
+    // task above the MicroPython main thread (priority 25) so it can deliver a
+    // stop request while Python is executing a CPU-bound loop.
     param.sched_priority = 20;
-    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    int sched_error = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if (sched_error != 0) {
+        pr_warn("[ide] pthread_setschedparam failed: %d", sched_error);
+    }
     while (1) {
         drv_uart_inst_t *inst = mp_hal_uart_get_instance();
         if (inst == NULL) {
@@ -2430,15 +2452,19 @@ void ide_dbg_start(void) {
         return;
     }
 
-    sem_init(&script_sem, 0, 0);
-    pthread_mutex_init(&fb_mutex, NULL);
+    if (sem_init(&script_sem, 0, 0) != 0) {
+        pr_err("sem_init(script_sem) failed: %s", strerror(errno));
+        return;
+    }
     ide_exception_str.data = (const byte*)"IDE interrupt";
     ide_exception_str.len  = 13;
     ide_exception_str.base.type = &mp_type_str;
     ide_exception_str.hash = qstr_compute_hash(ide_exception_str.data, ide_exception_str.len);
     ide_exception_str_tuple = (mp_obj_tuple_t*)malloc(sizeof(mp_obj_tuple_t)+sizeof(mp_obj_t)*1);
-    if(ide_exception_str_tuple==NULL)
+    if(ide_exception_str_tuple==NULL) {
+        sem_destroy(&script_sem);
         return;
+    }
     ide_exception_str_tuple->base.type = &mp_type_tuple;
     ide_exception_str_tuple->len = 1;
     ide_exception_str_tuple->items[0] = MP_OBJ_FROM_PTR(&ide_exception_str);
@@ -2447,7 +2473,13 @@ void ide_dbg_start(void) {
     ide_exception.traceback_len = 0;
     ide_exception.traceback_data = NULL;
     ide_exception.args = ide_exception_str_tuple;
-    pthread_create(&ide_dbg_task_p, NULL, ide_dbg_task, NULL);
+    int create_error = pthread_create(&ide_dbg_task_p, NULL, ide_dbg_task, NULL);
+    if (create_error != 0) {
+        pr_err("pthread_create(ide_dbg_task) failed: %s", strerror(create_error));
+        free(ide_exception_str_tuple);
+        ide_exception_str_tuple = NULL;
+        sem_destroy(&script_sem);
+    }
 }
 
 #else

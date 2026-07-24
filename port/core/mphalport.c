@@ -147,11 +147,11 @@ static pthread_cond_t  mp_hal_stdin_cond = PTHREAD_COND_INITIALIZER;
 static char mp_hal_stdin_ringbuf[4096];
 static unsigned mp_hal_stdin_wptr = 0;
 static unsigned mp_hal_stdin_rptr = 0;
+static size_t mp_hal_stdin_count = 0;
 
 static void mp_hal_interrupt(void)
 {
     mp_thread_set_exception_main(MP_OBJ_FROM_PTR(&MP_STATE_VM(mp_kbd_exception)));
-    mp_sched_keyboard_interrupt();
 }
 
 void mp_hal_stdin_push(const uint8_t* data, size_t len) {
@@ -163,8 +163,15 @@ void mp_hal_stdin_push(const uint8_t* data, size_t len) {
             mp_hal_interrupt();
             return;
         }
+        if (mp_hal_stdin_count == sizeof(mp_hal_stdin_ringbuf)) {
+            // Preserve unambiguous full/empty state and favor the most recent
+            // terminal input when a producer outruns the REPL consumer.
+            mp_hal_stdin_rptr = (mp_hal_stdin_rptr + 1) % sizeof(mp_hal_stdin_ringbuf);
+            mp_hal_stdin_count--;
+        }
         mp_hal_stdin_ringbuf[mp_hal_stdin_wptr++] = data[i];
         mp_hal_stdin_wptr %= sizeof(mp_hal_stdin_ringbuf);
+        mp_hal_stdin_count++;
     }
     pthread_cond_signal(&mp_hal_stdin_cond);
     pthread_mutex_unlock(&mp_hal_stdin_lock);
@@ -173,6 +180,7 @@ void mp_hal_stdin_push(const uint8_t* data, size_t len) {
 void mp_hal_stdin_clear(void) {
     pthread_mutex_lock(&mp_hal_stdin_lock);
     mp_hal_stdin_rptr = mp_hal_stdin_wptr;
+    mp_hal_stdin_count = 0;
     pthread_mutex_unlock(&mp_hal_stdin_lock);
 }
 
@@ -212,6 +220,7 @@ void mp_hal_uart_reader_start(void) {
     pthread_mutex_lock(&mp_hal_stdin_lock);
     mp_hal_stdin_wptr = 0;
     mp_hal_stdin_rptr = 0;
+    mp_hal_stdin_count = 0;
     pthread_mutex_unlock(&mp_hal_stdin_lock);
 
     __atomic_store_n(&mp_hal_reader_running, true, __ATOMIC_RELEASE);
@@ -264,7 +273,7 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 
     if (poll_flags & MP_STREAM_POLL_RD) {
         pthread_mutex_lock(&mp_hal_stdin_lock);
-        if (mp_hal_stdin_rptr != mp_hal_stdin_wptr) {
+        if (mp_hal_stdin_count != 0) {
             ret |= MP_STREAM_POLL_RD;
         }
         pthread_mutex_unlock(&mp_hal_stdin_lock);
@@ -284,9 +293,10 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 int mp_hal_stdin_rx_chr(void) {
     while (1) {
         pthread_mutex_lock(&mp_hal_stdin_lock);
-        if (mp_hal_stdin_rptr != mp_hal_stdin_wptr) {
+        if (mp_hal_stdin_count != 0) {
             int c = (unsigned char)mp_hal_stdin_ringbuf[mp_hal_stdin_rptr++];
             mp_hal_stdin_rptr %= sizeof(mp_hal_stdin_ringbuf);
+            mp_hal_stdin_count--;
             pthread_mutex_unlock(&mp_hal_stdin_lock);
             return c;
         }
@@ -295,8 +305,8 @@ int mp_hal_stdin_rx_chr(void) {
         mp_hal_stdin_wait_deadline(&ts);
         MP_THREAD_GIL_EXIT();
         pthread_cond_timedwait(&mp_hal_stdin_cond, &mp_hal_stdin_lock, &ts);
-        MP_THREAD_GIL_ENTER();
         pthread_mutex_unlock(&mp_hal_stdin_lock);
+        MP_THREAD_GIL_ENTER();
         mp_hal_poll_dupterm();
         mp_handle_pending(true);
     }

@@ -61,6 +61,7 @@ typedef struct _mp_thread_entry_t {
 static pthread_key_t tls_key;
 
 static pthread_mutex_t    thread_list_mutex;
+static pthread_once_t     thread_list_mutex_once = PTHREAD_ONCE_INIT;
 static sem_t              thread_finished_sem;
 static mp_thread_entry_t  main_thread;
 static mp_thread_entry_t* thread_list;
@@ -86,7 +87,21 @@ static void thread_check_error(const char* operation, int error)
 
 static bool thread_id_equal(pthread_t lhs, pthread_t rhs) { return pthread_equal(lhs, rhs) != 0; }
 
-static void thread_list_lock(void) { thread_check_error("pthread_mutex_lock", pthread_mutex_lock(&thread_list_mutex)); }
+static void thread_list_mutex_init_once(void)
+{
+    pthread_mutexattr_t mutex_attr;
+
+    thread_check_error("pthread_mutexattr_init", pthread_mutexattr_init(&mutex_attr));
+    thread_check_error("pthread_mutexattr_settype", pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE));
+    thread_check_error("pthread_mutex_init", pthread_mutex_init(&thread_list_mutex, &mutex_attr));
+    thread_check_error("pthread_mutexattr_destroy", pthread_mutexattr_destroy(&mutex_attr));
+}
+
+static void thread_list_lock(void)
+{
+    thread_check_error("pthread_once", pthread_once(&thread_list_mutex_once, thread_list_mutex_init_once));
+    thread_check_error("pthread_mutex_lock", pthread_mutex_lock(&thread_list_mutex));
+}
 
 static void thread_list_unlock(void) { thread_check_error("pthread_mutex_unlock", pthread_mutex_unlock(&thread_list_mutex)); }
 
@@ -115,34 +130,41 @@ void mp_thread_init(void)
 {
     MP_STATIC_ASSERT(THREAD_DEFAULT_STACK_SIZE > THREAD_MAIN_STACK_MARGIN);
 
-    pthread_mutexattr_t mutex_attr;
-
     thread_check_error("pthread_key_create", pthread_key_create(&tls_key, NULL));
     thread_check_error("pthread_setspecific", pthread_setspecific(tls_key, &mp_state_ctx.thread));
-    thread_check_error("pthread_mutexattr_init", pthread_mutexattr_init(&mutex_attr));
-    thread_check_error("pthread_mutexattr_settype", pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE));
-    thread_check_error("pthread_mutex_init", pthread_mutex_init(&thread_list_mutex, &mutex_attr));
-    thread_check_error("pthread_mutexattr_destroy", pthread_mutexattr_destroy(&mutex_attr));
 
     if (sem_init(&thread_finished_sem, 0, 0) != 0) {
         thread_fatal_error("sem_init", errno);
     }
 
+    thread_list_lock();
     memset(&main_thread, 0, sizeof(main_thread));
     main_thread.id                = pthread_self();
     main_thread.state             = &mp_state_ctx.thread;
     main_thread.startup_exception = MP_OBJ_NULL;
     main_thread.stack_limit       = THREAD_DEFAULT_STACK_SIZE - THREAD_MAIN_STACK_MARGIN;
-    main_thread.ready             = true;
+    // mp_init() has not initialized VM state yet. The main loop publishes
+    // readiness after mp_init() and withdraws it before soft-reset teardown.
+    main_thread.ready             = false;
     thread_list                   = &main_thread;
     deinit_waiting                = false;
     MP_STATE_THREAD(user_data)    = &main_thread;
+    thread_list_unlock();
 
 #if MICROPY_PY_THREAD_GIL
     MP_STATIC_ASSERT((THREAD_GIL_YIELD_INTERVAL & (THREAD_GIL_YIELD_INTERVAL - 1)) == 0);
     __atomic_store_n(&active_thread_count, 1, __ATOMIC_RELAXED);
     __atomic_store_n(&gil_yield_count, 0, __ATOMIC_RELAXED);
 #endif
+}
+
+void mp_thread_set_main_ready(bool ready)
+{
+    thread_list_lock();
+    if (main_thread.state != NULL) {
+        main_thread.ready = ready;
+    }
+    thread_list_unlock();
 }
 
 void mp_thread_shutdown_workers(void)
@@ -187,6 +209,9 @@ void mp_thread_deinit(void)
 {
     thread_list_lock();
     assert(thread_list == &main_thread && main_thread.next == NULL);
+    main_thread.ready = false;
+    main_thread.state = NULL;
+    MP_STATE_THREAD(user_data) = NULL;
     thread_list = NULL;
     thread_list_unlock();
 
@@ -194,13 +219,10 @@ void mp_thread_deinit(void)
     assert(__atomic_load_n(&active_thread_count, __ATOMIC_RELAXED) == 1);
 #endif
 
-    MP_STATE_THREAD(user_data) = NULL;
     mp_thread_set_state(NULL);
     if (sem_destroy(&thread_finished_sem) != 0) {
         thread_fatal_error("sem_destroy", errno);
     }
-    thread_check_error("pthread_mutex_destroy", pthread_mutex_destroy(&thread_list_mutex));
-
 #if MICROPY_PY_THREAD_GIL
     thread_check_error("pthread_mutex_destroy(gil)", pthread_mutex_destroy(&MP_STATE_VM(gil_mutex)));
 #else
@@ -440,14 +462,9 @@ void mp_thread_mutex_unlock(mp_thread_mutex_t* mutex)
 
 void mp_thread_set_exception_main(mp_obj_t exception)
 {
-    mp_thread_entry_t* entry = MP_STATE_MAIN_THREAD(user_data);
-    if (entry == NULL || entry->state == NULL) {
-        return;
-    }
-
     thread_list_lock();
-    if (entry->state != NULL) {
-        thread_set_pending_exception(entry->state, exception);
+    if (main_thread.ready && main_thread.state != NULL) {
+        thread_set_pending_exception(main_thread.state, exception);
     }
     thread_list_unlock();
 }

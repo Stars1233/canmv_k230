@@ -80,6 +80,12 @@ static ide_dbg_vo_wbc_ctx_t g_wbc_ctx = {
 
 static int g_wbc_enable = 0;
 
+// Heap-backed copy of the encoder output. FRAME_SIZE and FRAME_DUMP are
+// serialized by the IDE task, so the buffer can be reused after each dump.
+// Keep it outside g_wbc_ctx because encoder teardown must not invalidate it.
+static void *g_wbc_snapshot_buffer = NULL;
+static size_t g_wbc_snapshot_capacity = 0;
+
 // Serializes the writeback encoder lifecycle across threads. The IDE task
 // thread runs ide_dbg_vo_wbc_dump_and_encode() (driven by USBDBG_FRAME_SIZE)
 // while the main thread can tear the encoder down via ide_dbg_vo_wbc_stop()
@@ -464,13 +470,46 @@ static int ide_dbg_vo_wbc_dump_and_encode_locked(void** buffer, size_t* buffer_s
 
 int ide_dbg_vo_wbc_dump_and_encode(void** buffer, size_t* buffer_size, uint32_t* image_width, uint32_t* image_height)
 {
-    // Hold the lifecycle lock for the whole encode so a concurrent soft-reset
-    // teardown (ide_dbg_vo_wbc_stop) cannot destroy the VENC channel / VB pool
-    // while we are still reading from them.
+    void *encoded_buffer = NULL;
+    size_t encoded_size = 0;
+    uint32_t encoded_width = 0;
+    uint32_t encoded_height = 0;
+
+    // Copy the encoded frame while holding the lifecycle lock. The encoder's
+    // output buffer belongs to its VB pool and becomes invalid during a soft
+    // reset; callers need an independently owned snapshot for FRAME_DUMP.
     pthread_mutex_lock(&g_wbc_lock);
-    int ret = ide_dbg_vo_wbc_dump_and_encode_locked(buffer, buffer_size, image_width, image_height);
+    int ret = ide_dbg_vo_wbc_dump_and_encode_locked(
+        &encoded_buffer, &encoded_size, &encoded_width, &encoded_height);
+    if (ret == 0) {
+        if (encoded_size == 0) {
+            ret = -1;
+        } else if (g_wbc_snapshot_capacity < encoded_size) {
+            void *resized = realloc(g_wbc_snapshot_buffer, encoded_size);
+            if (resized == NULL) {
+                ret = -1;
+            } else {
+                g_wbc_snapshot_buffer = resized;
+                g_wbc_snapshot_capacity = encoded_size;
+            }
+        }
+        if (ret == 0) {
+            hal_rvv_memcpy(g_wbc_snapshot_buffer, encoded_buffer, encoded_size);
+        }
+    }
     pthread_mutex_unlock(&g_wbc_lock);
 
+    if (ret == 0) {
+        *buffer = g_wbc_snapshot_buffer;
+        *buffer_size = encoded_size;
+        *image_width = encoded_width;
+        *image_height = encoded_height;
+    } else {
+        *buffer = NULL;
+        *buffer_size = 0;
+        *image_width = 0;
+        *image_height = 0;
+    }
     return ret;
 }
 

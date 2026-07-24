@@ -135,7 +135,7 @@ static inline void repl_script_running_store(bool running)
 
 static int system_exit;
 static int mp_irq_cnt;
-volatile bool is_repl_intr = false;
+bool is_repl_intr = false;
 
 #if MICROPY_ENABLE_GC
 long heap_size = 1024 * 1024 * 4;
@@ -147,39 +147,37 @@ long heap_size = 1024 * 1024 * 4;
 
 void system_set_exiting_flag(bool exiting)
 {
-    if (exiting) {
-        __atomic_store_n(&system_exit, 1, __ATOMIC_RELAXED);
-    } else {
-        __atomic_store_n(&system_exit, 0, __ATOMIC_RELAXED);
-    }
+    __atomic_store_n(&system_exit, exiting ? 1 : 0, __ATOMIC_RELAXED);
 }
 
 bool system_is_exiting(void)
 {
-    if (system_exit == 1) {
-        return true;
-    } else {
-        return false;
-    }
+    return __atomic_load_n(&system_exit, __ATOMIC_RELAXED) != 0;
 }
 
 void mp_irq_enter(void)
 {
-    __sync_fetch_and_add(&mp_irq_cnt, 1);
+    __atomic_add_fetch(&mp_irq_cnt, 1, __ATOMIC_RELAXED);
 }
 
 void mp_irq_exit(void)
 {
-    __sync_fetch_and_add(&mp_irq_cnt, -1);
+    __atomic_sub_fetch(&mp_irq_cnt, 1, __ATOMIC_RELAXED);
 }
 
 bool in_mp_irq_handler(void)
 {
-    if (mp_irq_cnt != 0) {
-        return true;
-    } else {
-        return false;
-    }
+    return __atomic_load_n(&mp_irq_cnt, __ATOMIC_RELAXED) != 0;
+}
+
+static inline bool repl_interrupt_load(void)
+{
+    return __atomic_load_n(&is_repl_intr, __ATOMIC_ACQUIRE);
+}
+
+static inline void repl_interrupt_store(bool interrupted)
+{
+    __atomic_store_n(&is_repl_intr, interrupted, __ATOMIC_RELEASE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -387,9 +385,12 @@ MP_NOINLINE int main_(int argc, char **argv) {
 
     struct sched_param param;
     param.sched_priority = 25;
-    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    int sched_error = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if (sched_error != 0) {
+        fprintf(stderr, "[mpy] pthread_setschedparam failed: %d\n", sched_error);
+    }
 
-    is_repl_intr = false;
+    repl_interrupt_store(false);
 
     #if MICROPY_ENABLE_GC
     char *gc_heap = NULL;
@@ -470,6 +471,12 @@ soft_reset:
     mp_hal_set_interrupt_char(-1);
     ide_dbg_clear_soft_reset_request();
 
+    #if MICROPY_PY_THREAD
+    // Initialization is complete and subsequent pending exceptions run inside
+    // the normal script/REPL exception boundaries.
+    mp_thread_set_main_ready(true);
+    #endif
+
     // Auto-run boot.py/main.py immediately -- never block boot waiting for an IDE
     // that may never connect. Only skip auto-exec if the IDE/extension is already
     // attached right now (e.g. it stayed connected across a soft reset). If it
@@ -477,7 +484,7 @@ soft_reset:
     // ide_dbg_auto_exec_allowed() then keeps boot.py/main.py idle until hard reboot.
     bool ide_connected = ide_dbg_is_connected();
 
-    if (!is_repl_intr && !ide_connected && ide_dbg_auto_exec_allowed()) {
+    if (!repl_interrupt_load() && !ide_connected && ide_dbg_auto_exec_allowed()) {
         FILE*      script_file = NULL;
         const int* stage_ptr   = NULL;
         char*      script_str  = NULL;
@@ -543,14 +550,14 @@ soft_reset:
             }
         }
 
-        if (is_repl_intr && !ide_dbg_has_script()) {
+        if (repl_interrupt_load() && !ide_dbg_has_script()) {
             goto main_thread_exit;
         }
     }
 
     for (;;) {
         while (ide_dbg_has_script()) {
-            is_repl_intr = false;
+            repl_interrupt_store(false);
             fprintf(stdout, "[mpy] enter ide script\n");
             run_ide_script_once();
         }
@@ -562,7 +569,7 @@ soft_reset:
         fprintf(stdout, "[mpy] enter repl\n");
         do_repl();
 
-        is_repl_intr = false;
+        repl_interrupt_store(false);
 
         if (!ide_dbg_has_script()) {
             break;
@@ -570,6 +577,12 @@ soft_reset:
     }
 main_thread_exit:
     fprintf(stderr, "[mpy] exit, reset\n");
+
+    #if MICROPY_PY_THREAD
+    // Stop asynchronous IDE exception injection before any VM-owned state or
+    // synchronization primitive is torn down.
+    mp_thread_set_main_ready(false);
+    #endif
 
     #if defined(CONFIG_ENABLE_MODULE_UART_PERIODIC_TX)
     uart_periodic_tx_deinit_all();
