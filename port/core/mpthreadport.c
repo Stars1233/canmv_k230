@@ -24,431 +24,455 @@
  * THE SOFTWARE.
  */
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include <assert.h>
 #include <errno.h>
-
-#include "mphal.h"
-#include "py/runtime.h"
-#include "py/mpthread.h"
-#include "py/gc.h"
-
-#if MICROPY_PY_THREAD
-
-#include <fcntl.h>
-#include <signal.h>
+#include <pthread.h>
 #include <sched.h>
 #include <semaphore.h>
 
-#include "shared/runtime/gchelper.h"
+#include "py/gc.h"
+#include "py/mpthread.h"
+#include "py/runtime.h"
 
-// Some platforms don't have SIGRTMIN but if we do have it, use it to avoid
-// potential conflict with other uses of the more commonly used SIGUSR1.
-#ifdef SIGRTMAX
-#define MP_THREAD_GC_SIGNAL (SIGRTMAX - 1)
-#define MP_THREAD_WAKE_SIGNAL (SIGRTMAX - 2)
-#else
-#define MP_THREAD_GC_SIGNAL (SIGUSR1)
-#define MP_THREAD_WAKE_SIGNAL (SIGUSR2)
-#endif
+#if MICROPY_PY_THREAD
 
-// This value seems to be about right for both 32-bit and 64-bit builds.
+#define THREAD_DEFAULT_STACK_SIZE    (CONFIG_RTSMART_LWP_APP_STACK_SIZE)
+#define THREAD_MAIN_STACK_MARGIN     (1024)
 #define THREAD_STACK_OVERFLOW_MARGIN (8192)
+#define THREAD_MIN_STACK_SIZE        (2 * THREAD_STACK_OVERFLOW_MARGIN)
+#define THREAD_GIL_YIELD_INTERVAL    (8)
 
-// this structure forms a linked list, one node per active thread
-typedef struct _mp_thread_t {
-    pthread_t id;           // system id of thread
-    int ready;              // whether the thread is ready and running
-    void *arg;              // thread Python args, a GC root pointer
-    struct _mp_thread_t *next;
-    int exitpoint_flag;
-    mp_obj_t exception;
-} mp_thread_t;
+typedef struct _mp_thread_entry_t {
+    pthread_t                  id;
+    mp_state_thread_t*         state;
+    void*                      entry_arg;
+    mp_obj_t                   startup_exception;
+    size_t                     stack_limit;
+    bool                       ready;
+    struct _mp_thread_entry_t* next;
+} mp_thread_entry_t;
 
-STATIC pthread_key_t tls_key;
+static pthread_key_t tls_key;
 
-// The mutex is used for any code in this port that needs to be thread safe.
-// Specifically for thread management, access to the linked list is one example.
-// But also, e.g. scheduler state.
-STATIC pthread_mutex_t thread_mutex;
-STATIC mp_thread_t *thread;
+static pthread_mutex_t    thread_list_mutex;
+static sem_t              thread_finished_sem;
+static mp_thread_entry_t  main_thread;
+static mp_thread_entry_t* thread_list;
+static bool               deinit_waiting;
 
-// this is used to synchronise the signal handler of the thread
-// it's needed because we can't use any pthread calls in a signal handler
-#if defined(__APPLE__)
-STATIC char thread_signal_done_name[25];
-STATIC sem_t *thread_signal_done_p;
-#else
-STATIC sem_t thread_signal_done;
+#if MICROPY_PY_THREAD_GIL
+static unsigned int active_thread_count;
+static unsigned int gil_yield_count;
 #endif
 
-void mp_thread_unix_begin_atomic_section(void) {
-    while (pthread_mutex_lock(&thread_mutex) != 0);
+static void thread_fatal_error(const char* operation, int error)
+{
+    fprintf(stderr, "[mpthread] %s failed: %d\n", operation, error);
+    abort();
 }
 
-void mp_thread_unix_end_atomic_section(void) {
-    pthread_mutex_unlock(&thread_mutex);
-}
-
-// this signal handler is used to scan the regs and stack of a thread
-STATIC void mp_thread_gc(int signo, siginfo_t *info, void *context) {
-    (void)info; // unused
-    (void)context; // unused
-    if (signo == MP_THREAD_GC_SIGNAL) {
-        gc_helper_collect_regs_and_stack();
-        // We have access to the context (regs, stack) of the thread but it seems
-        // that we don't need the extra information, enough is captured by the
-        // gc_collect_regs_and_stack function above
-        // gc_collect_root((void**)context, sizeof(ucontext_t) / sizeof(uintptr_t));
-        #if MICROPY_ENABLE_PYSTACK
-        void **ptrs = (void **)(void *)MP_STATE_THREAD(pystack_start);
-        gc_collect_root(ptrs, (MP_STATE_THREAD(pystack_cur) - MP_STATE_THREAD(pystack_start)) / sizeof(void *));
-        #endif
-        #if defined(__APPLE__)
-        sem_post(thread_signal_done_p);
-        #else
-        sem_post(&thread_signal_done);
-        #endif
+static void thread_check_error(const char* operation, int error)
+{
+    if (error != 0) {
+        thread_fatal_error(operation, error);
     }
 }
 
-STATIC void mp_thread_wake_handler(int signo) {
-    // no-op: just interrupt blocking syscalls
-    (void)signo;
-}
+static bool thread_id_equal(pthread_t lhs, pthread_t rhs) { return pthread_equal(lhs, rhs) != 0; }
 
-void mp_thread_init(void) {
-    pthread_key_create(&tls_key, NULL);
-    pthread_setspecific(tls_key, &mp_state_ctx.thread);
+static void thread_list_lock(void) { thread_check_error("pthread_mutex_lock", pthread_mutex_lock(&thread_list_mutex)); }
 
-    // Needs to be a recursive mutex to emulate the behavior of
-    // BEGIN_ATOMIC_SECTION on bare metal.
-    pthread_mutexattr_t thread_mutex_attr;
-    pthread_mutexattr_init(&thread_mutex_attr);
-    pthread_mutexattr_settype(&thread_mutex_attr, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(&thread_mutex, &thread_mutex_attr);
+static void thread_list_unlock(void) { thread_check_error("pthread_mutex_unlock", pthread_mutex_unlock(&thread_list_mutex)); }
 
-    // create first entry in linked list of all threads
-    thread = malloc(sizeof(mp_thread_t));
-    thread->id = pthread_self();
-    thread->ready = 1;
-    thread->arg = NULL;
-    thread->next = NULL;
-    thread->exitpoint_flag = 0;
-    thread->exception = NULL;
-    MP_STATE_THREAD(user_data) = thread;
-
-    #if defined(__APPLE__)
-    snprintf(thread_signal_done_name, sizeof(thread_signal_done_name), "micropython_sem_%ld", (long)thread->id);
-    thread_signal_done_p = sem_open(thread_signal_done_name, O_CREAT | O_EXCL, 0666, 0);
-    #else
-    sem_init(&thread_signal_done, 0, 0);
-    #endif
-
-    // enable signal handler for garbage collection
-    struct sigaction sa;
-    sa.sa_flags = SA_SIGINFO;
-    sa.sa_sigaction = mp_thread_gc;
-    sigemptyset(&sa.sa_mask);
-    sigaction(MP_THREAD_GC_SIGNAL, &sa, NULL);
-
-    sa.sa_flags = 0;
-    sa.sa_handler = mp_thread_wake_handler;
-    sigemptyset(&sa.sa_mask);
-    sigaction(MP_THREAD_WAKE_SIGNAL, &sa, NULL);
-}
-
-void mp_thread_deinit(void) {
-    while (1) {
-        mp_thread_unix_begin_atomic_section();
-        mp_thread_t *th = thread->next;
-        mp_thread_unix_end_atomic_section();
-        if (th == NULL)
-            break;
-        pthread_kill(th->id, MP_THREAD_WAKE_SIGNAL);
-        usleep(1500); // make a schedule
-    }
-    assert(thread->id == pthread_self());
-    free(thread);
-}
-
-// This function scans all pointers that are external to the current thread.
-// It does this by signalling all other threads and getting them to scan their
-// own registers and stack.  Note that there may still be some edge cases left
-// with race conditions and root-pointer scanning: a given thread may manipulate
-// the global root pointers (in mp_state_ctx) while another thread is doing a
-// garbage collection and tracing these pointers.
-void mp_thread_gc_others(void) {
-    int threads_signaled = 0;
-
-    mp_thread_unix_begin_atomic_section();
-    for (mp_thread_t *th = thread; th != NULL; th = th->next) {
-        gc_collect_root(&th->arg, 1);
-        if (th->id == pthread_self()) {
-            continue;
+static mp_thread_entry_t* thread_find_locked(pthread_t id)
+{
+    for (mp_thread_entry_t* entry = thread_list; entry != NULL; entry = entry->next) {
+        if (thread_id_equal(entry->id, id)) {
+            return entry;
         }
-        if (!th->ready) {
-            continue;
+    }
+    return NULL;
+}
+
+static void thread_set_pending_exception(mp_state_thread_t* state, mp_obj_t exception)
+{
+    mp_obj_exception_t* exception_obj = MP_OBJ_TO_PTR(exception);
+    exception_obj->traceback_data     = NULL;
+    state->mp_pending_exception       = exception;
+}
+
+void mp_thread_begin_atomic_section(void) { thread_list_lock(); }
+
+void mp_thread_end_atomic_section(void) { thread_list_unlock(); }
+
+void mp_thread_init(void)
+{
+    MP_STATIC_ASSERT(THREAD_DEFAULT_STACK_SIZE > THREAD_MAIN_STACK_MARGIN);
+
+    pthread_mutexattr_t mutex_attr;
+
+    thread_check_error("pthread_key_create", pthread_key_create(&tls_key, NULL));
+    thread_check_error("pthread_setspecific", pthread_setspecific(tls_key, &mp_state_ctx.thread));
+    thread_check_error("pthread_mutexattr_init", pthread_mutexattr_init(&mutex_attr));
+    thread_check_error("pthread_mutexattr_settype", pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE));
+    thread_check_error("pthread_mutex_init", pthread_mutex_init(&thread_list_mutex, &mutex_attr));
+    thread_check_error("pthread_mutexattr_destroy", pthread_mutexattr_destroy(&mutex_attr));
+
+    if (sem_init(&thread_finished_sem, 0, 0) != 0) {
+        thread_fatal_error("sem_init", errno);
+    }
+
+    memset(&main_thread, 0, sizeof(main_thread));
+    main_thread.id                = pthread_self();
+    main_thread.state             = &mp_state_ctx.thread;
+    main_thread.startup_exception = MP_OBJ_NULL;
+    main_thread.stack_limit       = THREAD_DEFAULT_STACK_SIZE - THREAD_MAIN_STACK_MARGIN;
+    main_thread.ready             = true;
+    thread_list                   = &main_thread;
+    deinit_waiting                = false;
+    MP_STATE_THREAD(user_data)    = &main_thread;
+
+#if MICROPY_PY_THREAD_GIL
+    MP_STATIC_ASSERT((THREAD_GIL_YIELD_INTERVAL & (THREAD_GIL_YIELD_INTERVAL - 1)) == 0);
+    __atomic_store_n(&active_thread_count, 1, __ATOMIC_RELAXED);
+    __atomic_store_n(&gil_yield_count, 0, __ATOMIC_RELAXED);
+#endif
+}
+
+void mp_thread_shutdown_workers(void)
+{
+    pthread_t current_id = pthread_self();
+
+    thread_list_lock();
+    deinit_waiting = true;
+    thread_list_unlock();
+
+    for (;;) {
+        bool worker_active = false;
+        thread_list_lock();
+        for (mp_thread_entry_t* entry = thread_list; entry != NULL; entry = entry->next) {
+            if (!thread_id_equal(entry->id, current_id)) {
+                worker_active = true;
+                break;
+            }
         }
-        pthread_kill(th->id, MP_THREAD_GC_SIGNAL);
-        threads_signaled++;
-    }
+        thread_list_unlock();
 
-    if (threads_signaled) {
-        syscall(165); // sys_sched_yeild
-    }
-
-    for (int i = 0; i < threads_signaled; i++) {
-        #if defined(__APPLE__)
-        sem_wait(thread_signal_done_p);
-        #else
-        sem_wait(&thread_signal_done);
-        #endif
-    }
-    mp_thread_unix_end_atomic_section();
-}
-
-mp_state_thread_t *mp_thread_get_state(void) {
-    return (mp_state_thread_t *)pthread_getspecific(tls_key);
-}
-
-void mp_thread_set_state(mp_state_thread_t *state) {
-    pthread_setspecific(tls_key, state);
-}
-
-mp_uint_t mp_thread_get_id(void) {
-    return (mp_uint_t)pthread_self();
-}
-
-void mp_thread_start(void) {
-    // enable realtime priority if `-X realtime` command line parameter was set
-    #if defined(__APPLE__)
-    if (mp_thread_is_realtime_enabled) {
-        mp_thread_set_realtime();
-    }
-    #endif
-
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    mp_thread_unix_begin_atomic_section();
-    for (mp_thread_t *th = thread; th != NULL; th = th->next) {
-        if (th->id == pthread_self()) {
-            th->ready = 1;
-            th->exitpoint_flag = 0;
-            th->exception = NULL;
-            MP_STATE_THREAD(user_data) = th;
+        if (!worker_active) {
             break;
         }
+
+        int result;
+        do {
+            result = sem_wait(&thread_finished_sem);
+        } while (result != 0 && errno == EINTR);
+        if (result != 0) {
+            thread_fatal_error("sem_wait", errno);
+        }
     }
-    mp_thread_unix_end_atomic_section();
+
+    // mp_thread_finish() removes a worker before thread_entry releases the GIL.
+    // Reacquire it so VM teardown runs with exclusive access and so mp_deinit()
+    // can perform the matching final release.
+    MP_THREAD_GIL_ENTER();
 }
 
-mp_uint_t mp_thread_create(void *(*entry)(void *), void *arg, size_t *stack_size) {
-    // default stack size is 8k machine-words
-    if (*stack_size == 0) {
-        *stack_size = 8192 * sizeof(void *);
+void mp_thread_deinit(void)
+{
+    thread_list_lock();
+    assert(thread_list == &main_thread && main_thread.next == NULL);
+    thread_list = NULL;
+    thread_list_unlock();
+
+#if MICROPY_PY_THREAD_GIL
+    assert(__atomic_load_n(&active_thread_count, __ATOMIC_RELAXED) == 1);
+#endif
+
+    MP_STATE_THREAD(user_data) = NULL;
+    mp_thread_set_state(NULL);
+    if (sem_destroy(&thread_finished_sem) != 0) {
+        thread_fatal_error("sem_destroy", errno);
+    }
+    thread_check_error("pthread_mutex_destroy", pthread_mutex_destroy(&thread_list_mutex));
+
+#if MICROPY_PY_THREAD_GIL
+    thread_check_error("pthread_mutex_destroy(gil)", pthread_mutex_destroy(&MP_STATE_VM(gil_mutex)));
+#else
+    thread_check_error("pthread_mutex_destroy(gc)", pthread_mutex_destroy(&MP_STATE_MEM(gc_mutex)));
+#endif
+
+    thread_check_error("pthread_key_delete", pthread_key_delete(tls_key));
+}
+
+static void thread_gc_stack(mp_thread_entry_t* entry)
+{
+    if (entry->state == NULL || entry->state->stack_top == NULL || entry->stack_limit == 0) {
+        return;
     }
 
-    // minimum stack size is set by pthreads
-    if (*stack_size < PTHREAD_STACK_MIN) {
-        *stack_size = PTHREAD_STACK_MIN;
+    uintptr_t stack_top = (uintptr_t)entry->state->stack_top & ~(sizeof(uintptr_t) - 1);
+    if (stack_top <= entry->stack_limit) {
+        return;
+    }
+    uintptr_t stack_bottom = (stack_top - entry->stack_limit + sizeof(uintptr_t) - 1) & ~(sizeof(uintptr_t) - 1);
+    gc_collect_root((void**)stack_bottom, (stack_top - stack_bottom) / sizeof(uintptr_t));
+}
+
+#if MICROPY_ENABLE_PYSTACK
+static void thread_gc_pystack(mp_thread_entry_t* entry)
+{
+    if (entry->state != NULL && entry->state->pystack_start != NULL) {
+        void** pystack = (void**)(void*)entry->state->pystack_start;
+        size_t count   = (entry->state->pystack_cur - entry->state->pystack_start) / sizeof(void*);
+        gc_collect_root(pystack, count);
+    }
+}
+#endif
+
+// The GIL keeps other Python threads from mutating VM state. Scan their full
+// stacks instead of using POSIX signals, whose context restore is unsafe on
+// RT-Smart.
+void mp_thread_gc_others(void)
+{
+    pthread_t current_id = pthread_self();
+
+    thread_list_lock();
+    for (mp_thread_entry_t* entry = thread_list; entry != NULL; entry = entry->next) {
+        gc_collect_root(&entry->entry_arg, 1);
+        gc_collect_root(&entry->startup_exception, 1);
+        if (!thread_id_equal(entry->id, current_id) && entry->ready) {
+            thread_gc_stack(entry);
+#if MICROPY_ENABLE_PYSTACK
+            thread_gc_pystack(entry);
+#endif
+        }
+    }
+    thread_list_unlock();
+}
+
+mp_state_thread_t* mp_thread_get_state(void) { return (mp_state_thread_t*)pthread_getspecific(tls_key); }
+
+void mp_thread_set_state(mp_state_thread_t* state)
+{
+    thread_check_error("pthread_setspecific", pthread_setspecific(tls_key, state));
+}
+
+mp_uint_t mp_thread_get_id(void) { return (mp_uint_t)pthread_self(); }
+
+void mp_thread_start(void)
+{
+    pthread_t          current_id = pthread_self();
+    mp_state_thread_t* state      = mp_thread_get_state();
+
+    thread_list_lock();
+    mp_thread_entry_t* entry = thread_find_locked(current_id);
+    assert(entry != NULL && state != NULL);
+    if (entry != NULL && state != NULL) {
+        entry->state               = state;
+        entry->ready               = true;
+        MP_STATE_THREAD(user_data) = entry;
+        if (entry->startup_exception != MP_OBJ_NULL) {
+            thread_set_pending_exception(state, entry->startup_exception);
+            entry->startup_exception = MP_OBJ_NULL;
+        }
+    }
+    thread_list_unlock();
+}
+
+static size_t thread_normalize_stack_size(size_t requested_size)
+{
+    size_t stack_size = requested_size == 0 ? THREAD_DEFAULT_STACK_SIZE : requested_size;
+    if (stack_size < PTHREAD_STACK_MIN) {
+        stack_size = PTHREAD_STACK_MIN;
+    }
+    if (stack_size < THREAD_MIN_STACK_SIZE) {
+        stack_size = THREAD_MIN_STACK_SIZE;
+    }
+    return stack_size;
+}
+
+mp_uint_t mp_thread_create(void* (*entry)(void*), void* arg, size_t* stack_size)
+{
+    pthread_attr_t     attr;
+    mp_thread_entry_t* new_thread         = NULL;
+    bool               attr_initialized   = false;
+    size_t             pthread_stack_size = thread_normalize_stack_size(*stack_size);
+    size_t             stack_limit        = pthread_stack_size - THREAD_STACK_OVERFLOW_MARGIN;
+    int                error              = pthread_attr_init(&attr);
+    if (error != 0) {
+        goto fail;
+    }
+    attr_initialized = true;
+
+    error = pthread_attr_setstacksize(&attr, pthread_stack_size);
+    if (error != 0) {
+        goto fail;
+    }
+    error = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if (error != 0) {
+        goto fail;
     }
 
-    // ensure there is enough stack to include a stack-overflow margin
-    if (*stack_size < 2 * THREAD_STACK_OVERFLOW_MARGIN) {
-        *stack_size = 2 * THREAD_STACK_OVERFLOW_MARGIN;
+    new_thread = calloc(1, sizeof(*new_thread));
+    if (new_thread == NULL) {
+        error = ENOMEM;
+        goto fail;
     }
+    new_thread->state             = NULL;
+    new_thread->entry_arg         = arg;
+    new_thread->startup_exception = MP_OBJ_NULL;
+    new_thread->stack_limit       = stack_limit;
+    new_thread->ready             = false;
 
-    // set thread attributes
-    pthread_attr_t attr;
-    int ret = pthread_attr_init(&attr);
-    if (ret != 0) {
-        goto er;
+    // The child reads this field before taking the GIL, so publish it before
+    // pthread_create() can start the child.
+    *stack_size = stack_limit;
+
+    thread_list_lock();
+    error = pthread_create(&new_thread->id, &attr, entry, arg);
+    if (error == 0) {
+        new_thread->next = thread_list;
+        thread_list      = new_thread;
+
+#if MICROPY_PY_THREAD_GIL
+        __atomic_fetch_add(&active_thread_count, 1, __ATOMIC_RELEASE);
+        // Let a newly created thread run at the parent's next GIL release.
+        __atomic_store_n(&gil_yield_count, THREAD_GIL_YIELD_INTERVAL - 1, __ATOMIC_RELAXED);
+#endif
     }
-    ret = pthread_attr_setstacksize(&attr, *stack_size);
-    if (ret != 0) {
-        goto er;
+    thread_list_unlock();
+
+    if (error != 0) {
+        goto fail;
     }
-
-    // ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    // if (ret != 0) {
-    //     goto er;
-    // }
-
-    mp_thread_unix_begin_atomic_section();
-
-    // create thread
-    pthread_t id;
-    ret = pthread_create(&id, &attr, entry, arg);
-    if (ret != 0) {
-        mp_thread_unix_end_atomic_section();
-        goto er;
-    }
-
-    // adjust stack_size to provide room to recover from hitting the limit
-    *stack_size -= THREAD_STACK_OVERFLOW_MARGIN;
-
-    // use the RT-Smart LWP stack size if configured
-    *stack_size = CONFIG_RTSMART_LWP_APP_STACK_SIZE - 512;
-
-    // add thread to linked list of all threads
-    mp_thread_t *th = malloc(sizeof(mp_thread_t));
-    th->id = id;
-    th->ready = 0;
-    th->arg = arg;
-    th->next = thread;
-    thread = th;
-
-    mp_thread_unix_end_atomic_section();
+    thread_check_error("pthread_attr_destroy", pthread_attr_destroy(&attr));
 
     MP_STATIC_ASSERT(sizeof(mp_uint_t) >= sizeof(pthread_t));
-    return (mp_uint_t)id;
+    return (mp_uint_t)new_thread->id;
 
-er:
-    mp_raise_OSError(ret);
+fail:
+    if (attr_initialized) {
+        pthread_attr_destroy(&attr);
+    }
+    free(new_thread);
+    mp_raise_OSError(error);
 }
 
-void mp_thread_finish(void) {
-    mp_thread_unix_begin_atomic_section();
-    mp_thread_t *prev = NULL;
-    for (mp_thread_t *th = thread; th != NULL; th = th->next) {
-        if (th->id == pthread_self()) {
-            if (prev == NULL) {
-                thread = th->next;
+void mp_thread_finish(void)
+{
+    pthread_t          current_id    = pthread_self();
+    mp_thread_entry_t* finished      = NULL;
+    mp_thread_entry_t* previous      = NULL;
+    bool               notify_deinit = false;
+
+    thread_list_lock();
+    for (mp_thread_entry_t* entry = thread_list; entry != NULL; entry = entry->next) {
+        if (thread_id_equal(entry->id, current_id)) {
+            entry->ready = false;
+            entry->state = NULL;
+            if (previous == NULL) {
+                thread_list = entry->next;
             } else {
-                prev->next = th->next;
+                previous->next = entry->next;
             }
-            free(th);
+            finished      = entry;
+            notify_deinit = deinit_waiting;
             break;
         }
-        prev = th;
+        previous = entry;
     }
-    mp_thread_unix_end_atomic_section();
+    assert(finished != NULL && finished != &main_thread);
+
+#if MICROPY_PY_THREAD_GIL
+    assert(__atomic_load_n(&active_thread_count, __ATOMIC_RELAXED) > 1);
+    __atomic_fetch_sub(&active_thread_count, 1, __ATOMIC_RELEASE);
+#endif
+    thread_list_unlock();
+
+    MP_STATE_THREAD(user_data) = NULL;
+    mp_thread_set_state(NULL);
+    free(finished);
+    if (notify_deinit && sem_post(&thread_finished_sem) != 0) {
+        thread_fatal_error("sem_post", errno);
+    }
 }
 
-void mp_thread_mutex_init(mp_thread_mutex_t *mutex) {
-    // The MicroPython GIL may be entered by an LVGL callback on the same
-    // thread that is already executing a binding call.
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
+void mp_thread_mutex_init(mp_thread_mutex_t* mutex)
+{
+    thread_check_error("pthread_mutex_init", pthread_mutex_init(mutex, NULL));
 }
 
-int mp_thread_mutex_lock(mp_thread_mutex_t *mutex, int wait) {
-    int ret;
-    if (wait) {
-        while (pthread_mutex_lock(mutex) != 0);
+int mp_thread_mutex_lock(mp_thread_mutex_t* mutex, int wait)
+{
+    int error = wait ? pthread_mutex_lock(mutex) : pthread_mutex_trylock(mutex);
+    if (error == 0) {
         return 1;
-    } else {
-        ret = pthread_mutex_trylock(mutex);
-        if (ret == 0) {
-            return 1;
-        } else if (ret == EBUSY) {
-            return 0;
+    }
+    if (!wait && error == EBUSY) {
+        return 0;
+    }
+    return -error;
+}
+
+void mp_thread_mutex_unlock(mp_thread_mutex_t* mutex)
+{
+    thread_check_error("pthread_mutex_unlock", pthread_mutex_unlock(mutex));
+
+#if MICROPY_PY_THREAD_GIL
+    // A sleeping peer cannot become a GIL waiter until RT-Smart schedules it.
+    // Periodically yield while peers exist, without paying for a syscall on
+    // every GIL release when all peers are blocked or sleeping.
+    if (mutex == &MP_STATE_VM(gil_mutex) &&
+        __atomic_load_n(&active_thread_count, __ATOMIC_ACQUIRE) > 1 &&
+        (__atomic_add_fetch(&gil_yield_count, 1, __ATOMIC_RELAXED) &
+         (THREAD_GIL_YIELD_INTERVAL - 1)) == 0 &&
+        sched_yield() != 0) {
+        thread_fatal_error("sched_yield", errno);
+    }
+#endif
+}
+
+void mp_thread_set_exception_main(mp_obj_t exception)
+{
+    mp_thread_entry_t* entry = MP_STATE_MAIN_THREAD(user_data);
+    if (entry == NULL || entry->state == NULL) {
+        return;
+    }
+
+    thread_list_lock();
+    if (entry->state != NULL) {
+        thread_set_pending_exception(entry->state, exception);
+    }
+    thread_list_unlock();
+}
+
+void mp_thread_set_exception_other(mp_obj_t exception)
+{
+    const mp_obj_type_t* exception_type = mp_obj_get_type(exception);
+    pthread_t            current_id     = pthread_self();
+
+    thread_list_lock();
+    for (mp_thread_entry_t* entry = thread_list; entry != NULL; entry = entry->next) {
+        if (thread_id_equal(entry->id, current_id)) {
+            continue;
+        }
+
+        // Tracebacks are mutable, so each target thread needs its own instance.
+        mp_obj_t thread_exception = mp_obj_new_exception(exception_type);
+        if (entry->ready && entry->state != NULL) {
+            thread_set_pending_exception(entry->state, thread_exception);
+            entry->startup_exception = MP_OBJ_NULL;
+        } else {
+            entry->startup_exception = thread_exception;
         }
     }
-    return -ret;
-}
-
-void mp_thread_mutex_unlock(mp_thread_mutex_t *mutex) {
-    pthread_mutex_unlock(mutex);
-    // TODO check return value
+    thread_list_unlock();
 }
 
 #endif // MICROPY_PY_THREAD
-
-// this is used even when MICROPY_PY_THREAD is disabled
-
-#if defined(__APPLE__)
-#include <mach/mach_error.h>
-#include <mach/mach_time.h>
-#include <mach/thread_act.h>
-#include <mach/thread_policy.h>
-
-bool mp_thread_is_realtime_enabled;
-
-// based on https://developer.apple.com/library/archive/technotes/tn2169/_index.html
-void mp_thread_set_realtime(void) {
-    mach_timebase_info_data_t timebase_info;
-
-    mach_timebase_info(&timebase_info);
-
-    const uint64_t NANOS_PER_MSEC = 1000000ULL;
-    double clock2abs = ((double)timebase_info.denom / (double)timebase_info.numer) * NANOS_PER_MSEC;
-
-    thread_time_constraint_policy_data_t policy;
-    policy.period = 0;
-    policy.computation = (uint32_t)(5 * clock2abs); // 5 ms of work
-    policy.constraint = (uint32_t)(10 * clock2abs);
-    policy.preemptible = FALSE;
-
-    int kr = thread_policy_set(pthread_mach_thread_np(pthread_self()),
-        THREAD_TIME_CONSTRAINT_POLICY,
-        (thread_policy_t)&policy,
-        THREAD_TIME_CONSTRAINT_POLICY_COUNT);
-
-    if (kr != KERN_SUCCESS) {
-        mach_error("thread_policy_set:", kr);
-    }
-}
-#endif
-
-int mp_thread_get_exitpoint_flag(void)
-{
-    mp_thread_t *th = MP_STATE_THREAD(user_data);
-    return th->exitpoint_flag;
-}
-
-void mp_thread_set_exitpoint_flag(int flag) {
-    mp_thread_t *th = MP_STATE_THREAD(user_data);
-    th->exitpoint_flag = flag;
-}
-
-void mp_thread_set_exception(mp_obj_t obj) {
-    mp_thread_t *th = MP_STATE_THREAD(user_data);
-    if (th->exitpoint_flag == 0) {
-        ((mp_obj_exception_t *)obj)->traceback_data = NULL;
-        MP_STATE_THREAD(mp_pending_exception) = obj;
-    } else {
-        th->exception = obj;
-    }
-}
-
-void mp_thread_set_exception_main(mp_obj_t obj) {
-    mp_thread_t *th = MP_STATE_MAIN_THREAD(user_data);
-    if (th->exitpoint_flag == 0) {
-        ((mp_obj_exception_t *)obj)->traceback_data = NULL;
-        MP_STATE_MAIN_THREAD(mp_pending_exception) = obj;
-    } else {
-        th->exception = obj;
-    }
-}
-
-void mp_thread_set_exception_other(mp_obj_t obj) {
-    const mp_obj_type_t *type = mp_obj_get_type(obj);
-    mp_thread_unix_begin_atomic_section();
-    for (mp_thread_t *th = thread; th->next != NULL; th = th->next) {
-        obj = mp_obj_new_exception(type);
-        th->exception = obj;
-    }
-    mp_thread_unix_end_atomic_section();
-}
-
-void mp_thread_exitpoint(int flag)
-{
-    mp_thread_t *th = MP_STATE_THREAD(user_data);
-    if (th->exception != 0) {
-        if (th->exitpoint_flag == EXITPOINT_ENABLE) {
-            if (flag == EXITPOINT_DISABLE)
-                return;
-        } else if (th->exitpoint_flag == EXITPOINT_ENABLE_SLEEP) {
-            if (flag != EXITPOINT_ANY)
-                return;
-        }
-        ((mp_obj_exception_t *)th->exception)->traceback_data = NULL;
-        MP_STATE_THREAD(mp_pending_exception) = th->exception;
-        th->exception = 0;
-        mp_handle_pending(true);
-    }
-}

@@ -600,16 +600,16 @@ main_thread_exit:
         mp_micropython_mem_info(0, NULL);
     }
     #endif
+    
+    #if MICROPY_PY_THREAD
+    mp_thread_shutdown_workers();
+    #endif
 
     #if MICROPY_PY_BLUETOOTH
     mp_bluetooth_deinit();
     #endif
     #if CONFIG_ENABLE_NETWORK_RT_WLAN
     network_rt_wlan_deinit();
-    #endif
-
-    #if MICROPY_PY_THREAD
-    mp_thread_deinit();
     #endif
 
     lv_deinit();
@@ -620,9 +620,13 @@ main_thread_exit:
 
     mp_deinit();
 
+    #if MICROPY_PY_THREAD
+    mp_thread_deinit();
+    #endif
+
     freetype_deinit();
     py_media_vbmgmt_deinit();
-
+ 
     goto soft_reset;
 }
 

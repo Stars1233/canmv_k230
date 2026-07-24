@@ -96,6 +96,7 @@ typedef long long mp_off_t;
 #define MICROPY_PY_SELECT           (1)
 #define MICROPY_PY_THREAD           (1)
 #define MICROPY_SCHEDULER_DEPTH     (8)
+#define MICROPY_PY_THREAD_GIL_VM_DIVISOR (512)
 
 #ifdef CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB
     extern const struct _mp_obj_type_t network_type_eth_lan;
@@ -170,8 +171,8 @@ extern const struct _mp_print_t mp_stderr_print;
 
 // If threading is enabled, configure the atomic section.
 #if MICROPY_PY_THREAD
-#define MICROPY_BEGIN_ATOMIC_SECTION() (mp_thread_unix_begin_atomic_section(), 0xffffffff)
-#define MICROPY_END_ATOMIC_SECTION(x) (void)x; mp_thread_unix_end_atomic_section()
+#define MICROPY_BEGIN_ATOMIC_SECTION() (mp_thread_begin_atomic_section(), 0xffffffff)
+#define MICROPY_END_ATOMIC_SECTION(x) (void)x; mp_thread_end_atomic_section()
 #endif
 
 // In lieu of a WFI(), slow down polling from being a tight loop.
@@ -180,7 +181,6 @@ extern const struct _mp_print_t mp_stderr_print;
     do {                                                                                                               \
         extern void mp_handle_pending(bool);                                                                           \
         extern void mp_hal_poll_dupterm(void);                                                                         \
-        mp_thread_exitpoint(EXITPOINT_ENABLE_SLEEP);                                                                   \
         mp_handle_pending(true);                                                                                       \
         mp_hal_poll_dupterm();                                                                                         \
         MP_THREAD_GIL_EXIT();                                                                                          \
@@ -188,11 +188,6 @@ extern const struct _mp_print_t mp_stderr_print;
         MP_THREAD_GIL_ENTER();                                                                                         \
     } while (0);
 #endif
-
-#define MICROPY_VM_HOOK_LOOP \
-    do { \
-        mp_thread_exitpoint(EXITPOINT_DISABLE); \
-    } while (0);
 
 #define MICROPY_PORT_ROOT_POINTERS
 

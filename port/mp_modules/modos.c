@@ -107,20 +107,15 @@ STATIC mp_obj_t mp_os_errno(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_os_errno_obj, 0, 1, mp_os_errno);
 
+// Legacy scripts may still call os.exitpoint(), but thread shutdown no longer
+// depends on a per-thread exitpoint mode.
+#define OS_EXITPOINT_COMPAT_MODE (0)
+
 STATIC mp_obj_t mp_os_exitpoint(size_t n_args, const mp_obj_t *args) {
-    int old = mp_thread_get_exitpoint_flag();
-
     if (n_args == 1) {
-        int flag = mp_obj_get_int(args[0]);
-        mp_thread_set_exitpoint_flag(flag);
-        if (EXITPOINT_DISABLE != flag) {
-            return mp_obj_new_int(old);
-        }
+        (void)mp_obj_get_int(args[0]);
     }
-
-    mp_thread_exitpoint(EXITPOINT_ANY);
-
-    return mp_obj_new_int(old);
+    return MP_OBJ_NEW_SMALL_INT(OS_EXITPOINT_COMPAT_MODE);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_os_exitpoint_obj, 0, 1, mp_os_exitpoint);
 
