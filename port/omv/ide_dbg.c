@@ -79,6 +79,8 @@
 
 #define PRINT_ALL 0
 #define IDE_DBG_MAX_FRAME_PAYLOAD (8 * 1024 * 1024)
+#define IDE_DBG_FRAME_POLL_MS 200
+#define IDE_DBG_FRAME_IDLE_TIMEOUT_MS 3000
 
 ///////////////////////////////////////////////////////////////////////////////
 // Extern declarations & state ////////////////////////////////////////////////
@@ -98,6 +100,7 @@ static struct {
 static mp_obj_exception_t ide_exception; //IDE interrupt
 static mp_obj_str_t ide_exception_str;
 static mp_obj_tuple_t* ide_exception_str_tuple = NULL;
+static bool ide_dbg_rx_incomplete = false;
 
 extern drv_uart_inst_t *mp_hal_uart_get_instance(void);
 extern int mp_hal_uart_tx(const void* buffer, size_t size);
@@ -430,28 +433,49 @@ bool ide_dbg_stdout_capture(const char* data, size_t size) {
     return false;
 }
 
-static void read_until(void* buffer, size_t size) {
+static size_t read_until(void* buffer, size_t size) {
     size_t idx = 0;
-    do {
+    uint32_t idle_ms = 0;
+    while (idx < size) {
         drv_uart_inst_t *inst = mp_hal_uart_get_instance();
         if (inst == NULL) {
             break;
         }
 
-        int ret = drv_uart_poll(inst, 1000);
-        if (ret <= 0) {
-            MICROPY_EVENT_POLL_HOOK
+        int ret = drv_uart_poll(inst, IDE_DBG_FRAME_POLL_MS);
+        if (ret < 0) {
+            break;
+        }
+        if (ret == 0) {
+            idle_ms += IDE_DBG_FRAME_POLL_MS;
+            if (idle_ms >= IDE_DBG_FRAME_IDLE_TIMEOUT_MS) {
+                break;
+            }
             continue;
         }
 
         ssize_t recv = drv_uart_read(inst, (uint8_t*)buffer + idx, size - idx);
         if (recv < 0) {
-            MICROPY_EVENT_POLL_HOOK
+            break;
+        }
+        if (recv == 0) {
+            idle_ms += 1;
+            if (idle_ms >= IDE_DBG_FRAME_IDLE_TIMEOUT_MS) {
+                break;
+            }
+            usleep(1000);
             continue;
         }
 
         idx += recv;
-    } while (idx < size);
+        idle_ms = 0;
+    }
+
+    if (idx != size) {
+        ide_dbg_rx_incomplete = true;
+        pr_err("[ide] frame payload receive incomplete: got %zu of %zu bytes", idx, size);
+    }
+    return idx;
 }
 
 static void print_sha256(const uint8_t sha256[32]) {
@@ -879,8 +903,14 @@ static void discard_from_frame(ide_dbg_state_t* state, size_t size) {
         if (chunk > sizeof(discard_buf)) {
             chunk = sizeof(discard_buf);
         }
-        read_from_frame(state, discard_buf, chunk);
-        remaining -= chunk;
+        size_t received = read_from_frame(state, discard_buf, chunk);
+        if (received == 0) {
+            return;
+        }
+        remaining -= received;
+        if (received != chunk) {
+            return;
+        }
     }
 }
 
@@ -952,7 +982,14 @@ static void cmd_script_exec(ide_dbg_state_t* state) {
         discard_from_frame(state, state->data_length);
         return;
     }
-    read_from_frame(state, exec_payload, state->data_length);
+    size_t received = read_from_frame(state, exec_payload, state->data_length);
+    if (received != state->data_length) {
+        pr_err("cmd: USBDBG_SCRIPT_EXEC incomplete payload: got %zu of %u bytes",
+               received, state->data_length);
+        free(exec_payload);
+        exec_payload = NULL;
+        return;
+    }
     exec_payload[state->data_length] = '\0';
     ide_dbg_queue_script(exec_payload, EXEC_STRING);
 }
@@ -988,7 +1025,13 @@ static void cmd_tx_input(ide_dbg_state_t* state) {
         return;
     }
 
-    read_from_frame(state, input, state->data_length);
+    size_t received = read_from_frame(state, input, state->data_length);
+    if (received != state->data_length) {
+        pr_err("cmd: USBDBG_TX_INPUT incomplete payload: got %zu of %u bytes",
+               received, state->data_length);
+        free(input);
+        return;
+    }
     if (state->data_length > 0) {
         pr_dbg("[ide] USBDBG_TX_INPUT payload first=0x%02x last=0x%02x len=%u",
                 (uint8_t)input[0],
@@ -1132,13 +1175,19 @@ static void cmd_createfile(ide_dbg_state_t* state) {
         return;
     }
 
-    read_from_frame(state, &ide_dbg_sv_file.info, sizeof(ide_dbg_sv_file.info));
+    close_active_sv_file();
+    svfile_release_chunk_buffer();
+
+    size_t received = read_from_frame(state, &ide_dbg_sv_file.info, sizeof(ide_dbg_sv_file.info));
+    if (received != sizeof(ide_dbg_sv_file.info)) {
+        ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
+        pr_err("cmd: USBDBG_CREATEFILE incomplete payload: got %zu of %zu bytes",
+               received, sizeof(ide_dbg_sv_file.info));
+        return;
+    }
     pr_verb("create file: chunk_size(%d), name(%s)",
             ide_dbg_sv_file.info.chunk_size, ide_dbg_sv_file.info.name);
     print_sha256(ide_dbg_sv_file.info.sha256);
-
-    close_active_sv_file();
-    svfile_release_chunk_buffer();
 
     if (ide_dbg_sv_file.info.chunk_size <= 0 ||
         ide_dbg_sv_file.info.chunk_size > USBDBG_FILE_CHUNK_MAX) {
@@ -1284,8 +1333,7 @@ static size_t read_from_frame(ide_dbg_state_t* state, void* buf, size_t size) {
         size -= from_buf;
     }
     if (size > 0) {
-        read_until(dst, size);
-        from_buf += size;
+        from_buf += read_until(dst, size);
     }
     return from_buf;
 }
@@ -1324,7 +1372,10 @@ static bool read_path_nt(ide_dbg_state_t* state, char *out, size_t out_size) {
     if (!found_null) {
         uint8_t ch;
         while (true) {
-            read_until(&ch, 1);
+            if (read_until(&ch, 1) != 1) {
+                out[idx] = '\0';
+                return false;
+            }
             if (ch == 0) {
                 found_null = 1;
                 break;
@@ -1750,7 +1801,13 @@ static void cmd_writefile(ide_dbg_state_t* state) {
         return;
     }
 
-    read_from_frame(state, ide_dbg_sv_file.chunk_buffer, state->data_length);
+    size_t received = read_from_frame(state, ide_dbg_sv_file.chunk_buffer, state->data_length);
+    if (received != state->data_length) {
+        close_active_sv_file();
+        svfile_release_chunk_buffer();
+        ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
+        return;
+    }
     if (ide_dbg_sv_file.file == NULL) {
         ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_WRITE_ERR;
     } else if (fwrite(ide_dbg_sv_file.chunk_buffer, 1, state->data_length, ide_dbg_sv_file.file) == state->data_length) {
@@ -1786,7 +1843,17 @@ static void cmd_writefile_ack(ide_dbg_state_t* state) {
         mp_hal_uart_tx(&errcode, sizeof(errcode));
         return;
     }
-    read_from_frame(state, ide_dbg_sv_file.chunk_buffer, write_size);
+    size_t received = read_from_frame(state, ide_dbg_sv_file.chunk_buffer, write_size);
+    if (received != write_size) {
+        uint32_t errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
+        pr_err("cmd: USBDBG_WRITEFILE2 incomplete payload: got %zu of %u bytes",
+               received, write_size);
+        close_active_sv_file();
+        svfile_release_chunk_buffer();
+        ide_dbg_sv_file.errcode = errcode;
+        mp_hal_uart_tx(&errcode, sizeof(errcode));
+        return;
+    }
 
     if (ide_dbg_sv_file.file == NULL && ide_dbg_sv_file.info.name[0] != '\0') {
         char filepath[USBDBG_MAX_PATH_LEN + 64];
@@ -1990,6 +2057,31 @@ typedef struct {
     size_t pending_len;
 } ide_dbg_rx_router_t;
 
+static void ide_dbg_frame_state_reset(ide_dbg_state_t *state) {
+    hal_rvv_memset(state, 0, sizeof(*state));
+    state->state = FRAME_HEAD;
+}
+
+static void ide_dbg_protocol_fsm_recover(ide_dbg_state_t *state, ide_dbg_rx_router_t *router,
+                                         const char *reason) {
+    enum frame_state failed_state = state->state;
+    enum usbdbg_cmd failed_cmd = state->cmd;
+
+    close_active_sv_file();
+    svfile_release_chunk_buffer();
+    hal_rvv_memset(&ide_dbg_sv_file.info, 0, sizeof(ide_dbg_sv_file.info));
+    ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
+    listdir_page_reset();
+    if (router != NULL) {
+        router->pending_len = 0;
+    }
+    ide_dbg_rx_incomplete = false;
+    ide_dbg_frame_state_reset(state);
+
+    pr_warn("[ide] protocol FSM recovered: reason=%s state=%d cmd=0x%02x",
+            reason, failed_state, failed_cmd);
+}
+
 static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* data, size_t length);
 
 static void ide_dbg_route_repl(const uint8_t *data, size_t size) {
@@ -2100,7 +2192,9 @@ static void cmd_vtouch_event(ide_dbg_state_t* state) {
         return;
     }
 
-    read_from_frame(state, &event, sizeof(event));
+    if (read_from_frame(state, &event, sizeof(event)) != sizeof(event)) {
+        return;
+    }
     (void)ide_dbg_vtouch_enqueue(&event);
 }
 
@@ -2121,7 +2215,9 @@ static bool read_fb_enable_legacy_inline(ide_dbg_state_t* state, uint8_t *enable
 static void cmd_fb_enable(ide_dbg_state_t* state) {
     uint8_t enable = 0;
     if (state->data_length > 0) {
-        read_from_frame(state, &enable, 1);
+        if (read_from_frame(state, &enable, 1) != 1) {
+            return;
+        }
         if (state->data_length > 1) {
             discard_from_frame(state, state->data_length - 1);
         }
@@ -2336,12 +2432,13 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         pr_verb("unknown command %02x", state->cmd);
                         break;
                 }
-                state->state = FRAME_HEAD;
-                if (state->frame_offset > i + 1) {
-                    i = state->frame_offset;
+                size_t next_offset = state->frame_offset;
+                if (ide_dbg_rx_incomplete) {
+                    ide_dbg_protocol_fsm_recover(state, NULL, "incomplete command payload");
                 } else {
-                    i += 1;
+                    ide_dbg_frame_state_reset(state);
                 }
+                i = (next_offset > i + 1) ? next_offset : i + 1;
                 break;
             case FRAME_RECV: {
                 size_t avail = length - i;
@@ -2362,7 +2459,7 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                 break;
             }
             default:
-                state->state = FRAME_HEAD;
+                ide_dbg_protocol_fsm_recover(state, NULL, "invalid parser state");
                 break;
         }
     }
@@ -2385,9 +2482,9 @@ void ide_afer_python_run(int input_kind, mp_uint_t exec_flags, void *ret_val, in
 }
 
 static void* ide_dbg_task(void* args) {
-    ide_dbg_state_t state;
+    ide_dbg_state_t state = { .state = FRAME_HEAD };
     ide_dbg_rx_router_t router = {0};
-    state.state = FRAME_HEAD;
+    uint64_t last_protocol_rx_ms = mp_hal_ticks_ms();
     static uint8_t read_buf[512];
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     struct sched_param param;
@@ -2402,6 +2499,9 @@ static void* ide_dbg_task(void* args) {
     while (1) {
         drv_uart_inst_t *inst = mp_hal_uart_get_instance();
         if (inst == NULL) {
+            if (state.state != FRAME_HEAD) {
+                ide_dbg_protocol_fsm_recover(&state, &router, "UART unavailable");
+            }
             usleep(100000);
             continue;
         }
@@ -2409,23 +2509,20 @@ static void* ide_dbg_task(void* args) {
         // Poll UART for data (200ms timeout)
         int result = drv_uart_poll(inst, 200);
         if (result == 0) {
+            if (state.state != FRAME_HEAD &&
+                mp_hal_ticks_ms() - last_protocol_rx_ms >= IDE_DBG_FRAME_IDLE_TIMEOUT_MS) {
+                ide_dbg_protocol_fsm_recover(&state, &router, "incomplete frame timeout");
+            }
             ide_dbg_route_pending_flush(&router);
             continue;
         } else if (result < 0) {
             // DTR de-asserted or error
             pr_verb("[uart] poll error %d", result);
             if (ide_dbg_attach()) {
-                static struct timeval tval_last = {};
-                struct timeval tval;
-                struct timeval tval_sub;
-                gettimeofday(&tval, NULL);
-                timersub(&tval, &tval_last, &tval_sub);
-                if (tval_sub.tv_sec >= 1) {
-                    router.pending_len = 0;
-                    state.state = FRAME_HEAD;
-                    ide_dbg_disconnect_and_soft_reset();
-                    tval_last = tval;
-                }
+                ide_dbg_protocol_fsm_recover(&state, &router, "host disconnected");
+                ide_dbg_disconnect_and_soft_reset();
+            } else if (state.state != FRAME_HEAD) {
+                ide_dbg_protocol_fsm_recover(&state, &router, "UART receive error");
             }
             usleep(100000);
             continue;
@@ -2435,7 +2532,9 @@ static void* ide_dbg_task(void* args) {
             continue;
         } else if (size < 0) {
             pr_err("[uart] read error");
+            ide_dbg_protocol_fsm_recover(&state, &router, "UART read error");
         } else {
+            last_protocol_rx_ms = mp_hal_ticks_ms();
             ide_dbg_route_bytes(&router, &state, read_buf, size);
         }
     }
