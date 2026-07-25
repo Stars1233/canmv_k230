@@ -8,6 +8,13 @@ from time import *
 
 class RtspServer:
     def __init__(self,session_name="test",port=8554,video_type = mm.multi_media_type.media_h264,enable_audio=False):
+        """Initialize the object.
+        Args:
+            session_name: RTSP session name.
+            port: RTSP listening port.
+            video_type: RTSP video encoding type.
+            enable_audio: Whether to enable audio streaming.
+        """
         self.session_name = session_name
         self.video_type = video_type
         self.enable_audio = enable_audio
@@ -17,6 +24,8 @@ class RtspServer:
         self.runthread_over = False
 
     def start(self):
+        """Start processing.
+        """
         self._init_stream()
         self.rtspserver.rtspserver_init(self.port)
         self.rtspserver.rtspserver_createsession(self.session_name,self.video_type,self.enable_audio)
@@ -28,6 +37,8 @@ class RtspServer:
 
 
     def stop(self):
+        """Stop processing.
+        """
         self.start_stream = False
         while not self.runthread_over:
             sleep(0.1)
@@ -39,9 +50,13 @@ class RtspServer:
         self.rtspserver.rtspserver_deinit()
 
     def get_rtsp_url(self):
+        """Return the RTSP server URL.
+        """
         return self.rtspserver.rtspserver_getrtspurl(self.session_name)
 
     def _init_stream(self):
+        """Internal helper method.
+        """
         width = 1280
         height = 720
         width = ALIGN_UP(width, 16)
@@ -56,16 +71,22 @@ class RtspServer:
         self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.encoder.chn))
 
     def _start_stream(self):
+        """Internal helper method.
+        """
         self.encoder.Start()
         self.sensor.run()
 
     def _stop_stream(self):
+        """Internal helper method.
+        """
         self.sensor.stop()
         self.link.destroy()
         self.encoder.Stop()
         self.encoder.Destroy()
 
     def _do_rtsp_stream(self):
+        """Internal helper method.
+        """
         try:
             streamData = StreamData()
             while self.start_stream:

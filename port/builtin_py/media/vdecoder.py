@@ -27,6 +27,10 @@ class Decoder:
 
     @classmethod
     def vb_create_pool(cls,chn):
+        """Create a video buffer pool.
+        Args:
+            chn: Media channel number.
+        """
         pool_config = k_vb_pool_config()
         pool_config.blk_cnt = cls.input_buf_cnt
         pool_config.blk_size = cls.input_buf_size
@@ -42,6 +46,13 @@ class Decoder:
 
     @classmethod
     def vb_pool_config(cls,input_buf_cnt,output_buf_cnt,input_buf_size = STREAM_BUF_SIZE, output_buf_size = FRAME_BUF_SIZE):
+        """Configure video buffer pools.
+        Args:
+            input_buf_cnt: Value for input_buf_cnt.
+            output_buf_cnt: Value for output_buf_cnt.
+            input_buf_size: Value for input_buf_size.
+            output_buf_size: Value for output_buf_size.
+        """
         cls.input_buf_cnt = input_buf_cnt
         cls.output_buf_cnt = output_buf_cnt
         cls.input_buf_size = input_buf_size
@@ -49,6 +60,10 @@ class Decoder:
 
     @classmethod
     def vb_destory_pool(cls, chn):
+        """Destroy a video buffer pool.
+        Args:
+            chn: Media channel number.
+        """
         print("destory_pool input ", cls.input_pool_id[chn])
         kd_mpi_vb_destory_pool(cls.input_pool_id[chn])
         print("destory_pool output ", cls.output_pool_id[chn])
@@ -56,6 +71,8 @@ class Decoder:
 
     @classmethod
     def get_free_chn_index(cls):
+        """Return an available media channel index.
+        """
         for i in cls.chns_enable:
             if (i == 0):
                 return i
@@ -63,16 +80,24 @@ class Decoder:
 
     @classmethod
     def find_use_chn_index(cls):
+        """Return an active media channel index.
+        """
         for i in cls.chns_enable:
             if (i == 1):
                 return i
         return -1
 
     def __init__(self,type):
+        """Initialize the object.
+        Args:
+            type: Codec or container type.
+        """
         self.chn = -1
         self.type = type
 
     def create(self):
+        """Create the required media resources.
+        """
         chn_index = Decoder.get_free_chn_index()
         if (chn_index == -1):
             raise OSError("Decoder has no free chn")
@@ -97,11 +122,15 @@ class Decoder:
             raise OSError("kd_mpi_vdec_create_chn failed,channel:",self.chn)
 
     def start(self):
+        """Start processing.
+        """
         ret = kd_mpi_vdec_start_chn(self.chn)
         if (ret != 0):
             raise OSError("kd_mpi_vdec_start_chn failed,channel:",self.chn)
 
     def stop(self):
+        """Stop processing.
+        """
         stream = k_vdec_stream()
         stream.end_of_stream = True
         stream.pts = 0
@@ -152,6 +181,10 @@ class Decoder:
             raise OSError("kd_mpi_vdec_detach_vb_pool failed,channel:",self.chn)
 
     def decode(self,stream_data):
+        """Decode input data.
+        Args:
+            stream_data: Encoded audio data to decode.
+        """
         stream = k_vdec_stream()
         stream.end_of_stream = False
 
@@ -182,6 +215,8 @@ class Decoder:
         kd_mpi_vb_release_block(handle)
 
     def destroy(self):
+        """Destroy and release media resources.
+        """
         ret = kd_mpi_vdec_destroy_chn(self.chn)
         if (ret != 0):
             raise OSError("kd_mpi_vdec_destroy_chn failed,channel:",self.chn)
@@ -189,9 +224,20 @@ class Decoder:
         Decoder.vb_destory_pool(self.chn)
 
     def get_vdec_channel(self):
+        """Return the requested value.
+        """
         return self.chn
 
     def bind_info(self, x = 0, y = 0, width = 1920,height = 1080,pix_format=PIXEL_FORMAT_YUV_SEMIPLANAR_420,chn = 0):
+        """Return media channel binding information.
+        Args:
+            x: Horizontal coordinate in pixels.
+            y: Vertical coordinate in pixels.
+            width: Width in pixels.
+            height: Height in pixels.
+            pix_format: Pixel format.
+            chn: Media channel number.
+        """
         if (chn > VDEC_MAX_CHN_NUMS - 1):
             raise AssertionError(f"invaild chn id {chn}, should < {VDEC_MAX_CHN_NUMS - 1}")
 

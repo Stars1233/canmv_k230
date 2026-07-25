@@ -78,6 +78,13 @@ class Sensor:
 
     @staticmethod
     def _calculate_crop(sensor_width, sensor_height, target_width, target_height):
+        """Internal helper method.
+        Args:
+            sensor_width: Sensor width in pixels.
+            sensor_height: Sensor height in pixels.
+            target_width: Target width in pixels.
+            target_height: Target height in pixels.
+        """
         scale = min(sensor_width // target_width, sensor_height // target_height)
         crop_width = int(target_width * scale)
         crop_height = int(target_height * scale)
@@ -88,12 +95,16 @@ class Sensor:
 
     @classmethod
     def deinit(cls):
+        """Release media resources.
+        """
         for i in range(0, CAM_DEV_ID_MAX):
             if isinstance(cls._devs[i], Sensor):
                 cls._devs[i].stop(is_del = True)
 
     @classmethod
     def _is_mcm_device(cls) -> bool:
+        """Internal helper method.
+        """
         cnt = 0
         for i in range(0, CAM_DEV_ID_MAX):
             if isinstance(cls._devs[i], Sensor):
@@ -102,9 +113,16 @@ class Sensor:
 
     @classmethod
     def _needs_sw_tile_mode(cls, w, h):
+        """Internal helper method.
+        Args:
+            w: Value for w.
+            h: Value for h.
+        """
         return w > VICAP_SENSOR_MAX_WIDTH or h > VICAP_SENSOR_MAX_HEIGHT
 
     def _apply_database_parse_mode(self):
+        """Internal helper method.
+        """
         if self._database_parse_mode is None:
             return
         ret = kd_mpi_vicap_set_database_parse_mode(self._dev_id, self._database_parse_mode)
@@ -131,6 +149,10 @@ class Sensor:
 
     @classmethod
     def _apply_work_mode_for_resolution(cls, sensor):
+        """Internal helper method.
+        Args:
+            sensor: Value for sensor.
+        """
         w = sensor._dev_attr.acq_win.width
         h = sensor._dev_attr.acq_win.height
         if cls._needs_sw_tile_mode(w, h):
@@ -144,6 +166,8 @@ class Sensor:
 
     @classmethod
     def _handle_mcm_device(cls):
+        """Internal helper method.
+        """
         if not cls._is_mcm_device():
             return
         for i in range(0, CAM_DEV_ID_MAX):
@@ -152,6 +176,8 @@ class Sensor:
 
     @classmethod
     def _run_mcm_device(cls):
+        """Internal helper method.
+        """
         if not cls._is_mcm_device():
             return
 
@@ -216,6 +242,8 @@ class Sensor:
 
     @classmethod
     def _get_dev_id(self):
+        """Internal helper method.
+        """
         dev_id = 0
         all_used = True
         for i in range(0, CAM_DEV_ID_MAX):
@@ -233,6 +261,10 @@ class Sensor:
     # type
     # force
     def __init__(self, **kwargs):
+        """Initialize the object.
+        Args:
+            kwargs: Additional keyword arguments.
+        """
         self._database_parse_mode = kwargs.get('database_parse_mode', None)
         if self._database_parse_mode is not None and self._database_parse_mode not in (VICAP_DATABASE_PARSE_XML_JSON, VICAP_DATABASE_PARSE_HEADER):
             raise ValueError("database_parse_mode should be Sensor.DATABASE_PARSE_XML_JSON or Sensor.DATABASE_PARSE_BIN")
@@ -321,12 +353,18 @@ class Sensor:
         Sensor._devs[self._dev_id] = self
 
     def __del__(self):
+        """Release resources held by this object.
+        """
         self.stop(is_del = True)
 
     def __str__(self):
+        """Return a string representation of this object.
+        """
         pass
 
     def _set_inbufs(self):
+        """Internal helper method.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -345,7 +383,10 @@ class Sensor:
         self._dev_attr.buffer_size = ALIGN_UP((self._dev_attr.acq_win.width * self._dev_attr.acq_win.height * 2), VICAP_ALIGN_4K)
 
     def _calculate_buffer_size(self, chn):
-        """Calculates and sets the channel buffer size based on pixel format and frame size."""
+        """Internal helper method.
+        Args:
+            chn: Media channel number.
+        """
         if not self._chn_attr[chn].chn_enable:
             return
 
@@ -387,7 +428,16 @@ class Sensor:
         self._chn_attr[chn].buffer_pool_id = VB_INVALID_POOLID
 
     def wrap(func):
+        """Perform this media operation.
+        Args:
+            func: Value for func.
+        """
         def wrapper(*args, **kwargs):
+            """Perform this media operation.
+            Args:
+                args: Additional positional arguments.
+                kwargs: Additional keyword arguments.
+            """
             print(f"not support {func.__name__} now...")
 
             raise NotImplementedError(f"{func.__name__}")
@@ -397,6 +447,8 @@ class Sensor:
         return wrapper
 
     def reset(self):
+        """Reset and initialize the device.
+        """
         # if (self._type > SENSOR_TYPE_MAX - 1):
         #     raise AssertionError(f"invaild sensor type {self._type}, should < {SENSOR_TYPE_MAX - 1}")
 
@@ -434,18 +486,35 @@ class Sensor:
 
     @wrap
     def sleep(self, enable):
+        """Perform this media operation.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         pass
 
     @wrap
     def shutdown(self, enable):
+        """Perform this media operation.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         pass
 
     @wrap
     def flush(self, enable):
+        """Perform this media operation.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         pass
 
     class dumped_image:
         def __init__(self, dev_id, chn):
+            """Initialize the object.
+            Args:
+                dev_id: Value for dev_id.
+                chn: Media channel number.
+            """
             self.id = dev_id
             self.chn = chn
             self.phys = None
@@ -453,13 +522,24 @@ class Sensor:
             self.size = None
 
         def push_phys(self, phys):
+            """Perform this media operation.
+            Args:
+                phys: Value for phys.
+            """
             self.phys = phys
 
         def push_virt(self, virt, size):
+            """Perform this media operation.
+            Args:
+                virt: Value for virt.
+                size: Value for size.
+            """
             self.virt = virt
             self.size = size
 
         def release(self):
+            """Perform this media operation.
+            """
             if isinstance(self.virt, int) and isinstance(self.size, int):
                 if self.virt > 0 and self.size > 0:
                     ret = kd_mpi_sys_munmap(self.virt, self.size)
@@ -479,25 +559,42 @@ class Sensor:
     # for snapshot
     @staticmethod
     def _release_image(img):
+        """Internal helper method.
+        Args:
+            img: Value for img.
+        """
         if is_vb_mgmt_vicap_image(img):
             vb_mgmt_release_vicap_frame(img)
 
     # for snapshot
     def _release_all_chn_image(self):
+        """Internal helper method.
+        """
         for chn in range(0, VICAP_CHN_ID_MAX):
             self._release_image(self._imgs[chn])
             self._imgs[chn] = None
 
     def _dumped_image(self, chn = CAM_CHN_ID_0):
+        """Internal helper method.
+        Args:
+            chn: Media channel number.
+        """
         if is_vb_mgmt_vicap_image(self._imgs[chn]):
             return self._imgs[chn]
         return None
 
     def _reset_snapshot_failure_state(self):
+        """Internal helper method.
+        """
         self._snapshot_failure_count = 0
         self._snapshot_failure_index = 0
 
     def _record_snapshot_failure(self, chn, ret):
+        """Internal helper method.
+        Args:
+            chn: Media channel number.
+            ret: Value for ret.
+        """
         now = time.ticks_ms()
 
         self._snapshot_failure_ticks[self._snapshot_failure_index] = now
@@ -517,6 +614,13 @@ class Sensor:
                 machine.reset()
 
     def snapshot(self, chn = CAM_CHN_ID_0, timeout = 1000, dump_frame = False, auto_reboot = False):
+        """Capture one image from the selected camera channel.
+        Args:
+            chn: Media channel number.
+            timeout: Timeout in milliseconds.
+            dump_frame: Value for dump_frame.
+            auto_reboot: Value for auto_reboot.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -583,9 +687,17 @@ class Sensor:
 
     @wrap
     def skip_frames(self, **kwargs):
+        """Skip frames while sensor controls stabilize.
+        Args:
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     def width(self, chn = CAM_CHN_ID_0):
+        """Return the output width for a camera channel.
+        Args:
+            chn: Media channel number.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -597,6 +709,10 @@ class Sensor:
         return self._dev_attr.sensor_info.width
 
     def height(self, chn = CAM_CHN_ID_0):
+        """Return the output height for a camera channel.
+        Args:
+            chn: Media channel number.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -609,29 +725,48 @@ class Sensor:
 
     @wrap
     def get_fb(self):
+        """Return the current frame buffer.
+        """
         pass
 
     @wrap
     def get_id(self):
+        """Return the sensor model ID.
+        """
         # if not self._dev_attr.dev_enable or self._dev_id > CAM_DEV_ID_MAX - 1:
         #     raise ValueError(f"invalid param, dev({self._dev_id})")
         # return self._dev_id
         pass
 
     def get_type(self):
+        """Return the sensor type.
+        """
         # if not self._dev_attr.dev_enable or self._dev_id > CAM_DEV_ID_MAX - 1:
         #     raise ValueError(f"invalid param, dev({self._dev_id})")
         return self._type
 
     @wrap
     def alloc_extra_fb(self, width, height, pixformat):
+        """Allocate an additional frame buffer.
+        Args:
+            width: Width in pixels.
+            height: Height in pixels.
+            pixformat: Pixel format.
+        """
         pass
 
     @wrap
     def dealloc_extra_fb(self):
+        """Release the additional frame buffer.
+        """
         pass
 
     def set_pixformat(self, pix_format, chn = CAM_CHN_ID_0):
+        """Set the pixel format for a camera channel.
+        Args:
+            pix_format: Pixel format.
+            chn: Media channel number.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -655,6 +790,10 @@ class Sensor:
         self._pixel_format[chn] = pix_format
 
     def get_pixformat(self, chn = CAM_CHN_ID_0):
+        """Return the pixel format for a camera channel.
+        Args:
+            chn: Media channel number.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -668,6 +807,10 @@ class Sensor:
 
     @staticmethod
     def _parse_framesize(framesize):
+        """Internal helper method.
+        Args:
+            framesize: Target frame size.
+        """
         sizes = [
             (88, 72),           #QQCIF
             (176, 144),         #QCIF
@@ -708,6 +851,14 @@ class Sensor:
             return 0, 0
 
     def set_framesize(self, framesize = FRAME_SIZE_INVAILD, chn = CAM_CHN_ID_0, alignment=0, crop = None, **kwargs):
+        """Set the output frame size and crop settings.
+        Args:
+            framesize: Target frame size.
+            chn: Media channel number.
+            alignment: Output size alignment requirement.
+            crop: Optional crop region.
+            kwargs: Additional keyword arguments.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -785,6 +936,10 @@ class Sensor:
         self._framesize[chn] = (width, height)
 
     def get_framesize(self, chn = CAM_CHN_ID_0):
+        """Return the output frame size for a camera channel.
+        Args:
+            chn: Media channel number.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -801,65 +956,122 @@ class Sensor:
 
     @wrap
     def set_framerate(self, rate):
+        """Set the sample rate.
+        Args:
+            rate: Audio sample rate in Hz.
+        """
         pass
 
     @wrap
     def get_framerate(self):
+        """Return the sample rate.
+        """
         pass
 
     @wrap
     def set_windowing(self, roi):
+        """Set the sensor capture region.
+        Args:
+            roi: Region of interest.
+        """
         pass
 
     @wrap
     def get_windowing(self):
+        """Return the sensor capture region.
+        """
         pass
 
     @wrap
     def set_contrast(self, constrast):
+        """Set image contrast.
+        Args:
+            constrast: Image contrast.
+        """
         pass
 
     @wrap
     def set_brightness(self, brightness):
+        """Set image brightness.
+        Args:
+            brightness: Image brightness.
+        """
         pass
 
     @wrap
     def set_saturation(self, saturation):
+        """Set image saturation.
+        Args:
+            saturation: Image saturation.
+        """
         pass
 
     @wrap
     def set_quality(self, quality):
+        """Set JPEG image quality.
+        Args:
+            quality: Image quality.
+        """
         pass
 
     @wrap
     def set_colorbar(self, enable):
+        """Enable or disable the sensor color-bar test pattern.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         pass
 
     @wrap
     def set_auto_gain(self, enable, **kwargs):
+        """Enable or disable automatic gain control.
+        Args:
+            enable: State to set; omit to read the current state.
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     @wrap
     def get_gain_db(self):
+        """Return the current analog gain in dB.
+        """
         pass
 
     @wrap
     def set_auto_whitebal(self, enable, **kwargs):
+        """Enable or disable automatic white balance.
+        Args:
+            enable: State to set; omit to read the current state.
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     @wrap
     def get_rgb_gain_db(self):
+        """Return the current RGB gains in dB.
+        """
         pass
 
     @wrap
     def set_auto_blc(self, enable, **kwargs):
+        """Enable or disable automatic black-level correction.
+        Args:
+            enable: State to set; omit to read the current state.
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     @wrap
     def get_blc_regs(self):
+        """Return black-level correction register values.
+        """
         pass
 
     def set_hmirror(self, enable):
+        """Enable or disable horizontal mirroring.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -872,6 +1084,8 @@ class Sensor:
             self._dev_attr.mirror = self._dev_attr.mirror & (~(1))
 
     def get_hmirror(self) -> bool:
+        """Return whether horizontal mirroring is enabled.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -884,6 +1098,10 @@ class Sensor:
             return False
 
     def set_vflip(self, enable):
+        """Enable or disable vertical flipping.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -896,6 +1114,8 @@ class Sensor:
             self._dev_attr.mirror = self._dev_attr.mirror & (~(2))
 
     def get_vflip(self) -> bool:
+        """Return whether vertical flipping is enabled.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -909,90 +1129,131 @@ class Sensor:
 
     @wrap
     def set_transpose(self, enable):
+        """Enable or disable image transposition.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         pass
 
     @wrap
     def get_transpose(self):
+        """Return whether image transposition is enabled.
+        """
         pass
 
     @wrap
     def set_auto_rotation(self, enable):
+        """Enable or disable automatic rotation.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         pass
 
     @wrap
     def get_auto_rotation(self):
+        """Return whether automatic rotation is enabled.
+        """
         pass
 
     @wrap
     def set_framebuffers(self, count):
+        """Set the frame-buffer count.
+        Args:
+            count: Number of frame buffers.
+        """
         pass
 
     @wrap
     def get_framebuffers(self):
+        """Return the frame-buffer count.
+        """
         pass
 
     @wrap
     def disable_delays(self, **kwargs):
+        """Disable configuration delays.
+        Args:
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     @wrap
     def disable_full_flush(self, **kwargs):
+        """Disable full-frame flushing.
+        Args:
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     @wrap
     def set_lens_correction(self, enabld, radi, coef):
+        """Configure lens-correction parameters.
+        Args:
+            enabld: Value for enabld.
+            radi: Value for radi.
+            coef: Value for coef.
+        """
         pass
 
     @wrap
     def set_vsync_callback(self, cb):
+        """Register a vertical-sync callback.
+        Args:
+            cb: Callback function to register.
+        """
         pass
 
     @wrap
     def set_frame_callback(self, cb):
+        """Register a frame-completion callback.
+        Args:
+            cb: Callback function to register.
+        """
         pass
 
     @wrap
     def ioctl(self, **kwargs):
+        """Perform a sensor-specific control operation.
+        Args:
+            kwargs: Additional keyword arguments.
+        """
         pass
 
     @wrap
     def set_color_palette(self, palette):
+        """Set the image color palette.
+        Args:
+            palette: Color palette.
+        """
         pass
 
     @wrap
     def get_color_palette(self):
+        """Return the current image color palette.
+        """
         pass
 
     @wrap
     def __write_reg(self, address, value):
+        """Internal helper method.
+        Args:
+            address: Register address.
+            value: Value to write.
+        """
         pass
 
     @wrap
     def __read_reg(self, address):
+        """Internal helper method.
+        Args:
+            address: Register address.
+        """
         pass
 
     def again(self, again = None):
-        """获取或设置传感器模拟增益 (Again)
-        
+        """Get or set sensor analog gain.
         Args:
-            again (float, optional): 增益值。
-                                    如果为 None，则返回当前增益对象；
-                                    如果提供 float 值，则设置为该增益
-        
-        Returns:
-            k_sensor_gain: 当前增益对象（包含 gain[0] 属性），如果失败返回 None
-            bool: 设置成功返回 True
-        
-        Raises:
-            RuntimeError: 如果 sensor fd 无效
-        
-        Example:
-            >>> # 获取当前增益
-            >>> gain = sensor.again()
-            >>> print(f"当前增益：{gain.gain[0]:.2f}")
-            
-            >>> # 设置增益值（直接传 float）
-            >>> sensor.again(4.0)
+            again: Analog gain value; omit to read the current value.
         """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
@@ -1010,6 +1271,8 @@ class Sensor:
 
     # custom method
     def run(self):
+        """Start the device.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -1068,6 +1331,10 @@ class Sensor:
         vb_mgmt_vicap_dev_inited(self._dev_id)
 
     def stop(self, is_del = False):
+        """Stop processing.
+        Args:
+            is_del: Value for is_del.
+        """
         # if (self._dev_id > CAM_DEV_ID_MAX - 1):
         #     raise AssertionError(f"invaild sensor id {self._dev_id}, should < {CAM_DEV_ID_MAX - 1}")
 
@@ -1124,6 +1391,11 @@ class Sensor:
                 raise RuntimeError(f"sensor({self._dev_id}) stop error, vicap deinit failed({deinit_error})")
 
     def _set_chn_fps(self, chn = CAM_CHN_ID_0, fps = 30):
+        """Internal helper method.
+        Args:
+            chn: Media channel number.
+            fps: Value for fps.
+        """
         if (chn > CAM_CHN_ID_MAX - 1):
             raise AssertionError(f"invaild chn id {chn}, should < {CAM_CHN_ID_MAX - 1}")
 
@@ -1131,6 +1403,12 @@ class Sensor:
             self._chn_attr[chn].fps = fps
 
     def bind_info(self, x = 0, y = 0, chn = CAM_CHN_ID_0):
+        """Return media channel binding information.
+        Args:
+            x: Horizontal coordinate in pixels.
+            y: Vertical coordinate in pixels.
+            chn: Media channel number.
+        """
         if not self._dev_attr.dev_enable:
             raise AssertionError("should call reset() first")
 
@@ -1153,62 +1431,41 @@ class Sensor:
         return kwargs
 
     def auto_focus(self, enable = None):
+        """Get or set automatic focus.
+        Args:
+            enable: State to set; omit to read the current state.
+        """
         if self._is_started:
             raise RuntimeError("call should before Sensor.run()")
         return kd_mpi_auto_focus(self._dev_id, enable)
 
     def focus_pos(self, pos = None):
+        """Get or set the lens focus position.
+        Args:
+            pos: Position or frame index.
+        """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
         return kd_mpi_focus_pos(self.fd, pos)
 
     def focus_caps(self):
+        """Return lens focus capabilities.
+        """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
         return kd_mpi_sensor_get_focus_caps(self.fd)
 
     def get_exposure_time_range(self):
-        """获取传感器曝光时间范围
-
-        Returns:
-            tuple: (max_intg_time_us, min_intg_time_us) 单位为微秒
-            None: 如果获取失败
-
-        Example:
-            >>> range = sensor.get_exposure_time_range()
-            >>> if range:
-            ...     print(f"曝光范围：{range[0]:.2f} us - {range[1]:.2f} us")
+        """Return the sensor exposure-time range.
         """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
         return kd_mpi_sensor_get_exposure_time_range(self.fd)
 
     def auto_exposure(self, enable=None):
-        """开关自动曝光或获取当前自动曝光状态
-        
+        """Get or set automatic exposure.
         Args:
-            enable (bool, optional): 
-                - True: 开启自动曝光
-                - False: 关闭自动曝光（手动模式）
-                - None: 获取当前自动曝光状态
-        
-        Returns:
-            bool: 当前自动曝光状态（开启返回 True，关闭返回 False）
-        
-        Raises:
-            RuntimeError: 如果 sensor 未初始化
-        
-        Example:
-            >>> # 获取当前自动曝光状态
-            >>> status = sensor.auto_exposure()
-            >>> print(f"自动曝光：{'开启' if status else '关闭'}")
-            
-            >>> # 关闭自动曝光（手动模式）
-            >>> sensor.auto_exposure(False)
-            >>> sensor.exposure(10000)  # 手动设置曝光时间
-            
-            >>> # 开启自动曝光
-            >>> sensor.auto_exposure(True)
+            enable: State to set; omit to read the current state.
         """
         if not hasattr(self, '_dev_attr'):
             raise RuntimeError("should call reset() first")
@@ -1223,32 +1480,9 @@ class Sensor:
 
 
     def exposure(self, exposure_us=None):
-        """获取或设置传感器曝光时间
-        
+        """Get or set sensor exposure time.
         Args:
-            exposure_us (float, optional): 曝光时间（微秒）。
-                                           如果为 None，则返回当前曝光时间；
-                                           如果提供值，则设置为该曝光时间
-        
-        Returns:
-            float: 当前曝光时间（微秒），如果失败返回 None
-        
-        Raises:
-            RuntimeError: 如果 sensor fd 无效
-        
-        Example:
-            >>> # 获取当前曝光时间
-            >>> current = sensor.exposure()
-            >>> print(f"当前曝光：{current:.2f} us")
-            
-            >>> # 设置曝光时间为 10000 微秒（10 毫秒）
-            >>> sensor.exposure(10000)
-            
-            >>> # 结合曝光范围使用
-            >>> range = sensor.get_exposure_time_range()
-            >>> if range:
-            ...     mid = (range[0] + range[1]) / 2
-            ...     sensor.exposure(mid)
+            exposure_us: Exposure time in microseconds; omit to read the current value.
         """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")
@@ -1272,26 +1506,9 @@ class Sensor:
 
     @staticmethod
     def list_mode(id=None):
-        """列出指定传感器支持的所有分辨率和 FPS 组合（无需初始化即可调用）
-        
+        """List supported sensor resolution and frame-rate modes.
         Args:
-            id (int, optional): CSI 总线编号（0-2），默认为默认传感器
-        
-        Returns:
-            tuple: (sensor_name, modes)
-                - sensor_name (str): 传感器名称
-                - modes (list): 包含字典的列表，每个字典包含：
-                    - width: 宽度
-                    - height: 高度
-                    - fps: 帧率
-            None: 如果获取失败
-        
-        Example:
-            >>> # 在传感器初始化之前调用
-            >>> sensor_name, modes = Sensor.list_mode(id=2)
-            >>> print(f"传感器：{sensor_name}")
-            >>> for mode in modes:
-            ...     print(f"{mode['width']}x{mode['height']}@{mode['fps']}fps")
+            id: Marker or device identifier.
         """
         # 获取默认传感器 ID
         if id is None:
@@ -1335,20 +1552,7 @@ class Sensor:
         return (sensor_name, modes)
 
     def get_again_range(self):
-        """获取传感器模拟增益 (Again) 的可设置范围
-        
-        Returns:
-            dict: 包含增益范围信息的字典：
-                - min: 最小增益
-                - max: 最大增益
-                - step: 增益步进值
-            None: 如果获取失败
-        
-        Example:
-            >>> sensor = Sensor(id=2)
-            >>> range = sensor.get_again_range()
-            >>> if range:
-            ...     print(f"Gain range: {range['min']:.2f} - {range['max']:.2f}, step: {range['step']:.6f}")
+        """Return the supported analog-gain range.
         """
         if self.fd < 0:
             raise RuntimeError("can't get sensor fd")

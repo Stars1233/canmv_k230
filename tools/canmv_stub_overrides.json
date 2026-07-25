@@ -1,5 +1,76 @@
 {
   "__comment": "Hand-written CanMV stub signatures. These entries override or extend generated .pyi files for better VSCode/Pylance argument tips.",
+  "binascii": {
+    "symbols": {
+      "a2b_base64": {
+        "kind": "function",
+        "signature": "(data: Any) -> bytes"
+      },
+      "b2a_base64": {
+        "kind": "function",
+        "signature": "(data: Any, newline: bool = True) -> bytes"
+      },
+      "hexlify": {
+        "kind": "function",
+        "signature": "(data: Any, sep: Union[str, bytes] = ...) -> bytes"
+      },
+      "unhexlify": {
+        "kind": "function",
+        "signature": "(data: Any) -> bytes"
+      }
+    }
+  },
+  "builtins": {
+    "symbols": {
+      "bytearray": {"kind": "class", "methods": {"__getitem__": {"signature": "(self, index: int, /) -> Union[int, bytearray]"}, "__iter__": {"signature": "(self, /) -> Iterator[int]"}, "__next__": {"signature": "(self, /) -> int"}, "decode": {"signature": "(self, encoding: str = ..., errors: str = ..., /) -> str"}, "encode": {"signature": "(self, encoding: str = ..., errors: str = ..., /) -> bytes"}, "format": {"signature": "(self, /, *args: Any) -> bytearray"}, "join": {"signature": "(self, iterable: Iterable[Any], /) -> bytearray"}}},
+      "bytes": {"kind": "class", "methods": {"__getitem__": {"signature": "(self, index: int, /) -> Union[int, bytes]"}, "__iter__": {"signature": "(self, /) -> Iterator[int]"}, "__next__": {"signature": "(self, /) -> int"}, "decode": {"signature": "(self, encoding: str = ..., errors: str = ..., /) -> str"}, "encode": {"signature": "(self, encoding: str = ..., errors: str = ..., /) -> bytes"}, "format": {"signature": "(self, /, *args: Any) -> bytes"}, "join": {"signature": "(self, iterable: Iterable[Any], /) -> bytes"}}},
+      "dict": {"kind": "class", "bases": ["Generic[_K, _V]"], "methods": {"__getitem__": {"signature": "(self, key: _K, /) -> _V"}, "__iter__": {"signature": "(self, /) -> Iterator[_K]"}, "__next__": {"signature": "(self, /) -> _K"}, "get": {"signature": "(self, key: _K, default: Optional[_V] = None, /) -> Optional[_V]"}, "items": {"signature": "(self, /) -> Iterable[Tuple[_K, _V]]"}, "keys": {"signature": "(self, /) -> Iterable[_K]"}, "pop": {"signature": "(self, key: _K, default: Optional[_V] = None, /) -> _V"}, "popitem": {"signature": "(self, /) -> Tuple[_K, _V]"}, "setdefault": {"signature": "(self, key: _K, default: Optional[_V] = None, /) -> Optional[_V]"}, "values": {"signature": "(self, /) -> Iterable[_V]"}}},
+      "set": {"kind": "class", "bases": ["Generic[_T]"], "methods": {"__next__": {"signature": "(self, /) -> _T"}, "__iter__": {"signature": "(self, /) -> Iterator[_T]"}, "pop": {"signature": "(self, /) -> _T"}}},
+      "str": {"kind": "class", "methods": {"__getitem__": {"signature": "(self, index: int, /) -> str"}, "__iter__": {"signature": "(self, /) -> Iterator[str]"}, "__next__": {"signature": "(self, /) -> str"}, "decode": {"signature": "(self, encoding: str = ..., errors: str = ..., /) -> str"}, "encode": {"signature": "(self, encoding: str = ..., errors: str = ..., /) -> bytes"}, "format": {"signature": "(self, /, *args: Any) -> str"}, "join": {"signature": "(self, iterable: Iterable[Any], /) -> str"}}},
+      "tuple": {"kind": "class", "bases": ["Generic[_T]"], "methods": {"__getitem__": {"signature": "(self, index: int, /) -> _T"}, "__iter__": {"signature": "(self, /) -> Iterator[_T]"}, "__next__": {"signature": "(self, /) -> _T"}}},
+      "list": {
+        "kind": "class",
+        "bases": ["Generic[_T]"],
+        "init": "(self, iterable: Iterable[_T] = ...) -> None",
+        "methods": {
+          "__next__": {"signature": "(self, /) -> _T"},
+          "__getitem__": {
+            "signature": "(self, index: int, /) -> _T"
+          },
+          "__iter__": {
+            "signature": "(self, /) -> Iterator[_T]"
+          },
+          "__setitem__": {
+            "signature": "(self, index: int, value: _T, /) -> None"
+          },
+          "append": {
+            "signature": "(self, value: _T, /) -> None"
+          },
+          "copy": {
+            "signature": "(self, /) -> List[_T]"
+          },
+          "count": {
+            "signature": "(self, value: _T, /) -> int"
+          },
+          "extend": {
+            "signature": "(self, values: Iterable[_T], /) -> None"
+          },
+          "index": {
+            "signature": "(self, value: _T, start: int = ..., stop: int = ..., /) -> int"
+          },
+          "insert": {
+            "signature": "(self, index: int, value: _T, /) -> None"
+          },
+          "pop": {
+            "signature": "(self, index: int = ..., /) -> _T"
+          },
+          "remove": {
+            "signature": "(self, value: _T, /) -> None"
+          }
+        }
+      }
+    }
+  },
   "hashlib": {
     "symbols": {
       "md5": {
@@ -48,6 +119,7 @@
   },
   "machine": {
     "symbols": {
+      "machine_pin_cfg": {"kind": "class"},
       "FPIOA": {
         "doc": "K230 FPIOA pin-function mapper.",
         "init": "(self) -> None",
@@ -55,7 +127,7 @@
         "methods": {
           "get_pin_cfg": {
             "doc": "Return the current FPIOA configuration object for a pin.",
-            "signature": "(self, pin: int) -> Any"
+            "signature": "(self, pin: int) -> machine_pin_cfg"
           },
           "help": {
             "doc": "Print supported FPIOA functions.",
@@ -233,7 +305,7 @@
         "methods": {
           "run": {
             "doc": "Run the FFT and return complex output pairs.",
-            "signature": "(self) -> Any"
+            "signature": "(self) -> List[Tuple[int, int]]"
           }
         }
       },
@@ -265,35 +337,53 @@
           },
           "snapshot": {
             "doc": "Capture and return an image/frame from the selected channel.",
-            "signature": "(self, chn: int = ..., timeout: int = ..., dump_frame: bool = ..., auto_reboot: bool = ...) -> Any"
+            "signature": "(self, chn: int = ..., timeout: int = ..., dump_frame: bool = ..., auto_reboot: bool = ...) -> image.Image"
+          },
+          "again": {
+            "signature": "(self, again: Optional[float] = None) -> Any"
+          },
+          "auto_focus": {
+            "signature": "(self, enable: Optional[bool] = None) -> bool"
+          },
+          "exposure": {
+            "signature": "(self, exposure_us: Optional[float] = None) -> Optional[Union[float, bool]]"
+          },
+          "focus_caps": {
+            "signature": "(self) -> Optional[Tuple[int, int, int]]"
+          },
+          "focus_pos": {
+            "signature": "(self, pos: Optional[int] = None) -> Optional[int]"
+          },
+          "run": {
+            "signature": "(self) -> None"
           },
           "disable_delays": {
             "doc": "Unsupported sensor delay-control placeholder.",
-            "signature": "(self) -> Any"
+            "signature": "(self) -> NoReturn"
           },
           "disable_full_flush": {
             "doc": "Unsupported sensor flush-control placeholder.",
-            "signature": "(self) -> Any"
+            "signature": "(self) -> NoReturn"
           },
           "ioctl": {
             "doc": "Unsupported sensor ioctl placeholder.",
-            "signature": "(self) -> Any"
+            "signature": "(self) -> NoReturn"
           },
           "skip_frames": {
             "doc": "Unsupported sensor frame-skip placeholder.",
-            "signature": "(self) -> Any"
+            "signature": "(self) -> NoReturn"
           },
           "set_auto_blc": {
             "doc": "Unsupported sensor auto blc placeholder.",
-            "signature": "(self, enable: bool) -> Any"
+            "signature": "(self, enable: bool) -> NoReturn"
           },
           "set_auto_gain": {
             "doc": "Unsupported sensor auto gain placeholder.",
-            "signature": "(self, enable: bool) -> Any"
+            "signature": "(self, enable: bool) -> NoReturn"
           },
           "set_auto_whitebal": {
             "doc": "Unsupported sensor auto whitebal placeholder.",
-            "signature": "(self, enable: bool) -> Any"
+            "signature": "(self, enable: bool) -> NoReturn"
           }
         }
       }
@@ -461,9 +551,10 @@
       "Display": {
         "kind": "class",
         "methods": {
+          "inited": {"signature": "() -> bool"},
           "bind_layer": {
             "doc": "Bind an MPP source channel to a display layer.",
-            "signature": "(src: Any, *, rect: Any = None, pix_format: int = -1, layer: int = -1, alpha: int = 255, flag: int = 0) -> Any"
+            "signature": "(src: Any, *, rect: Any = None, pix_format: int = -1, layer: int = -1, alpha: int = 255, flag: int = 0) -> None"
           },
           "width": {
             "doc": "Return display or layer width.",
@@ -479,23 +570,237 @@
           },
           "writeback_dump": {
             "doc": "Capture a writeback frame.",
-            "signature": "(timeout: int = 1000) -> Any"
+            "signature": "(timeout: int = 1000) -> Optional[py_video_frame_info]"
           }
         }
       },
+      "GSDMA": {
+        "kind": "class",
+        "methods": {
+          "gdma_convert": {"signature": "(n: Any, dst_phys_addr: int, dst_phys_size: int, rotation: int, /) -> bool"},
+          "sdma_memcpy": {"signature": "(dst_addr: int, src_addr: int, size: int, /) -> bool"},
+          "sdma_memset": {"signature": "(n: int, size: int, data: int, data_size: int = ..., /) -> bool"}
+        }
+      },
+      "MediaLink": {"kind": "class"},
+      "uvc_video_mode": {"kind": "class"},
       "UVC": {
         "kind": "class",
         "methods": {
           "snapshot": {
             "doc": "Capture one frame from the selected UVC video mode.",
-            "signature": "(timeout: int = ...) -> Any"
+            "signature": "(timeout: int = ...) -> Optional[Union[image.Image, py_video_frame_info]]"
           },
-          "video_mode": {
-            "doc": "Return the current UVC mode, or create a mode from width, height, fourcc and fps.",
-            "signature": "(width: int = ..., height: int = ..., fourcc: int = ..., fps: int = ...) -> Any"
-          }
+          "list_video_mode": {"signature": "() -> List[uvc_video_mode]"},
+          "video_mode": {"signature": "(width: int = ..., height: int = ..., fourcc: int = ..., fps: int = ...) -> uvc_video_mode"}
         }
+      },
+      "_MediaManager": {"kind": "class", "methods": {"_link": {"signature": "(src: Any, dst: Any, /) -> MediaLink"}}}
+    }
+  },
+  "aidemo": {
+    "symbols": {
+      "KwsFeaturePipeline": {"kind": "class"},
+      "TtsZh": {"kind": "class"},
+      "kws_fp_create": {"kind": "function", "signature": "() -> KwsFeaturePipeline"},
+      "kws_fp_destroy": {"kind": "function", "signature": "(fp: KwsFeaturePipeline, /) -> None"},
+      "kws_preprocess": {"kind": "function", "signature": "(fp: KwsFeaturePipeline, wav: Any, /) -> Optional[list]"},
+      "tts_zh_create": {"kind": "function", "signature": "(dictfile: str, phasefile: str, mapfile: str, /) -> TtsZh"},
+      "tts_zh_destroy": {"kind": "function", "signature": "(ttszh: TtsZh, /) -> None"},
+      "tts_zh_preprocess": {"kind": "function", "signature": "(ttszh: TtsZh, text: str, /) -> list"}
+    }
+  },
+  "requests": {
+    "symbols": {
+      "Response": {"kind": "class", "methods": {"content": {"signature": "(self) -> bytes"}}},
+      "request": {"kind": "function", "signature": "(method: str, url: str, data: Any = None, json: Any = None, headers: Any = ..., stream: Any = None, auth: Any = None, timeout: Any = None, parse_headers: bool = True) -> Response"},
+      "head": {"kind": "function", "signature": "(url: str, **kwargs: Any) -> Response"},
+      "get": {"kind": "function", "signature": "(url: str, **kwargs: Any) -> Response"},
+      "post": {"kind": "function", "signature": "(url: str, **kwargs: Any) -> Response"},
+      "put": {"kind": "function", "signature": "(url: str, **kwargs: Any) -> Response"},
+      "patch": {"kind": "function", "signature": "(url: str, **kwargs: Any) -> Response"},
+      "delete": {"kind": "function", "signature": "(url: str, **kwargs: Any) -> Response"}
+    }
+  },
+  "onewire": {
+    "symbols": {
+      "OneWire": {"kind": "class", "methods": {"crc8": {"signature": "(self, data: Any) -> int"}, "readbit": {"signature": "(self) -> int"}, "readbyte": {"signature": "(self) -> int"}, "writebit": {"signature": "(self, value: int) -> None"}, "writebyte": {"signature": "(self, value: int) -> None"}}}
+    }
+  },
+  "ds18x20": {
+    "symbols": {
+      "DS18X20": {"kind": "class", "methods": {"read_scratch": {"signature": "(self, rom: bytes) -> bytes"}, "read_temp": {"signature": "(self, rom: bytes) -> float"}, "scan": {"signature": "(self) -> List[bytes]"}}}
+    }
+  },
+  "gzip": {
+    "symbols": {"decompress": {"kind": "function", "signature": "(data: bytes) -> bytes"}}
+  },
+  "hashlib._sha": {
+    "symbols": {"sha": {"kind": "class", "methods": {"hexdigest": {"signature": "(self) -> str"}}}}
+  },
+  "micropython": {
+    "symbols": {"const": {"kind": "function", "signature": "(obj: _T, /) -> _T"}, "alloc_emergency_exception_buf": {"kind": "function", "signature": "(size: int, /) -> None"}}
+  },
+  "_thread": {
+    "symbols": {"Lock": {"kind": "class"}, "allocate_lock": {"kind": "function", "signature": "() -> Lock"}, "exit": {"kind": "function", "signature": "() -> NoReturn"}}
+  },
+  "cryptolib": {
+    "symbols": {"aes": {"kind": "class", "methods": {"encrypt": {"signature": "(self, input: Any, output: Any = ..., /) -> Optional[bytes]"}, "decrypt": {"signature": "(self, input: Any, output: Any = ..., /) -> Optional[bytes]"}}}}
+  },
+  "media.g711": {
+    "symbols": {"Encoder": {"kind": "class", "methods": {"get_free_chn_index": {"signature": "(cls) -> int"}}}, "Decoder": {"kind": "class", "methods": {"get_free_chn_index": {"signature": "(cls) -> int"}}}}
+  },
+  "media.opus": {
+    "symbols": {"Encoder": {"kind": "class", "methods": {"get_free_chn_index": {"signature": "(cls) -> int"}}}, "Decoder": {"kind": "class", "methods": {"get_free_chn_index": {"signature": "(cls) -> int"}}}}
+  },
+  "media.vdecoder": {
+    "symbols": {"Decoder": {"kind": "class", "methods": {"get_free_chn_index": {"signature": "(cls) -> int"}, "find_use_chn_index": {"signature": "(cls) -> int"}, "get_vdec_channel": {"signature": "(self) -> int"}}}}
+  },
+  "media.chunk": {
+    "symbols": {"Chunk": {"kind": "class", "methods": {"getname": {"signature": "(self) -> bytes"}, "getsize": {"signature": "(self) -> int"}}}}
+  },
+  "media.pyaudio": {
+    "symbols": {
+      "Write_stream": {"kind": "class", "methods": {"volume": {"signature": "(self, vol: Optional[int] = None, channel: int = ...) -> Union[Tuple[int, int], bool]"}, "swap_left_right": {"signature": "(self, state: bool = True) -> None"}}},
+      "Read_stream": {"kind": "class", "methods": {"volume": {"signature": "(self, vol: Optional[int] = None, channel: int = ...) -> Union[Tuple[int, int], bool]"}, "swap_left_right": {"signature": "(self, state: bool = True) -> None"}, "enable_audio3a": {"signature": "(self, audio3a_value: int) -> int"}}},
+      "PyAudio": {"kind": "class", "methods": {"get_format_from_width": {"signature": "(self, width: int) -> int"}, "open": {"doc": "Open a playback or capture stream.", "signature": "(self, rate: int, channels: int, format: int, input: bool = False, output: bool = False, input_device_index: Any = None, output_device_index: Any = None, enable_codec: bool = True, frames_per_buffer: int = 1024, start: bool = True, stream_callback: Any = None) -> Stream"}}}
+    }
+  },
+  "heapq": {"symbols": {"heappop": {"kind": "function", "signature": "(heap: List[_T], /) -> _T"}}},
+  "random": {"symbols": {"choice": {"kind": "function", "signature": "(seq: List[_T], /) -> _T"}}},
+  "framebuf": {"symbols": {"FrameBuffer1": {"kind": "function", "signature": "(buffer: Any, width: int, height: int, format: int = ..., /) -> FrameBuffer"}}},
+  "lwip": {"symbols": {"socket": {"kind": "class", "methods": {"accept": {"signature": "(self, /) -> Tuple[socket, tuple]"}, "recv": {"signature": "(self, length: int, /) -> bytes"}}}}},
+  "media.rtspserver": {"symbols": {"RtspServer": {"kind": "class", "methods": {"get_rtsp_url": {"signature": "(self) -> str"}}}}},
+  "multimedia": {"symbols": {"rtsp_server": {"kind": "class", "methods": {"rtspserver_getrtspurl": {"signature": "(self, session_name: str, /) -> str"}, "rtspserver_test": {"signature": "(self, /) -> str"}}}}},
+  "nonai2d": {"symbols": {"CSC": {"kind": "class", "methods": {"convert": {"signature": "(self, frame: Any, timeout_ms: int = 1000, cvt: bool = True) -> Optional[Union[image.Image, _media.py_video_frame_info]]"}, "get_frame": {"signature": "(self, timeout_ms: int = 1000) -> Optional[_media.py_video_frame_info]"}}}}},
+  "base64": {
+    "symbols": {
+      "b64encode": {"kind": "function", "signature": "(s: Any, altchars: Any = None) -> bytes"},
+      "standard_b64encode": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "standard_b64decode": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "urlsafe_b64encode": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "urlsafe_b64decode": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "b32decode": {"kind": "function", "signature": "(s: Any, casefold: bool = False, map01: Any = None) -> bytes"},
+      "b16encode": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "b16decode": {"kind": "function", "signature": "(s: Any, casefold: bool = False) -> bytes"},
+      "encodebytes": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "encodestring": {"kind": "function", "signature": "(s: Any) -> bytes"},
+      "decodestring": {"kind": "function", "signature": "(s: Any) -> bytes"}
+    }
+  },
+  "struct": {
+    "symbols": {
+      "pack": {"kind": "function", "signature": "(fmt: str, /, *values: Any) -> bytes"},
+      "pack_into": {"kind": "function", "signature": "(fmt: str, buffer: Any, offset: int, /, *values: Any) -> None"},
+      "unpack": {"kind": "function", "signature": "(fmt: str, buffer: Any, offset: int = ..., /) -> tuple"},
+      "unpack_from": {"kind": "function", "signature": "(fmt: str, buffer: Any, offset: int = ..., /) -> tuple"}
+    }
+  },
+  "dht": {
+    "symbols": {
+      "DHT11": {"kind": "class", "methods": {"humidity": {"signature": "(self) -> int"}, "temperature": {"signature": "(self) -> int"}}},
+      "DHT22": {"kind": "class", "methods": {"humidity": {"signature": "(self) -> float"}, "temperature": {"signature": "(self) -> float"}}}
+    }
+  },
+  "io": {
+    "symbols": {
+      "BytesIO": {"kind": "class", "methods": {"getvalue": {"signature": "(self, /) -> bytes"}}},
+      "StringIO": {"kind": "class", "methods": {"getvalue": {"signature": "(self, /) -> str"}, "read": {"signature": "(self, nbytes: Optional[int] = None) -> str"}, "readline": {"signature": "(self) -> str"}}}
+    }
+  },
+  "platform": {
+    "symbols": {
+      "libc_ver": {"kind": "function", "signature": "(*args: Any) -> Tuple[str, str]"},
+      "platform": {"kind": "function", "signature": "(*args: Any) -> str"},
+      "python_compiler": {"kind": "function", "signature": "() -> str"}
+    }
+  },
+  "re": {
+    "symbols": {
+      "Pattern": {"kind": "class"},
+      "Match": {"kind": "class"},
+      "compile": {"kind": "function", "signature": "(pattern: str, flags: int = ..., /) -> Pattern"},
+      "match": {"kind": "function", "signature": "(pattern: Any, string: Any, flags: int = ..., debug: Any = ..., /) -> Optional[Match]"},
+      "search": {"kind": "function", "signature": "(pattern: Any, string: Any, flags: int = ..., debug: Any = ..., /) -> Optional[Match]"},
+      "sub": {"kind": "function", "signature": "(pattern: Any, replace: Any, string: Any, count: int = ..., flags: Any = ..., /) -> Union[str, bytes]"}
+    }
+  },
+  "select": {
+    "symbols": {
+      "Poll": {"kind": "class", "methods": {"register": {"signature": "(self, obj: Any, eventmask: int = ..., /) -> None"}, "unregister": {"signature": "(self, obj: Any, /) -> None"}, "modify": {"signature": "(self, obj: Any, eventmask: int, /) -> None"}, "poll": {"signature": "(self, timeout: int = ..., /) -> List[Tuple[Any, int]]"}}},
+      "poll": {"kind": "function", "signature": "() -> Poll"}
+    }
+  },
+  "socket": {
+    "symbols": {
+      "socket": {"kind": "class", "methods": {"accept": {"signature": "(self, /) -> Tuple[socket, tuple]"}, "recv": {"signature": "(self, length: int, /) -> bytes"}, "setblocking": {"signature": "(self, flag: bool, /) -> None"}}}
+    }
+  },
+  "ssl": {
+    "symbols": {
+      "SSLSocket": {"kind": "object", "methods": {"setblocking": {"signature": "(self, flag: bool, /) -> None"}}},
+      "SSLContext": {"kind": "class", "methods": {"wrap_socket": {"signature": "(self, sock: Any, *, server_side: bool = False, do_handshake_on_connect: bool = True, server_hostname: Any = ...) -> SSLSocket"}}},
+      "wrap_socket": {"kind": "function", "signature": "(sock: Any, *, key: Any = ..., cert: Any = ..., server_side: bool = False, server_hostname: Any = ..., cert_reqs: int = ..., cadata: Any = ..., do_handshake: bool = True) -> SSLSocket"}
+    }
+  },
+  "sys": {
+    "symbols": {
+      "atexit": {"kind": "function", "signature": "(callback: Callable[..., Any], /) -> Optional[Callable[..., Any]]"},
+      "exit": {"kind": "function", "signature": "(code: Any = ..., /) -> NoReturn"}
+    }
+  },
+  "cv_lite": {
+    "symbols": {
+      "rgb888_pnp_distance_from_corners": {
+        "kind": "function",
+        "signature": "(frame_size: Any, data: Any, camera_matrix: Any, dist_coeffs: Any, dist_len: int, obj_width_cm: float, obj_height_cm: float, /) -> List[Union[float, List[int], List[List[int]]]]"
       }
+    }
+  },
+  "nncase_runtime": {
+    "symbols": {
+      "ai2d": {
+        "kind": "class",
+        "methods": {
+          "build": {"signature": "(self, input_shape: Any, output_shape: Any, /) -> ai2d_builder"}
+        }
+      },
+      "ai2d_builder": {
+        "kind": "object"
+      },
+      "from_numpy": {
+        "kind": "function",
+        "signature": "(ndarray: ulab.numpy.ndarray, /) -> runtime_tensor"
+      },
+      "kpu": {
+        "kind": "class",
+        "methods": {
+          "get_input_tensor": {"signature": "(self, index: int, /) -> runtime_tensor"},
+          "get_output_tensor": {"signature": "(self, index: int, /) -> runtime_tensor"},
+          "inputs_desc": {"signature": "(self, index: int, /) -> Dict[str, Union[str, int]]"},
+          "outputs_desc": {"signature": "(self, index: int, /) -> Dict[str, Union[str, int]]"}
+        }
+      },
+      "runtime_tensor": {
+        "kind": "object"
+      },
+      "version": {
+        "kind": "function",
+        "signature": "() -> str"
+      }
+    }
+  },
+  "kpu": {
+    "symbols": {
+      "get_input_tensor": {"kind": "function", "signature": "(self, index: int, /) -> nncase_runtime.runtime_tensor"},
+      "get_output_tensor": {"kind": "function", "signature": "(self, index: int, /) -> nncase_runtime.runtime_tensor"},
+      "inputs_desc": {"kind": "function", "signature": "(self, index: int, /) -> Dict[str, Union[str, int]]"},
+      "outputs_desc": {"kind": "function", "signature": "(self, index: int, /) -> Dict[str, Union[str, int]]"}
+    }
+  },
+  "ai2d": {
+    "symbols": {
+      "build": {"kind": "function", "signature": "(self, input_shape: Any, output_shape: Any, /) -> nncase_runtime.ai2d_builder"}
     }
   },
   "image": {
@@ -503,98 +808,258 @@
       "Image": {
         "kind": "class",
         "methods": {
+          "find_apriltags": {
+            "signature": "(self, *, families: int = ..., fx: float = ..., fy: float = ..., cx: float = ..., cy: float = ..., roi: Any = ...) -> List[apriltag]"
+          },
+          "find_barcodes": {
+            "signature": "(self, *, roi: Any = ...) -> List[barcode]"
+          },
+          "find_blobs": {
+            "signature": "(self, thresholds: Any, *, invert: int = ..., x_stride: int = ..., y_stride: int = ..., area_threshold: int = ..., pixels_threshold: int = ..., merge: int = ..., margin: int = ..., threshold_cb: Any = ..., merge_cb: Any = ..., x_hist_bins_max: int = ..., y_hist_bins_max: int = ..., roi: Any = ...) -> List[blob]"
+          },
+          "find_circles": {
+            "signature": "(self, *, x_stride: int = ..., y_stride: int = ..., threshold: int = ..., x_margin: int = ..., y_margin: int = ..., r_margin: int = ..., r_min: int = ..., r_max: int = ..., r_step: int = ..., roi: Any = ...) -> List[circle]"
+          },
+          "find_datamatrices": {
+            "signature": "(self, *, effort: int = ..., roi: Any = ...) -> List[datamatrix]"
+          },
+          "find_displacement": {
+            "signature": "(self, template_img: Any, *, template_roi: Any = ..., logpolar: int = ..., fix_rotation_scale: int = ..., roi: Any = ...) -> displacement"
+          },
+          "find_edges": {
+            "signature": "(self, edge_type: int, *, threshold: Any = ..., roi: Any = ...) -> Image"
+          },
+          "find_eye": {
+            "signature": "(self, roi: Any) -> Tuple[int, int]"
+          },
+          "find_features": {
+            "signature": "(self, cascade: Any, *, threshold: float = ..., scale_factor: float = ..., roi: Any = ...) -> List[Tuple[int, int, int, int]]"
+          },
+          "get_hist": {
+            "signature": "(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> histogram"
+          },
+          "get_histogram": {
+            "signature": "(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> histogram"
+          },
+          "get_statistics": {
+            "signature": "(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> statistics"
+          },
+          "get_stats": {
+            "signature": "(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> statistics"
+          },
+          "histogram": {
+            "signature": "(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> histogram"
+          },
+          "statistics": {
+            "signature": "(self, *, invert: int = ..., difference: Any = ..., bins: int = ..., l_bins: int = ..., a_bins: int = ..., b_bins: int = ..., roi: Any = ..., thresholds: Any = ...) -> statistics"
+          },
+          "find_hog": {
+            "signature": "(self, *, size: int = ..., roi: Any = ...) -> Image"
+          },
+          "find_keypoints": {
+            "signature": "(self, *, threshold: int = ..., normalized: int = ..., scale_factor: float = ..., max_keypoints: int = ..., corner_detector: int = ..., roi: Any = ...) -> Optional[kp_desc]"
+          },
+          "find_lbp": {
+            "signature": "(self, roi: Any) -> lbp_desc"
+          },
+          "find_line_segments": {
+            "signature": "(self, *, merge_distance: int = ..., max_theta_diff: int = ..., roi: Any = ...) -> List[line]"
+          },
+          "find_lines": {
+            "signature": "(self, *, x_stride: int = ..., y_stride: int = ..., threshold: int = ..., theta_margin: int = ..., rho_margin: int = ..., roi: Any = ...) -> List[line]"
+          },
+          "find_qrcodes": {
+            "signature": "(self, *, roi: Any = ...) -> List[qrcode]"
+          },
+          "find_rects": {
+            "signature": "(self, *, threshold: int = ..., roi: Any = ...) -> List[rect]"
+          },
+          "find_template": {
+            "signature": "(self, template: Any, thresh: float, *, step: int = ..., search: int = ..., roi: Any = ...) -> Optional[Tuple[int, int, int, int]]"
+          },
           "mask_circle": {
             "doc": "Apply a circular mask to the image in place.",
-            "signature": "(self, cx: int = ..., cy: int = ..., cr: int = ...) -> Any"
+            "signature": "(self, cx: int = ..., cy: int = ..., cr: int = ...) -> Image"
           },
           "mask_ellipse": {
             "doc": "Apply an elliptical mask to the image in place.",
-            "signature": "(self, cx: int = ..., cy: int = ..., rx: int = ..., ry: int = ..., r: int = 0) -> Any"
+            "signature": "(self, cx: int = ..., cy: int = ..., rx: int = ..., ry: int = ..., r: int = 0) -> Image"
           },
           "mask_rectangle": {
             "doc": "Apply a rectangular mask to the image in place.",
-            "signature": "(self, rx: int = ..., ry: int = ..., rw: int = ..., rh: int = ...) -> Any"
+            "signature": "(self, rx: int = ..., ry: int = ..., rw: int = ..., rh: int = ...) -> Image"
           },
           "mean_pooled": {
             "doc": "Return a new image reduced by mean pooling.",
-            "signature": "(self, x_div: int, y_div: int, *, alloc: int = ..., cache: bool = ..., data: Any = ...) -> Any"
+            "signature": "(self, x_div: int, y_div: int, *, alloc: int = ..., cache: bool = ..., data: Any = ...) -> Image"
           }
         }
+      },
+      "ImageIO": {
+        "kind": "class",
+        "methods": {
+          "version": {"signature": "(self, /) -> Optional[int]"}
+        }
+      },
+      "apriltag": {
+        "kind": "object"
+      },
+      "Cascade": {
+        "kind": "object"
+      },
+      "barcode": {
+        "kind": "object"
+      },
+      "blob": {
+        "kind": "object"
+      },
+      "circle": {
+        "kind": "object"
+      },
+      "datamatrix": {
+        "kind": "object"
+      },
+      "displacement": {
+        "kind": "object"
+      },
+      "histogram": {
+        "kind": "object",
+        "methods": {
+          "bins": {"signature": "(self, /) -> List[float]"},
+          "l_bins": {"signature": "(self, /) -> List[float]"},
+          "a_bins": {"signature": "(self, /) -> List[float]"},
+          "b_bins": {"signature": "(self, /) -> List[float]"},
+          "get_percentile": {"signature": "(self, percentile: float, /) -> percentile"},
+          "get_threshold": {"signature": "(self, /) -> threshold"},
+          "get_stats": {"signature": "(self, /) -> statistics"},
+          "get_statistics": {"signature": "(self, /) -> statistics"},
+          "statistics": {"signature": "(self, /) -> statistics"}
+        }
+      },
+      "percentile": {
+        "kind": "object",
+        "methods": {
+          "value": {"signature": "(self, /) -> int"},
+          "l_value": {"signature": "(self, /) -> int"},
+          "a_value": {"signature": "(self, /) -> int"},
+          "b_value": {"signature": "(self, /) -> int"}
+        }
+      },
+      "statistics": {
+        "kind": "object"
+      },
+      "threshold": {
+        "kind": "object",
+        "methods": {
+          "value": {"signature": "(self, /) -> int"},
+          "l_value": {"signature": "(self, /) -> int"},
+          "a_value": {"signature": "(self, /) -> int"},
+          "b_value": {"signature": "(self, /) -> int"}
+        }
+      },
+      "kp_desc": {
+        "kind": "object"
+      },
+      "kptmatch": {
+        "kind": "object",
+        "methods": {
+          "match": {"signature": "(self, /) -> List[Tuple[int, int]]"}
+        }
+      },
+      "lbp_desc": {
+        "kind": "object"
+      },
+      "line": {
+        "kind": "object"
+      },
+      "qrcode": {
+        "kind": "object"
+      },
+      "rect": {
+        "kind": "object"
+      },
+      "similarity": {
+        "kind": "object"
       },
       "rgb_to_binary": {
         "kind": "function",
         "doc": "Convert RGB components using rgb to binary.",
-        "signature": "(r: int, g: int, b: int) -> Any"
+        "signature": "(r: int, g: int, b: int) -> int"
       },
       "rgb_to_grayscale": {
         "kind": "function",
         "doc": "Convert RGB components using rgb to grayscale.",
-        "signature": "(r: int, g: int, b: int) -> Any"
+        "signature": "(r: int, g: int, b: int) -> int"
       },
       "rgb_to_lab": {
         "kind": "function",
         "doc": "Convert RGB components using rgb to lab.",
-        "signature": "(r: int, g: int, b: int) -> Any"
+        "signature": "(r: int, g: int, b: int) -> Tuple[int, int, int]"
       },
       "rgb_to_yuv": {
         "kind": "function",
         "doc": "Convert RGB components using rgb to yuv.",
-        "signature": "(r: int, g: int, b: int) -> Any"
+        "signature": "(r: int, g: int, b: int) -> Tuple[int, int, int]"
       },
       "lab_to_binary": {
         "kind": "function",
         "doc": "Convert LAB components using lab to binary.",
-        "signature": "(l: int, a: int, b: int) -> Any"
+        "signature": "(l: int, a: int, b: int) -> int"
       },
       "lab_to_grayscale": {
         "kind": "function",
         "doc": "Convert LAB components using lab to grayscale.",
-        "signature": "(l: int, a: int, b: int) -> Any"
+        "signature": "(l: int, a: int, b: int) -> int"
       },
       "lab_to_rgb": {
         "kind": "function",
         "doc": "Convert LAB components using lab to rgb.",
-        "signature": "(l: int, a: int, b: int) -> Any"
+        "signature": "(l: int, a: int, b: int) -> Tuple[int, int, int]"
       },
       "lab_to_yuv": {
         "kind": "function",
         "doc": "Convert LAB components using lab to yuv.",
-        "signature": "(l: int, a: int, b: int) -> Any"
+        "signature": "(l: int, a: int, b: int) -> Tuple[int, int, int]"
       },
       "yuv_to_binary": {
         "kind": "function",
         "doc": "Convert YUV components using yuv to binary.",
-        "signature": "(y: int, u: int, v: int) -> Any"
+        "signature": "(y: int, u: int, v: int) -> int"
       },
       "yuv_to_grayscale": {
         "kind": "function",
         "doc": "Convert YUV components using yuv to grayscale.",
-        "signature": "(y: int, u: int, v: int) -> Any"
+        "signature": "(y: int, u: int, v: int) -> int"
       },
       "yuv_to_lab": {
         "kind": "function",
         "doc": "Convert YUV components using yuv to lab.",
-        "signature": "(y: int, u: int, v: int) -> Any"
+        "signature": "(y: int, u: int, v: int) -> Tuple[int, int, int]"
       },
       "yuv_to_rgb": {
         "kind": "function",
         "doc": "Convert YUV components using yuv to rgb.",
-        "signature": "(y: int, u: int, v: int) -> Any"
+        "signature": "(y: int, u: int, v: int) -> Tuple[int, int, int]"
       },
       "HaarCascade": {
         "kind": "function",
         "doc": "Load a Haar cascade by path or built-in cascade name.",
-        "signature": "(path: str, stages: int = ...) -> Any"
+        "signature": "(path: str, stages: int = ...) -> Cascade"
       },
       "fb_stat": {
         "kind": "function",
         "doc": "Query framebuffer statistics.",
-        "signature": "(cmd: int = 0) -> Any"
+        "signature": "(cmd: int = 0) -> str"
       },
       "load_descriptor": {
         "kind": "function",
         "doc": "Load an image descriptor from a file.",
-        "signature": "(path: str) -> Any"
+        "signature": "(path: str) -> Union[kp_desc, lbp_desc]"
+      },
+      "match_descriptor": {
+        "kind": "function",
+        "doc": "Compare two image descriptors.",
+        "signature": "(desc1: Union[kp_desc, lbp_desc], desc2: Union[kp_desc, lbp_desc], *, threshold: int = ..., filter_outliers: int = ...) -> Union[int, kptmatch]"
       },
       "save_descriptor": {
         "kind": "function",
@@ -605,35 +1070,73 @@
   },
   "media.media": {
     "symbols": {
+      "MediaLink": {"kind": "class"},
       "MediaManager": {
         "kind": "class",
         "methods": {
           "init": {
             "doc": "Deprecated media manager initializer.",
-            "signature": "() -> Any"
+            "signature": "() -> None"
           },
           "deinit": {
             "doc": "Deprecated media manager deinitializer.",
-            "signature": "() -> Any"
+            "signature": "() -> None"
           },
+          "link": {"signature": "(src: tuple, dst: tuple) -> MediaLink"},
           "config_comm_pool": {
             "doc": "Deprecated media manager common-pool configuration.",
-            "signature": "() -> Any"
+            "signature": "() -> NoReturn"
           }
         }
       }
     }
   },
-  "media.pyaudio": {
+  "gc": {
     "symbols": {
-      "PyAudio": {
-        "kind": "class",
-        "methods": {
-          "open": {
-            "doc": "Open a playback or capture stream.",
-            "signature": "(self, rate: int, channels: int, format: int, input: bool = False, output: bool = False, input_device_index: Any = None, output_device_index: Any = None, enable_codec: bool = True, frames_per_buffer: int = 1024, start: bool = True, stream_callback: Any = None) -> Any"
-          }
-        }
+      "collect": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "disable": {
+        "kind": "function",
+        "signature": "() -> None"
+      },
+      "enable": {
+        "kind": "function",
+        "signature": "() -> None"
+      },
+      "isenabled": {
+        "kind": "function",
+        "signature": "() -> bool"
+      },
+      "mem_alloc": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "mem_free": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "sys_heap": {
+        "kind": "function",
+        "signature": "() -> Tuple[int, int, int]"
+      },
+      "sys_mmz": {
+        "kind": "function",
+        "signature": "() -> Tuple[int, int, int]"
+      },
+      "sys_page": {
+        "kind": "function",
+        "signature": "() -> Tuple[int, int, int]"
+      },
+      "sys_total": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "threshold": {
+        "kind": "function",
+        "doc": "Get or set the garbage-collection allocation threshold.",
+        "signature": "(val: int = ..., /) -> Optional[int]"
       }
     }
   },
@@ -667,6 +1170,26 @@
         "kind": "function",
         "doc": "Synchronise the system RTC via NTP (deprecated – use machine.RTC.ntp_sync() instead).",
         "signature": "() -> bool"
+      },
+      "ticks_ms": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "ticks_us": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "ticks_cpu": {
+        "kind": "function",
+        "signature": "() -> int"
+      },
+      "ticks_add": {
+        "kind": "function",
+        "signature": "(ticks: int, delta: int, /) -> int"
+      },
+      "ticks_diff": {
+        "kind": "function",
+        "signature": "(end: int, start: int, /) -> int"
       }
     }
   },

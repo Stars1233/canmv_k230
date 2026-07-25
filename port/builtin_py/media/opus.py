@@ -14,6 +14,8 @@ class Encoder:
     chns_enable = [0 for i in range(0,AENC_MAX_CHN_NUMS)]
 
     def _init_audio_frame(self):
+        """Internal helper method.
+        """
         if (self.frame_poolid == -1):
             frame_size = int(self.point_num_per_frame*2*2)
             pool_config = k_vb_pool_config()
@@ -28,6 +30,8 @@ class Encoder:
             self._audio_frame.virt_addr = kd_mpi_sys_mmap(self._audio_frame.phys_addr, frame_size)
 
     def _deinit_audio_frame(self):
+        """Internal helper method.
+        """
         kd_mpi_vb_release_block(self.audio_handle)
         if (self.frame_poolid != -1):
             kd_mpi_vb_destory_pool(self.frame_poolid)
@@ -35,12 +39,21 @@ class Encoder:
 
     @classmethod
     def get_free_chn_index(cls):
+        """Return an available media channel index.
+        """
         for i in cls.chns_enable:
             if (i == 0):
                 return i
         return -1
 
     def __init__(self,channels,sample_rate,bitrate,frames_per_buffer):
+        """Initialize the object.
+        Args:
+            channels: Number of audio channels.
+            sample_rate: Audio sample rate in Hz.
+            bitrate: Target encoding bit rate.
+            frames_per_buffer: Number of samples in each audio buffer.
+        """
         self.type = K_PT_OPUS
         self.point_num_per_frame = frames_per_buffer
         self.chn = -1
@@ -52,6 +65,8 @@ class Encoder:
         self.bitrate = bitrate
 
     def create(self):
+        """Create the required media resources.
+        """
         if (not self.init):
             self._init_audio_frame()
             chn_index = Encoder.get_free_chn_index()
@@ -79,6 +94,8 @@ class Encoder:
             raise RuntimeError("The instance has been initialized")
 
     def destroy(self):
+        """Destroy and release media resources.
+        """
         if (self.init):
             if (0 != kd_mpi_aenc_destroy_chn(self.chn)):
                 self._deinit_audio_frame()
@@ -91,6 +108,10 @@ class Encoder:
         self.init = False
 
     def encode(self,frame_data):
+        """Encode input data.
+        Args:
+            frame_data: PCM audio data to encode.
+        """
         audio_stream = k_audio_stream()
         self._audio_frame.len = len(frame_data)
         uctypes.bytearray_at(self._audio_frame.virt_addr, self._audio_frame.len)[:] = frame_data
@@ -109,6 +130,10 @@ class Encoder:
         return data
 
     def get_stream(self,timeout=1000):
+        """Get an encoded audio stream.
+        Args:
+            timeout: Timeout in milliseconds.
+        """
         audio_stream = k_audio_stream()
         if (0 != kd_mpi_aenc_get_stream(self.chn, audio_stream, timeout)):
             raise ValueError(("kd_mpi_aenc_get_stream:%d faild")%(self.chn))
@@ -124,6 +149,8 @@ class Decoder:
     chns_enable = [0 for i in range(0,ADEC_MAX_CHN_NUMS)]
 
     def _init_audio_stream(self):
+        """Internal helper method.
+        """
         if self.buffer is None:
             frame_size = int(self.point_num_per_frame*2*2)
             pool_config = k_vb_pool_config()
@@ -138,6 +165,8 @@ class Decoder:
             self._audio_stream.stream = kd_mpi_sys_mmap(self._audio_stream.phys_addr, frame_size)
 
     def _deinit_audio_stream(self):
+        """Internal helper method.
+        """
         kd_mpi_vb_release_block(self._audio_handle)
         if (self.stream_poolid != -1):
             kd_mpi_vb_destory_pool(self.stream_poolid)
@@ -145,12 +174,20 @@ class Decoder:
 
     @classmethod
     def get_free_chn_index(cls):
+        """Return an available media channel index.
+        """
         for i in cls.chns_enable:
             if (i == 0):
                 return i
         return -1
 
     def __init__(self,channels,sample_rate,frames_per_buffer):
+        """Initialize the object.
+        Args:
+            channels: Number of audio channels.
+            sample_rate: Audio sample rate in Hz.
+            frames_per_buffer: Number of samples in each audio buffer.
+        """
         self.type = K_PT_OPUS
         self.point_num_per_frame = frames_per_buffer
         self.chn = -1
@@ -162,6 +199,8 @@ class Decoder:
         self.channels = channels
 
     def create(self):
+        """Create the required media resources.
+        """
         if (not self.init):
             self._init_audio_stream()
             chn_index = Decoder.get_free_chn_index()
@@ -188,6 +227,8 @@ class Decoder:
             raise RuntimeError("The instance has been initialized")
 
     def destroy(self):
+        """Destroy and release media resources.
+        """
         if (self.init):
             if (0 != kd_mpi_adec_destroy_chn(self.chn)):
                 self._deinit_audio_stream()
@@ -199,6 +240,10 @@ class Decoder:
         self.init = False
 
     def decode(self,stream_data):
+        """Decode input data.
+        Args:
+            stream_data: Encoded audio data to decode.
+        """
         audio_frame = k_audio_frame()
         self._audio_stream.len = len(stream_data)
         uctypes.bytearray_at(self._audio_stream.stream, self._audio_stream.len)[:] = stream_data
@@ -217,6 +262,10 @@ class Decoder:
         return data
 
     def send_stream(self,stream_data):
+        """Send an encoded audio stream for decoding.
+        Args:
+            stream_data: Encoded audio data to decode.
+        """
         self._audio_stream.len = len(stream_data)
         uctypes.bytearray_at(self._audio_stream.stream, self._audio_stream.len)[:] = stream_data
 

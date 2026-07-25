@@ -9,6 +9,18 @@ from mpp.video_struct import *
 
 class ChnAttrStr:
     def __init__(self, payloadType, profile, picWidth, picHeight,bit_rate = 4000,gopLen = 30,src_frame_rate = 30,dst_frame_rate = 30,mjpeg_quality_factor = 45):
+        """Initialize the object.
+        Args:
+            payloadType: Video encoder payload type.
+            profile: Video encoder profile.
+            picWidth: Image width in pixels.
+            picHeight: Image height in pixels.
+            bit_rate: Target bit rate in Kbit/s.
+            gopLen: GOP length.
+            src_frame_rate: Input frame rate.
+            dst_frame_rate: Output frame rate.
+            mjpeg_quality_factor: MJPEG image quality factor.
+        """
         self.payload_type = payloadType
         self.profile = profile
         self.pic_width = picWidth
@@ -21,6 +33,8 @@ class ChnAttrStr:
 
 class StreamData:
     def __init__(self):
+        """Initialize the object.
+        """
         self.data = [0 for i in range(0, VENC_PACK_CNT_MAX)]
         self.phy_addr = [0 for i in range(0, VENC_PACK_CNT_MAX)]
         self.data_size = [0 for i in range(0, VENC_PACK_CNT_MAX)]
@@ -43,12 +57,20 @@ class Encoder:
     STREAM_TYPE_P = K_VENC_P_FRAME
 
     def __init__(self):
+        """Initialize the object.
+        """
         self.output = k_venc_stream()
         self.outbuf_num = 0
         self.private_poolid = -1
         self.chn = -1
 
     def SetOutBufs(self, buf_num, width, height):
+        """Configure video encoder output buffers.
+        Args:
+            buf_num: Number of output buffers.
+            width: Width in pixels.
+            height: Height in pixels.
+        """
         if buf_num and width and height:
             pool_config = k_vb_pool_config()
             pool_config.blk_cnt = buf_num
@@ -57,6 +79,10 @@ class Encoder:
             self.private_poolid = kd_mpi_vb_create_pool(pool_config)
 
     def Create(self, chnAttr):
+        """Create a media channel.
+        Args:
+            chnAttr: Video encoder channel configuration.
+        """
         chn_ptr = k_u32_ptr()
         ret = kd_mpi_venc_request_chn(chn_ptr)
         if ret != 0:
@@ -96,6 +122,8 @@ class Encoder:
                 raise OSError("mpi venc enable idr failed.")
 
     def Start(self):
+        """Start a media channel.
+        """
         if self.chn < 0:
             raise ValueError("venc Start, chn not requested yet")
 
@@ -104,6 +132,11 @@ class Encoder:
             raise OSError("mpi venc start failed.")
 
     def GetStream(self, streamData, timeout=-1):
+        """Get an encoded video stream.
+        Args:
+            streamData: Object that receives or releases video stream data.
+            timeout: Timeout in milliseconds.
+        """
         if self.chn < 0:
             raise ValueError("venc GetStream, chn not requested yet")
 
@@ -138,6 +171,10 @@ class Encoder:
         return 0
 
     def ReleaseStream(self, streamData):
+        """Release an acquired video stream.
+        Args:
+            streamData: Object that receives or releases video stream data.
+        """
         if self.chn < 0:
             raise ValueError("venc ReleaseStream, chn not requested yet")
 
@@ -151,6 +188,11 @@ class Encoder:
             raise OSError("mpi venc release stream failed.")
 
     def SendFrame(self, frame, timeout=1000):
+        """Send a video frame to the encoder.
+        Args:
+            frame: Video frame to encode.
+            timeout: Timeout in milliseconds.
+        """
         if self.chn < 0:
             raise ValueError("venc SendFrame, chn not requested yet")
 
@@ -158,6 +200,8 @@ class Encoder:
         return ret
 
     def Stop(self):
+        """Stop a media channel.
+        """
         if self.chn < 0:
             raise ValueError("venc Stop, chn not requested yet")
 
@@ -170,6 +214,8 @@ class Encoder:
             raise OSError("mpi venc detach vb pool failed.")
 
     def Destroy(self):
+        """Destroy a media channel.
+        """
         if self.chn < 0:
             raise ValueError("venc Destroy, chn not requested yet")
 

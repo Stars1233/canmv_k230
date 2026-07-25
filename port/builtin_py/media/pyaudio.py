@@ -36,6 +36,21 @@ class Stream:
                 frames_per_buffer=1024,
                 start=True,
                 stream_callback=None):
+        """Initialize the object.
+        Args:
+            PA_manager: PyAudio object managing this stream.
+            rate: Audio sample rate in Hz.
+            channels: Number of audio channels.
+            format: Audio sample format.
+            input: Whether to create an input stream.
+            output: Whether to create an output stream.
+            input_device_index: Input device index.
+            output_device_index: Output device index.
+            enable_codec: Whether to use the on-board audio codec.
+            frames_per_buffer: Number of samples in each audio buffer.
+            start: Whether to start immediately after creation.
+            stream_callback: Audio stream callback function.
+        """
 
         if ((input == False and output == False) or (input == True and output == True)):
             raise ValueError("Must specify an input or output " + "stream.")
@@ -62,27 +77,52 @@ class Stream:
         self.device_type = DEVICE_I2S
 
     def start_stream(self):
+        """Start the audio stream.
+        """
         pass
 
     def stop_stream(self):
+        """Stop the audio stream.
+        """
         pass
 
     def read(self):
+        """Read data from the input.
+        """
         pass
 
     def write(self, data):
+        """Write data to the output.
+        Args:
+            data: Media data to write.
+        """
         pass
 
     def close(self):
+        """Close the object and release resources.
+        """
         pass
 
     def volume(self,vol = None, channel = LEFT_RIGHT):
+        """Get or set the volume.
+        Args:
+            vol: Volume level; omit to read the current volume.
+            channel: Audio channel to operate on.
+        """
         pass
 
     def swap_left_right(self, state = True):
+        """Swap the left and right audio channels.
+        Args:
+            state: State to set.
+        """
         pass
 
     def enable_audio3a(self, audio3a_value):
+        """Configure audio 3A processing.
+        Args:
+            audio3a_value: Audio 3A feature bit mask.
+        """
         pass
 
 class Write_stream(Stream):
@@ -100,6 +140,21 @@ class Write_stream(Stream):
                 frames_per_buffer=1024,
                 start=True,
                 stream_callback=None):
+        """Initialize the object.
+        Args:
+            PA_manager: PyAudio object managing this stream.
+            rate: Audio sample rate in Hz.
+            channels: Number of audio channels.
+            format: Audio sample format.
+            input: Whether to create an input stream.
+            output: Whether to create an output stream.
+            input_device_index: Input device index.
+            output_device_index: Output device index.
+            enable_codec: Whether to use the on-board audio codec.
+            frames_per_buffer: Number of samples in each audio buffer.
+            start: Whether to start immediately after creation.
+            stream_callback: Audio stream callback function.
+        """
         super().__init__(PA_manager,rate,channels,format,input,output,input_device_index,output_device_index,enable_codec,frames_per_buffer,start,stream_callback)
         if (None == self._output_device_index or 0 == self._output_device_index):
             self._ao_dev = 0
@@ -120,6 +175,8 @@ class Write_stream(Stream):
             self.start_stream()
 
     def _init_audio_frame(self):
+        """Internal helper method.
+        """
         if (self._audio_handle == -1):
             pool_config = k_vb_pool_config()
             pool_config.blk_cnt = 1
@@ -138,6 +195,8 @@ class Write_stream(Stream):
             self._audio_frame.virt_addr = kd_mpi_sys_mmap(self._audio_frame.phys_addr, frame_size)
 
     def _deinit_audio_frame(self):
+        """Internal helper method.
+        """
         if (self._audio_handle != -1):
             kd_mpi_vb_release_block(self._audio_handle)
             self._audio_handle = -1
@@ -147,6 +206,8 @@ class Write_stream(Stream):
             self._frame_poolid = -1
 
     def start_stream(self):
+        """Start the audio stream.
+        """
         if (not self._start_stream):
             self._init_audio_frame()
             #init device only once
@@ -189,6 +250,8 @@ class Write_stream(Stream):
             self._start_stream = True
 
     def stop_stream(self):
+        """Stop the audio stream.
+        """
         if (self._start_stream):
             ret = kd_mpi_ao_disable_chn(self._ao_dev, self._ao_chn)
             if (0 != ret):
@@ -205,21 +268,36 @@ class Write_stream(Stream):
             self._start_stream = False
 
     def write(self,data):
+        """Write data to the output.
+        Args:
+            data: Media data to write.
+        """
         if (self._start_stream):
             uctypes.bytearray_at(self._audio_frame.virt_addr,  self._audio_frame.len)[:] = data
             return kd_mpi_ao_send_frame(self._ao_dev, self._ao_chn, self._audio_frame, 1000)
 
     def close(self):
+        """Close the object and release resources.
+        """
         self._is_running = False
         self._parent._remove_stream(self)
 
     def volume(self, vol = None, channel = LEFT_RIGHT):
+        """Get or set the volume.
+        Args:
+            vol: Volume level; omit to read the current volume.
+            channel: Audio channel to operate on.
+        """
         if vol is None:
             return ao_get_vol()
         else:
             return ao_set_vol(vol, channel)
 
     def swap_left_right(self, state = True):
+        """Swap the left and right audio channels.
+        Args:
+            state: State to set.
+        """
         return ao_swap_left_right(state)
 
 class Read_stream(Stream):
@@ -236,6 +314,21 @@ class Read_stream(Stream):
                 frames_per_buffer=1024,
                 start=True,
                 stream_callback=None):
+        """Initialize the object.
+        Args:
+            PA_manager: PyAudio object managing this stream.
+            rate: Audio sample rate in Hz.
+            channels: Number of audio channels.
+            format: Audio sample format.
+            input: Whether to create an input stream.
+            output: Whether to create an output stream.
+            input_device_index: Input device index.
+            output_device_index: Output device index.
+            enable_codec: Whether to use the on-board audio codec.
+            frames_per_buffer: Number of samples in each audio buffer.
+            start: Whether to start immediately after creation.
+            stream_callback: Audio stream callback function.
+        """
         super().__init__(PA_manager,rate,channels,format,input,output,input_device_index,output_device_index,enable_codec,frames_per_buffer,start,stream_callback)
         #i2s device 0;pdm device 1
         if (None == self._input_device_index or 0 == self._input_device_index):
@@ -257,6 +350,8 @@ class Read_stream(Stream):
             self.start_stream()
 
     def start_stream(self):
+        """Start the audio stream.
+        """
         if (not self._start_stream):
             #init device only once
             if (self.device_type == DEVICE_I2S):
@@ -313,6 +408,8 @@ class Read_stream(Stream):
             self._start_stream = True
 
     def stop_stream(self):
+        """Stop the audio stream.
+        """
         if (self._start_stream):
             if (self.device_type == DEVICE_I2S):
                 ret = kd_mpi_ai_disable_chn(self._ai_dev, self._ai_chn)
@@ -332,6 +429,11 @@ class Read_stream(Stream):
             self._start_stream = False
 
     def read(self,chn=0,block=True):
+        """Read data from the input.
+        Args:
+            chn: Media channel number.
+            block: Whether to block while waiting for data.
+        """
         if (self._start_stream):
             if (self.device_type == DEVICE_I2S):
                 ret = kd_mpi_ai_get_frame(self._ai_dev, self._ai_chn, self._audio_frame, 1000 if block else 10)
@@ -358,19 +460,34 @@ class Read_stream(Stream):
                     return None
 
     def close(self):
+        """Close the object and release resources.
+        """
         self._is_running = False
         self._parent._remove_stream(self)
 
     def volume(self,vol = None, channel = LEFT_RIGHT):
+        """Get or set the volume.
+        Args:
+            vol: Volume level; omit to read the current volume.
+            channel: Audio channel to operate on.
+        """
         if vol is None:
             return ai_get_vol()
         else:
             return ai_set_vol(vol, channel)
 
     def swap_left_right(self, state = True):
+        """Swap the left and right audio channels.
+        Args:
+            state: State to set.
+        """
         return ai_swap_left_right(state)
 
     def enable_audio3a(self, audio3a_value):
+        """Configure audio 3A processing.
+        Args:
+            audio3a_value: Audio 3A feature bit mask.
+        """
         aio_vqe_enable = k_ai_vqe_enable()
         if (audio3a_value & AUDIO_3A_ENABLE_ANS):
             aio_vqe_enable.ans_enable = True
@@ -410,11 +527,14 @@ class PyAudio:
         self._streams = set()
 
     def open(self, *args, **kwargs):
-        """
-        Open a new stream. See constructor for
-        :py:func:`Stream.__init__` for parameter details.
+        """Open a new audio stream.
 
-        :returns: A new :py:class:`Stream`
+        Args:
+            args: Positional arguments accepted by the stream constructor.
+            kwargs: Keyword arguments accepted by the stream constructor.
+
+        Returns:
+            Stream: A new input or output stream.
         """
         if (kwargs.get("output") == 1):
             stream = Write_stream(self, *args, **kwargs)
@@ -426,11 +546,13 @@ class PyAudio:
         return stream
 
     def close(self, stream):
-        """
-        Close a stream. Typically use :py:func:`Stream.close` instead.
+        """Close a managed audio stream.
 
-        :param stream: An instance of the :py:class:`Stream` object.
-        :raises ValueError: if stream does not exist.
+        Args:
+            stream: Stream instance to close.
+
+        Raises:
+            ValueError: If the stream is not managed by this PyAudio instance.
         """
 
         if stream not in self._streams:
@@ -439,10 +561,18 @@ class PyAudio:
         stream.close()
 
     def _remove_stream(self, stream):
+        """Internal helper method.
+        Args:
+            stream: Audio stream to close.
+        """
         if stream in self._streams:
             self._streams.remove(stream)
 
     def get_sample_size(self, format):
+        """Return the sample size for an audio format.
+        Args:
+            format: Audio sample format.
+        """
         if (paInt16 == format):
             return 2
         elif (paInt24 == format):
@@ -453,6 +583,10 @@ class PyAudio:
             return -1
 
     def get_format_from_width(self, width):
+        """Return the audio format for a sample width.
+        Args:
+            width: Width in pixels.
+        """
         if width == 2:
             return paInt16
         elif width == 3:

@@ -21,6 +21,11 @@ PLAY_PAUSE = 2
 
 class Player:
     def __init__(self,display_type = None,display_to_ide = True):
+        """Initialize the object.
+        Args:
+            display_type: Display device type.
+            display_to_ide: Whether to send display output to the IDE.
+        """
         self.mp4_cfg = k_mp4_config_s()
         self.video_info = k_mp4_video_info_s()
         self.video_track = False
@@ -32,6 +37,8 @@ class Player:
         self.display_to_ide = display_to_ide
 
     def _init_media_buffer(self):
+        """Internal helper method.
+        """
         if (self.audio_track):
             CHUNK = self.audio_info.sample_rate//DIV
             self.pyaudio = PyAudio()
@@ -68,6 +75,8 @@ class Player:
 
 
     def _deinit_media_buffer(self):
+        """Internal helper method.
+        """
         if (self.video_track):
             self.vdec.destroy()
 
@@ -84,6 +93,8 @@ class Player:
         self.audio_track = False
 
     def _do_file_data(self):
+        """Internal helper method.
+        """
         frame_data =  k_mp4_frame_data_s()
         # 记录初始系统时间
         start_system_time = time.ticks_ms()
@@ -122,6 +133,8 @@ class Player:
         self.callback(K_PLAYER_EVENT_EOF,0)
 
     def debug_codec_info(self):
+        """Print media codec information.
+        """
         if (self.video_track):
             if (self.video_info.codec_id == K_MP4_CODEC_ID_H264):
                 print("video track h264")
@@ -135,6 +148,10 @@ class Player:
                 print("audio track g711u")
 
     def load(self,filename):
+        """Load a media file.
+        Args:
+            filename: Media file path.
+        """
         self.mp4_cfg.config_type = K_MP4_CONFIG_DEMUXER
         self.mp4_cfg.muxer_config.file_name[:] = bytes(filename, 'utf-8')
         self.mp4_cfg.muxer_config.fmp4_flag = 0
@@ -184,6 +201,8 @@ class Player:
                 self.video_info.width = ALIGN_UP(self.video_info.width, 16)
 
     def start(self):
+        """Start processing.
+        """
         self._init_media_buffer()
 
         if (self.video_track):
@@ -201,6 +220,8 @@ class Player:
         _thread.start_new_thread(self._do_file_data,())
 
     def stop(self):
+        """Stop processing.
+        """
         Display.unbind_layer(Display.LAYER_VIDEO1)
         self.play_status = PLAY_STOP
         if (self.video_track):
@@ -217,15 +238,25 @@ class Player:
         self._deinit_media_buffer()
 
     def pause(self):
+        """Pause processing.
+        """
         self.play_status = PLAY_PAUSE
 
     def resume(self):
+        """Resume processing.
+        """
         self.play_status = PLAY_START
 
     def set_event_callback(self,callback):
+        """Set the playback event callback.
+        Args:
+            callback: Playback event callback function.
+        """
         self.callback = callback
 
     def destroy_mp4(self):
+        """Destroy the MP4 container.
+        """
         ret = kd_mp4_destroy(self.mp4_handle.value)
         if (ret < 0):
             raise OSError("destroy mp4 failed.")

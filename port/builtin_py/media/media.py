@@ -103,22 +103,47 @@ class MediaManager:
 
     @staticmethod
     def init(*args, **kwargs):
+        """Initialize media resources.
+        Args:
+            args: Additional positional arguments.
+            kwargs: Additional keyword arguments.
+        """
         print("deprecated function")
 
     @staticmethod
     def deinit(*args, **kwargs):
+        """Release media resources.
+        Args:
+            args: Additional positional arguments.
+            kwargs: Additional keyword arguments.
+        """
         print("deprecated function")
 
     @staticmethod
     def _config(*args, **kwargs):
+        """Internal helper method.
+        Args:
+            args: Additional positional arguments.
+            kwargs: Additional keyword arguments.
+        """
         raise RuntimeError("deprecated function")
 
     @staticmethod
     def config_comm_pool(*args, **kwargs):
+        """Perform this media operation.
+        Args:
+            args: Additional positional arguments.
+            kwargs: Additional keyword arguments.
+        """
         raise RuntimeError("deprecated function")
 
     @staticmethod
     def link(src, dst):
+        """Connect two media channels.
+        Args:
+            src: Source media channel tuple.
+            dst: Destination media channel tuple.
+        """
         if not isinstance(src, tuple):
             raise TypeError("src is not a tuple")
         if len(src) != 3:

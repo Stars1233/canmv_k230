@@ -1,5 +1,12 @@
 class Chunk:
     def __init__(self, file, align=True, bigendian=True, inclheader=False):
+        """Initialize the object.
+        Args:
+            file: File object to read from or write to.
+            align: Whether chunk data is aligned to word boundaries.
+            bigendian: Whether to use big-endian byte order.
+            inclheader: Whether the chunk size includes the header.
+        """
         import struct
         self.closed = False
         self.align = align      # whether to align to word (2-byte) boundaries
@@ -35,11 +42,15 @@ class Chunk:
         return self.chunksize
 
     def close(self):
+        """Close the object and release resources.
+        """
         if not self.closed:
             self.skip()
             self.closed = True
 
     def isatty(self):
+        """Return whether this object is attached to a terminal.
+        """
         if self.closed:
             raise ValueError("I/O operation on closed file")
         return False
@@ -48,6 +59,10 @@ class Chunk:
         """Seek to specified position into the chunk.
         Default position is 0 (start of chunk).
         If the file is not seekable, this will result in an error.
+
+        Args:
+            pos: Position in the current chunk.
+            whence: Reference point for the position.
         """
 
         if self.closed:
@@ -64,6 +79,8 @@ class Chunk:
         self.size_read = pos
 
     def tell(self):
+        """Return the current position.
+        """
         if self.closed:
             raise ValueError("I/O operation on closed file")
         return self.size_read
@@ -72,6 +89,9 @@ class Chunk:
         """Read at most size bytes from the chunk.
         If size is omitted or negative, read until the end
         of the chunk.
+
+        Args:
+            size: Maximum number of bytes to read.
         """
 
         if self.closed:

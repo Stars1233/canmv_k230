@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import functools
 import json
 import keyword
 import os
@@ -36,7 +37,7 @@ from typing import Any, Optional
 """
 
 
-OPTIONAL_TYPING_IMPORTS = ("Callable", "Dict", "Iterable", "Tuple", "Union")
+OPTIONAL_TYPING_IMPORTS = ("Callable", "Dict", "Generic", "Iterable", "Iterator", "List", "NoReturn", "Self", "Tuple", "TypeVar", "Union")
 ULAB_TYPE_ALIASES = {
     "_float": "float",
     "_bool": "bool",
@@ -49,12 +50,23 @@ def finalize_stub_text(text: str) -> str:
     for name in OPTIONAL_TYPING_IMPORTS:
         if re.search(r"\b" + re.escape(name) + r"\b", text):
             typing_names.append(name)
+    if re.search(r"\b_(?:T|K|V)\b", text) and "TypeVar" not in typing_names:
+        typing_names.append("TypeVar")
     typing_line = "from typing import " + ", ".join(typing_names) + "\n"
     text = re.sub(r"from typing import [^\n]+\n", typing_line, text, count=1)
 
     extras: list[str] = []
     if "ulab." in text and "\nimport ulab\n" not in text:
         extras.append("import ulab")
+    if "nncase_runtime." in text and "\nimport nncase_runtime\n" not in text and "\nclass runtime_tensor:" not in text:
+        extras.append("import nncase_runtime")
+    if "_media." in text and "\nimport _media\n" not in text:
+        extras.append("import _media")
+    if re.search(r"->\s*[^\n]*\bimage\.Image\b", text) and "\nimport image\n" not in text and "\nimport image as image\n" not in text:
+        extras.append("import image")
+    for typevar in ("_T", "_K", "_V"):
+        if re.search(r"\b" + typevar + r"\b", text) and not re.search(r"^" + typevar + r"\s*=\s*TypeVar", text, re.MULTILINE):
+            extras.append(f'{typevar} = TypeVar("{typevar}")')
     for alias, target in ULAB_TYPE_ALIASES.items():
         if re.search(r"\b" + re.escape(alias) + r"\b", text) and not re.search(r"^" + re.escape(alias) + r"\s*=", text, re.MULTILINE):
             extras.append(f"{alias} = {target}")
@@ -143,6 +155,7 @@ class CFunction:
     kw_hints: list[str] = field(default_factory=list)
     positional_only: bool = False
     is_staticmethod: bool = False
+    return_type: str | None = None
 
 
 @dataclass
@@ -613,7 +626,7 @@ def stub_doc_block_to_override(default_module: str | None, block_lines: list[str
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and public_name(node.name):
             symbols[node.name] = {
                 "kind": "function",
-                "signature": signature_from_stub_node(lines, node),
+                "source_signature": signature_from_stub_node(lines, node),
             }
             doc = ast.get_docstring(node)
             if doc:
@@ -627,12 +640,12 @@ def stub_doc_block_to_override(default_module: str | None, block_lines: list[str
             attrs: dict[str, str] = {}
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and public_name(item.name):
-                    method = {"signature": signature_from_stub_node(lines, item)}
+                    method = {"source_signature": signature_from_stub_node(lines, item)}
                     method_doc = ast.get_docstring(item)
                     if method_doc:
                         method["doc"] = method_doc
                     if item.name == "__init__":
-                        class_override["init"] = method["signature"]
+                        class_override["init"] = method["source_signature"]
                         if method_doc:
                             class_override["init_doc"] = method_doc
                     else:
@@ -731,6 +744,24 @@ def ensure_signature(signature: str | None, fallback: str) -> str:
     return signature if signature.startswith("(") else "(" + signature
 
 
+def resolved_signature(override: dict[str, Any], fallback: str) -> str:
+    explicit = override.get("signature")
+    if explicit:
+        return ensure_signature(explicit, fallback)
+
+    source = override.get("source_signature")
+    if not source:
+        return fallback
+    source = ensure_signature(source, fallback)
+    source_return = re.search(r"\s*->\s*(?P<type>.+)", source)
+    fallback_return = re.search(r"\s*->\s*(?P<type>.+)", fallback)
+    if source_return and fallback_return and source_return.group("type").strip() == "Any":
+        inferred = fallback_return.group("type").strip()
+        if inferred != "Any":
+            return source[:source_return.start()] + " -> " + inferred
+    return source
+
+
 def render_function(
     name: str,
     signature: str,
@@ -746,6 +777,11 @@ def render_function(
     return lines
 
 
+def constructor_signature(signature: str) -> str:
+    signature = ensure_signature(signature, "(self, *args: Any, **kwargs: Any) -> None")
+    return signature.rsplit("->", 1)[0] + "-> None"
+
+
 def render_class(
     name: str,
     override: dict[str, Any] | None = None,
@@ -756,7 +792,12 @@ def render_class(
     override = override or {}
     methods = dict(methods or {})
     attrs = attrs or {}
-    lines = [f"class {name}:"]
+    bases = override.get("bases", [])
+    if isinstance(bases, str):
+        bases = [bases]
+    bases = [base for base in bases if isinstance(base, str) and base.strip()]
+    base_text = "(" + ", ".join(bases) + ")" if bases else ""
+    lines = [f"class {name}{base_text}:"]
     lines.extend(doc_lines(override.get("doc"), "    "))
 
     merged_attrs = dict(attrs)
@@ -770,7 +811,7 @@ def render_class(
     generated_init_sig = methods.pop("__init__", None)
     init_sig = override.get("init") or generated_init_sig
     if init_sig:
-        lines.extend(render_function("__init__", ensure_signature(init_sig, "(self, *args: Any, **kwargs: Any) -> None"), override.get("init_doc"), "    "))
+        lines.extend(render_function("__init__", constructor_signature(init_sig), override.get("init_doc"), "    "))
     elif add_default_init:
         lines.extend(render_function("__init__", "(self, *args: Any, **kwargs: Any) -> None", None, "    "))
 
@@ -782,7 +823,7 @@ def render_class(
             continue
         method_override = method_overrides.get(method_name, {})
         method_override = method_override if isinstance(method_override, dict) else {}
-        final_sig = ensure_signature(method_override.get("signature"), signature)
+        final_sig = resolved_signature(method_override, signature)
         lines.extend(render_function(method_name, final_sig, method_override.get("doc"), "    ", decorators=class_method_decorators(final_sig)))
         seen_methods.add(method_name)
 
@@ -791,7 +832,7 @@ def render_class(
             continue
         if method_name in seen_methods or not isinstance(method_override, dict):
             continue
-        final_sig = ensure_signature(method_override.get("signature"), "(self, *args: Any, **kwargs: Any) -> Any")
+        final_sig = resolved_signature(method_override, "(self, *args: Any, **kwargs: Any) -> Any")
         lines.extend(render_function(method_name, final_sig, method_override.get("doc"), "    ", decorators=class_method_decorators(final_sig)))
 
     if len(lines) == 1:
@@ -808,7 +849,7 @@ def render_override_symbol(name: str, override: dict[str, Any]) -> list[str]:
         return [f"{name}: {override.get('type', 'Any')}"]
     if kind == "module":
         return [f"{name}: Any"]
-    return render_function(name, ensure_signature(override.get("signature"), "(*args: Any, **kwargs: Any) -> Any"), override.get("doc"))
+    return render_function(name, resolved_signature(override, "(*args: Any, **kwargs: Any) -> Any"), override.get("doc"))
 
 
 def valid_stub_identifier(name: str) -> bool:
@@ -964,7 +1005,188 @@ def format_arg(arg: ast.arg, default: ast.expr | None = None, *, prefix: str = "
     return text
 
 
-def format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+def expression_type(node: ast.expr | None, local_types: dict[str, set[str]], class_name: str | None) -> set[str] | None:
+    if node is None:
+        return {"None"}
+    if isinstance(node, ast.Constant):
+        if node.value is None:
+            return {"None"}
+        if isinstance(node.value, bool):
+            return {"bool"}
+        if isinstance(node.value, int):
+            return {"int"}
+        if isinstance(node.value, float):
+            return {"float"}
+        if isinstance(node.value, str):
+            return {"str"}
+        if isinstance(node.value, bytes):
+            return {"bytes"}
+        return None
+    if isinstance(node, ast.Name):
+        if node.id == "self" and class_name:
+            return {class_name}
+        return local_types.get(node.id)
+    if isinstance(node, ast.List):
+        return {"list"}
+    if isinstance(node, ast.Tuple):
+        return {"tuple"}
+    if isinstance(node, ast.Dict):
+        return {"dict"}
+    if isinstance(node, ast.Set):
+        return {"set"}
+    if isinstance(node, ast.Compare):
+        return {"bool"}
+    if isinstance(node, ast.IfExp):
+        body_type = expression_type(node.body, local_types, class_name)
+        else_type = expression_type(node.orelse, local_types, class_name)
+        if body_type is None or else_type is None:
+            return None
+        return body_type | else_type
+    if isinstance(node, ast.UnaryOp):
+        return expression_type(node.operand, local_types, class_name)
+    if isinstance(node, ast.Await):
+        return expression_type(node.value, local_types, class_name)
+    if isinstance(node, ast.BinOp):
+        left = expression_type(node.left, local_types, class_name)
+        right = expression_type(node.right, local_types, class_name)
+        if left and right and left <= {"int", "float"} and right <= {"int", "float"}:
+            return {"float" if isinstance(node.op, ast.Div) or "float" in left | right else "int"}
+        return None
+    if isinstance(node, ast.Call):
+        try:
+            callee = ast.unparse(node.func)
+        except Exception:
+            return None
+        known_calls = {
+            "bool": "bool",
+            "binascii.a2b_base64": "bytes",
+            "binascii.b2a_base64": "bytes",
+            "bytearray": "bytearray",
+            "bytes": "bytes",
+            "dict": "dict",
+            "float": "float",
+            "int": "int",
+            "len": "int",
+            "list": "list",
+            "set": "set",
+            "str": "str",
+            "tuple": "tuple",
+            "uctypes.addressof": "int",
+            "uctypes.bytearray_at": "bytearray",
+            "uctypes.bytes_at": "bytes",
+            "uctypes.string_at": "bytes",
+            "uctypes.sizeof": "int",
+        }
+        if callee in known_calls:
+            return {known_calls[callee]}
+        final_name = callee.rsplit(".", 1)[-1]
+        if final_name and final_name[0].isupper():
+            return {callee}
+    return None
+
+
+class FunctionBodyVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.assignments: list[tuple[str, ast.expr | None]] = []
+        self.returns: list[ast.expr | None] = []
+        self.has_yield = False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        return
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                self.assignments.append((target.id, node.value))
+        self.generic_visit(node.value)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.assignments.append((node.target.id, node.value))
+        if node.value is not None:
+            self.generic_visit(node.value)
+
+    def visit_For(self, node: ast.For) -> None:
+        if (
+            isinstance(node.target, ast.Name)
+            and isinstance(node.iter, ast.Call)
+            and isinstance(node.iter.func, ast.Name)
+            and node.iter.func.id == "range"
+        ):
+            self.assignments.append((node.target.id, ast.Constant(value=0)))
+        self.generic_visit(node)
+
+    def visit_Return(self, node: ast.Return) -> None:
+        self.returns.append(node.value)
+
+    def visit_Yield(self, node: ast.Yield) -> None:
+        self.has_yield = True
+
+    def visit_YieldFrom(self, node: ast.YieldFrom) -> None:
+        self.has_yield = True
+
+
+def inferred_return_type(node: ast.FunctionDef | ast.AsyncFunctionDef, class_name: str | None = None) -> str:
+    visitor = FunctionBodyVisitor()
+    for statement in node.body:
+        visitor.visit(statement)
+
+    local_types: dict[str, set[str]] = {}
+    for _ in range(len(visitor.assignments) + 1):
+        changed = False
+        for name, value in visitor.assignments:
+            inferred = expression_type(value, local_types, class_name)
+            if inferred is None:
+                continue
+            merged = local_types.get(name, set()) | inferred
+            if merged != local_types.get(name):
+                local_types[name] = merged
+                changed = True
+        if not changed:
+            break
+
+    # If any assignment to a local remains unresolved, keep returns of that
+    # local conservative even when another assignment had a known type.
+    while True:
+        unresolved = {
+            name
+            for name, value in visitor.assignments
+            if expression_type(value, local_types, class_name) is None
+        }
+        removed = unresolved & local_types.keys()
+        if not removed:
+            break
+        for name in removed:
+            local_types.pop(name, None)
+
+    if visitor.has_yield:
+        return "Any"
+    if not visitor.returns:
+        return "None"
+    return_types: set[str] = set()
+    for value in visitor.returns:
+        inferred = expression_type(value, local_types, class_name)
+        if inferred is None:
+            return "Any"
+        return_types.update(inferred)
+    if return_types == {"None"}:
+        return "None"
+    optional = "None" in return_types
+    return_types.discard("None")
+    if len(return_types) == 1:
+        result = next(iter(return_types))
+    else:
+        result = "Union[" + ", ".join(sorted(return_types)) + "]"
+    return f"Optional[{result}]" if optional else result
+
+
+def format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef, class_name: str | None = None) -> str:
     args = node.args
     parts: list[str] = []
     positional = list(getattr(args, "posonlyargs", [])) + list(args.args)
@@ -991,7 +1213,11 @@ def format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
                     parts.append(f"{name} = {default}")
                     used_names.add(name)
         parts.append(format_arg(args.kwarg, prefix="**"))
-    return_type = annotation_text(node.returns) or ("None" if node.name == "__init__" else "Any")
+    return_type = annotation_text(node.returns) or ("None" if node.name == "__init__" else inferred_return_type(node, class_name))
+    if return_type == "Any":
+        named_return = infer_return_type(node.name)
+        if named_return != "Any" and (class_name is not None or named_return != "Self"):
+            return_type = named_return
     return "(" + ", ".join(parts) + f") -> {return_type}"
 
 
@@ -1037,7 +1263,7 @@ def class_methods_from_ast(node: ast.ClassDef, symbol_override: dict[str, Any]) 
             if item.name in local_decorators and not item.decorator_list:
                 continue
             methods[item.name] = {
-                "signature": format_signature(item),
+                "signature": format_signature(item, node.name),
                 "doc": ast.get_docstring(item),
                 "decorators": rendered_decorators(item),
                 "prefix": "async def" if isinstance(item, ast.AsyncFunctionDef) else "def",
@@ -1070,10 +1296,10 @@ def render_python_class(node: ast.ClassDef, override: dict[str, Any] | None = No
         lines.extend(
             render_function(
                 "__init__",
-                ensure_signature(init_sig, "(self, *args: Any, **kwargs: Any) -> None"),
+                constructor_signature(init_sig),
                 override.get("init_doc") or (generated_init or {}).get("doc"),
                 "    ",
-                decorators=class_method_decorators(ensure_signature(init_sig, "(self, *args: Any, **kwargs: Any) -> None"), (generated_init or {}).get("decorators")),
+                decorators=class_method_decorators(constructor_signature(init_sig), (generated_init or {}).get("decorators")),
             )
         )
 
@@ -1094,7 +1320,7 @@ def render_python_class(node: ast.ClassDef, override: dict[str, Any] | None = No
             continue
         method_override = method_overrides.get(method_name, {})
         method_override = method_override if isinstance(method_override, dict) else {}
-        final_sig = ensure_signature(method_override.get("signature"), method["signature"])
+        final_sig = resolved_signature(method_override, method["signature"])
         lines.extend(
             render_function(
                 method_name,
@@ -1112,7 +1338,7 @@ def render_python_class(node: ast.ClassDef, override: dict[str, Any] | None = No
             continue
         if method_name in seen_methods or not isinstance(method_override, dict):
             continue
-        final_sig = ensure_signature(method_override.get("signature"), "(self, *args: Any, **kwargs: Any) -> Any")
+        final_sig = resolved_signature(method_override, "(self, *args: Any, **kwargs: Any) -> Any")
         lines.extend(render_function(method_name, final_sig, method_override.get("doc"), "    "))
 
     if len(lines) == 1 or (len(lines) == 2 and lines[1].lstrip().startswith('"')):
@@ -1205,7 +1431,7 @@ def python_to_pyi(src: Path, dst: Path, module: str, overrides: OverrideMap) -> 
             body_lines.extend(
                 render_function(
                     node.name,
-                    ensure_signature(override.get("signature"), format_signature(node)),
+                    resolved_signature(override, format_signature(node)),
                     override.get("doc") or ast.get_docstring(node),
                     prefix=prefix,
                     decorators=rendered_decorators(node),
@@ -1414,10 +1640,43 @@ def parse_default(field: str, value: str) -> str:
     return "..."
 
 
+@functools.lru_cache(maxsize=64)
 def strip_c_comments(text: str) -> str:
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
-    text = re.sub(r"//.*", "", text)
-    return text
+    result: list[str] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+        if char in {"\"", "\x27"}:
+            quote = char
+            result.append(char)
+            index += 1
+            while index < len(text):
+                result.append(text[index])
+                if text[index] == "\\" and index + 1 < len(text):
+                    index += 1
+                    result.append(text[index])
+                elif text[index] == quote:
+                    index += 1
+                    break
+                index += 1
+            continue
+        if char == "/" and next_char == "/":
+            index += 2
+            while index < len(text) and text[index] not in "\r\n":
+                index += 1
+            continue
+        if char == "/" and next_char == "*":
+            index += 2
+            while index + 1 < len(text) and text[index:index + 2] != "*/":
+                if text[index] in "\r\n":
+                    result.append(text[index])
+                index += 1
+            index = min(index + 2, len(text))
+            continue
+        result.append(char)
+        index += 1
+    return "".join(result)
 
 
 def arg_type(flags: str, field: str) -> str:
@@ -1653,7 +1912,8 @@ def infer_kw_hints(text: str, func_name: str, seen: set[str] | None = None) -> l
     return hints
 
 
-def function_body_snippet(text: str, func_name: str, limit: int = 7000) -> str:
+def function_body_snippet(text: str, func_name: str, limit: int = 30000) -> str:
+    text = strip_c_comments(text)
     pattern = re.compile(r"(?:STATIC\s+|static\s+)?(?:mp_obj_t|void|int|bool|STATIC\s+mp_obj_t)\s+" + re.escape(func_name) + r"\s*\([^;]*?\)\s*\{", re.DOTALL)
     match = pattern.search(text)
     if not match:
@@ -1891,15 +2151,94 @@ def signature_from_args(args: list[str], return_type: str = "Any") -> str:
 
 
 def infer_return_type(name: str) -> str:
-    if name in {"close", "deinit", "init", "update", "reset", "flush", "sendbreak"}:
+    if name in {
+        "__eq__", "__ge__", "__gt__", "__le__", "__lt__", "__ne__",
+        "__contains__", "isalpha", "isdigit", "islower", "isspace",
+        "isupper", "issubset", "issuperset", "isinstance", "issubclass", "any",
+    } or name.startswith(("is_", "has_")):
+        return "bool"
+    if name in {
+        "close", "deinit", "init", "update", "reset", "flush", "sendbreak",
+        "__delitem__", "__setitem__", "delattr", "exec", "execfile", "dump",
+        "mkdir", "remove", "rename", "rmdir", "unlink", "settrace", "intersection_update",
+    }:
         return "None"
-    if name.startswith(("is_", "get_")):
-        return "Any"
-    if name in {"digest", "read", "readline"}:
+    if name in {
+        "count", "find", "rfind", "index", "rindex", "hash", "id", "len",
+        "__len__", "ord", "getrandbits", "calcsize", "factorial", "getsizeof",
+        "width", "height", "tell", "get_channels", "get_frames", "get_sampwidth",
+        "get_framerate", "get_type", "get_pixformat", "waitKeyEx",
+    }:
+        return "int"
+    if name in {"bin", "hex", "oct", "repr", "getcwd", "get_comptype", "get_compname", "dumps"}:
+
+        return "str"
+    if name in {"copy", "difference", "intersection", "symmetric_difference", "union", "lower", "lstrip", "replace", "rstrip", "strip", "upper", "center"}:
+        return "Self"
+    if name == "get_framesize":
+        return "Tuple[int, int]"
+    if name in {"get_again_range", "get_exposure_time_range"}:
+        return "Tuple[float, float]"
+    if name in {"get_params", "stat", "statvfs", "uname", "exc_info"}:
+        return "tuple"
+    if name in {"ilistdir"}:
+        return "Iterator[tuple]"
+    if name in {"partition", "rpartition"}:
+        return "Tuple[Self, Self, Self]"
+    if name in {"split", "rsplit", "splitlines"}:
+        return "List[Self]"
+    if name == "__iter__":
+        return "Iterator[Any]"
+    if name in {"dir", "sorted"}:
+        return "List[Any]"
+    if name == "divmod":
+        return "Tuple[Any, Any]"
+    if name in {"globals", "locals"}:
+        return "Dict[str, Any]"
+    if name in {"digest", "read", "readline", "read_frames"}:
         return "bytes"
-    if name in {"write", "readinto", "any"}:
+    if name in {"write", "readinto"}:
         return "int"
     return "Any"
+
+
+CV2_SPECIAL_RETURN_TYPES = {
+    "mean": "Tuple[float, float, float, float]",
+    "moments": "Dict[str, float]",
+    "split": "List[ulab.numpy.ndarray]",
+    "waitKeyEx": "int",
+}
+ULAB_NUMPY_SPECIAL_RETURN_TYPES = {
+    "all": "Union[bool, ulab.numpy.ndarray]",
+    "any": "Union[bool, ulab.numpy.ndarray]",
+    "argmax": "Union[int, ulab.numpy.ndarray]",
+    "argmin": "Union[int, ulab.numpy.ndarray]",
+    "max": "Union[int, float, ulab.numpy.ndarray]",
+    "mean": "Union[float, ulab.numpy.ndarray]",
+    "min": "Union[int, float, ulab.numpy.ndarray]",
+    "size": "int",
+    "std": "Union[float, ulab.numpy.ndarray]",
+    "sum": "Union[int, float, ulab.numpy.ndarray]",
+    "vectorize": "Callable[..., ulab.numpy.ndarray]",
+}
+
+def module_return_type(module: str, name: str) -> str | None:
+    if module == "cv2":
+        return CV2_SPECIAL_RETURN_TYPES.get(name, "ulab.numpy.ndarray")
+    if module == "ulab.numpy":
+        return ULAB_NUMPY_SPECIAL_RETURN_TYPES.get(name, "ulab.numpy.ndarray")
+    if module == "ulab.scipy.special":
+        return "Union[float, ulab.numpy.ndarray]"
+    if module == "ulab.scipy.signal" and name == "sosfilt":
+        return "Union[ulab.numpy.ndarray, Tuple[ulab.numpy.ndarray, ulab.numpy.ndarray]]"
+    return None
+
+def apply_module_return_type(module: str, name: str, signature: str) -> str:
+    return_type = module_return_type(module, name)
+    force = (module == "cv2" and name in CV2_SPECIAL_RETURN_TYPES) or (module == "ulab.numpy" and name in ULAB_NUMPY_SPECIAL_RETURN_TYPES)
+    if return_type and (force or signature.rstrip().endswith("-> Any")):
+        return signature.rsplit("->", 1)[0] + "-> " + return_type
+    return signature
 
 
 COMMON_SIGNATURE_NAMES = {
@@ -1964,18 +2303,22 @@ def add_kw_hints(args: list[str], kw_hints: list[str]) -> list[str]:
 
 def function_signature(func: CFunction, *, include_self: bool, name: str | None = None) -> str:
     func_name = name or func.obj
+    return_type = func.return_type or infer_return_type(func_name)
+    if return_type == "Self" and not include_self:
+        return_type = "Any"
     if func.allowed_args:
         args = (["self"] if include_self else []) + func.allowed_args
         args = add_kw_hints(args, func.kw_hints)
         args = apply_common_arg_names(args, func_name, include_self)
-        return signature_from_args(args, infer_return_type(func_name))
+        return signature_from_args(args, return_type)
     if func.min_args is not None:
         min_args = max(func.min_args, func.min_args_hint or 0)
         args = args_from_arity(min_args, func.max_args, include_self=include_self, accepts_kw=func.accepts_kw, positional_only=func.positional_only, arg_hints=func.arg_hints)
         args = add_kw_hints(args, func.kw_hints)
         args = apply_common_arg_names(args, func_name, include_self)
-        return signature_from_args(args, infer_return_type(func_name))
-    return "(self, *args: Any, **kwargs: Any) -> Any" if include_self else "(*args: Any, **kwargs: Any) -> Any"
+        return signature_from_args(args, return_type)
+    args = "self, *args: Any, **kwargs: Any" if include_self else "*args: Any, **kwargs: Any"
+    return f"({args}) -> {return_type}"
 
 
 STREAM_METHOD_SIGNATURES = {
@@ -1998,6 +2341,182 @@ def function_uses_kw_args(text: str, func_name: str) -> bool:
     body = snippet[open_brace + 1:] if open_brace >= 0 else snippet
     body = re.sub(r"\(\s*void\s*\)\s*kw_args\s*;", "", body)
     return "kw_args" in body
+
+
+def c_return_expressions(text: str) -> list[str]:
+    text = strip_c_comments(text)
+    expressions: list[str] = []
+    search_from = 0
+    while match := re.search(r"\breturn\b", text[search_from:]):
+        start = search_from + match.end()
+        index = start
+        depth = 0
+        quote: str | None = None
+        escaped = False
+        while index < len(text):
+            char = text[index]
+            if quote is not None:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = None
+            elif char in {"\"", "'"}:
+                quote = char
+            elif char in "([{":
+                depth += 1
+            elif char in ")]}":
+                depth = max(0, depth - 1)
+            elif char == ";" and depth == 0:
+                expression = text[start:index].strip()
+                if expression:
+                    expressions.append(expression)
+                index += 1
+                break
+            index += 1
+        search_from = index
+        if index >= len(text):
+            break
+    return expressions
+
+
+def infer_c_return_type(text: str, func_name: str, seen: set[str] | None = None) -> str | None:
+    seen = set() if seen is None else set(seen)
+    if func_name in seen:
+        return None
+    seen.add(func_name)
+    snippet = function_body_snippet(text, func_name)
+    if not snippet:
+        return None
+    expressions = c_return_expressions(snippet)
+    signature_end = snippet.find("{")
+    parameter_text = snippet[snippet.find("(") + 1:signature_end].split(",", 1)[0]
+    parameter_names = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", parameter_text)
+    first_parameter = parameter_names[-1] if parameter_names else None
+    if not expressions:
+        return None
+
+    return_types: set[str] = set()
+    for expression in expressions:
+        expression = expression.strip()
+        if expression == "mp_const_none":
+            return_types.add("None")
+        elif expression in {"mp_const_false", "mp_const_true"} or re.match(r"mp_obj_new_bool\s*\(", expression):
+            return_types.add("bool")
+        elif re.match(r"(?:MP_OBJ_NEW_SMALL_INT|mp_obj_new_int(?:_from_[A-Za-z0-9_]+)?)\s*\(", expression):
+            return_types.add("int")
+        elif re.match(r"mp_obj_new_float\s*\(", expression):
+            return_types.add("float")
+        elif re.match(r"mp_obj_new_complex\s*\(", expression):
+            return_types.add("complex")
+        elif re.match(r"mp_obj_new_str_type_from_vstr\s*\(\s*\&?mp_type_bytes\b", expression):
+            return_types.add("bytes")
+        elif re.match(r"mp_obj_new_str_type_from_vstr\s*\(\s*\&?mp_type_str\b", expression):
+            return_types.add("str")
+        elif re.match(r"mp_obj_new_str(?:_from_vstr|_via_qstr)?\s*\(", expression):
+            return_types.add("str")
+        elif re.match(r"mp_obj_new_bytes(?:_[A-Za-z0-9_]+)?\s*\(", expression):
+            return_types.add("bytes")
+        elif re.match(r"mp_obj_new_bytearray(?:_[A-Za-z0-9_]+)?\s*\(", expression):
+            return_types.add("bytearray")
+        elif re.match(r"mp_obj_new_tuple\s*\(", expression):
+            return_types.add("tuple")
+        elif re.match(r"mp_obj_new_list\s*\(", expression):
+            return_types.add("list")
+        elif re.match(r"mp_obj_new_dict\s*\(", expression):
+            return_types.add("dict")
+        elif expression == first_parameter or re.fullmatch(r"(?:args\s*\[\s*0\s*\]|self(?:_in)?)", expression):
+            return_types.add("Self")
+        elif re.match(r"MP_OBJ_FROM_PTR\s*\(\s*self\s*\)", expression):
+            return_types.add("Self")
+        elif re.match(r"py_image_from_struct\s*\(", expression):
+            return_types.add("image.Image")
+        elif re.match(r"MP_OBJ_FROM_PTR\s*\(\s*ndarray_(?:new|copy)_[A-Za-z0-9_]+\s*\(", expression):
+            return_types.add("ulab.numpy.ndarray")
+        elif field_match := re.fullmatch(r"\(\(\s*(?P<type>[A-Za-z_][A-Za-z0-9_]*)\s*\*\s*\)\s*[A-Za-z_][A-Za-z0-9_]*\s*\)\s*->\s*(?P<field>[A-Za-z_][A-Za-z0-9_]*)", expression):
+            object_type = field_match.group("type")
+            field_name = field_match.group("field")
+            declaration_pattern = r"\b" + re.escape(object_type) + r"\s*\*\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
+            values = []
+            for declaration in re.finditer(declaration_pattern, text):
+                variable = declaration.group("name")
+                return_pos = text.find("return " + variable, declaration.end())
+                block_end = return_pos if return_pos >= 0 else min(len(text), declaration.end() + 5000)
+                block = text[declaration.end():block_end]
+                values.extend(re.findall(r"\b" + re.escape(variable) + r"\s*->\s*" + re.escape(field_name) + r"\s*=\s*([^;]+);", block))
+            value_types = set()
+            for value in values:
+                if re.match(r"\s*(?:MP_OBJ_NEW_SMALL_INT|mp_obj_new_int(?:_from_[A-Za-z0-9_]+)?)\s*\(", value):
+                    value_types.add("int")
+                elif re.match(r"\s*mp_obj_new_float\s*\(", value):
+                    value_types.add("float")
+                elif re.match(r"\s*mp_obj_new_(?:tuple|list)\s*\(", value):
+                    value_types.add("tuple" if "tuple" in value else "list")
+                elif re.match(r"\s*mp_obj_new_str(?:_[A-Za-z0-9_]+)?\s*\(", value):
+                    value_types.add("str")
+                elif re.match(r"\s*mp_obj_new_bytes(?:_[A-Za-z0-9_]+)?\s*\(", value):
+                    value_types.add("bytes")
+                else:
+                    value_types.add("Any")
+            if len(value_types) == 1 and "Any" not in value_types:
+                return_types.update(value_types)
+            else:
+                return None
+        elif pointer_match := re.fullmatch(r"MP_OBJ_FROM_PTR\s*\(\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\)", expression):
+            variable = pointer_match.group("name")
+            if re.search(r"\bndarray_obj_t\s*\*\s*" + re.escape(variable) + r"\b", snippet):
+                return_types.add("ulab.numpy.ndarray")
+            elif re.search(r"\bmp_obj_list_t\s*\*\s*" + re.escape(variable) + r"\b", snippet):
+                return_types.add("list")
+            else:
+                return None
+        elif variable_match := re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", expression):
+            variable = variable_match.group(0)
+            assignments = re.findall(r"\b" + re.escape(variable) + r"\s*=\s*([^;]+);", snippet)
+            object_types = set(re.findall(r"\bpy_([A-Za-z_][A-Za-z0-9_]*)_obj_t\s*\*\s*" + re.escape(variable) + r"\b", snippet))
+            if len(object_types) == 1:
+                object_type_name = next(iter(object_types))
+                return_types.add({"cascade": "Cascade"}.get(object_type_name, object_type_name))
+            elif assignments and all(re.match(r"\s*mp_obj_new_list\s*\(", value) for value in assignments):
+                append_pattern = r"mp_obj_list_append\s*\(\s*" + re.escape(variable) + r"\s*,\s*([^;]+)\)"
+                appended = re.findall(append_pattern, snippet)
+                if appended and all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value.strip()) for value in appended) and re.search(r"mp_obj_new_list", snippet) and re.search(r"mp_obj_new_int", snippet):
+                    return_types.add("List[List[int]]")
+                elif re.search(r"\bitems\s*\[[^]]+\]\s*=\s*(?:MP_OBJ_NEW_SMALL_INT|mp_obj_new_int)", snippet) or (appended and all(re.match(r"mp_obj_new_int", value) for value in appended)):
+                    return_types.add("List[int]")
+                elif re.search(r"\bitems\s*\[[^]]+\]\s*=\s*mp_obj_new_float", snippet) or (appended and all(re.match(r"mp_obj_new_float", value) for value in appended)):
+                    return_types.add("List[float]")
+                elif appended and all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value.strip()) for value in appended) and re.search(r"mp_obj_new_int", snippet):
+                    return_types.add("List[List[int]]")
+                else:
+                    return_types.add("list")
+            elif assignments and all(re.match(r"\s*mp_obj_new_(?:int(?:_from_[A-Za-z0-9_]+)?|bool)\s*\(", value) for value in assignments):
+                return_types.add("int")
+            else:
+                return None
+        elif call_match := re.fullmatch(r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(.*\)", expression, re.DOTALL):
+            if call_match.group("name").startswith(("ndarray_new_", "ndarray_copy_")):
+                return_types.add("ulab.numpy.ndarray")
+                continue
+            delegated_type = infer_c_return_type(text, call_match.group("name"), seen)
+            if delegated_type is None:
+                return None
+            return_types.add(delegated_type)
+        else:
+            return None
+
+    if return_types == {"None"}:
+        return "None"
+    optional = "None" in return_types
+    return_types.discard("None")
+    if "list" in return_types and any(value.startswith("List[") for value in return_types):
+        return_types.discard("list")
+    if len(return_types) == 1:
+        result = next(iter(return_types))
+    else:
+        result = "Union[" + ", ".join(sorted(return_types)) + "]"
+    return f"Optional[{result}]" if optional else result
 
 
 def collect_functions(text: str) -> dict[str, CFunction]:
@@ -2044,6 +2563,7 @@ def collect_functions(text: str) -> dict[str, CFunction]:
         fn.arg_hints = infer_arg_hints(text, fn.func)
         fn.min_args_hint = infer_min_args_hint(text, fn.func)
         fn.kw_hints = infer_kw_hints(text, fn.func)
+        fn.return_type = infer_c_return_type(text, fn.func)
         checked = parse_arg_check_num(text, fn.func)
         if checked and not fn.allowed_args:
             fn.min_args, fn.max_args, fn.accepts_kw = checked
@@ -2119,13 +2639,24 @@ def analyze_c_sources(sources: Iterable[Path]) -> CAnalysis:
     # We intentionally do NOT strip #ifdef blocks – many guard macros
     # (IMLIB_ENABLE_*, MICROPY_PY_*) come from board-specific config headers
     # that sit outside our include search path.
+    duplicate_return_types: dict[str, set[str | None]] = {}
     for src, text in source_text.items():
         for match in ROM_MAP_RE.finditer(text):
             body = expand_table_body_macros(match.group("body"), c_macros)
             analysis.table_bodies[match.group("name")] = body
         for match in CONST_DICT_RE.finditer(text):
             analysis.dict_tables[match.group("dict")] = match.group("table")
-        analysis.functions.update(collect_functions(text))
+        local_functions = collect_functions(text)
+        for obj, fn in local_functions.items():
+            if obj in analysis.functions:
+                duplicate_return_types.setdefault(obj, {analysis.functions[obj].return_type}).add(fn.return_type)
+        analysis.functions.update(local_functions)
+
+    # C object names are translation-unit local. Preserve return inference only
+    # when every duplicate definition independently resolves to the same type.
+    for obj, return_types in duplicate_return_types.items():
+        if len(return_types) != 1 or None in return_types:
+            analysis.functions[obj].return_type = None
 
     for src, text in source_text.items():
         for match in TYPE_RE.finditer(text):
@@ -2310,8 +2841,14 @@ def _apply_type_slot_methods(ctype: CType, analysis: CAnalysis) -> None:
                             continue
                         if slot == "unary_op":
                             continue
-                        # Use generic return types for non-ulab types.
-                        signature = _genericise_signature(signature)
+                        # Comparisons return bool for regular Python objects;
+                        # ndarray comparisons remain element-wise ndarrays.
+                        if method_name in _COMPARISON_DUNDER_NAMES:
+                            signature = "(self, other: Any, /) -> bool"
+                        elif method_name == "__iter__":
+                            signature = "(self, /) -> Iterator[Any]"
+                        else:
+                            signature = _genericise_signature(signature)
                     ctype.methods[method_name] = signature
 
     # attr slot: scan the attr handler function for MP_QSTR_ property names.
@@ -2505,15 +3042,19 @@ def generate_c_module_stub(module_name: str, module: CModule, analysis: CAnalysi
         if import_line is not None:
             lines.append(import_line)
             continue
-        factory_type = qstr_types.get(name) if kind == "object" else None
+        factory_type = None
+        if override.get("kind") in {"class", "object"} and (kind == "object" or ref is None):
+            factory_type = qstr_types.get(name)
         if kind == "class" and ref in analysis.types:
             lines.extend(render_ctype_class(name, analysis.types[ref], override))
         elif factory_type is not None:
             lines.extend(render_ctype_class(name, factory_type, override))
+        elif kind == "function" and ref in analysis.functions:
+            generated_signature = function_signature(analysis.functions[ref], include_self=module_is_extensible, name=name)
+            generated_signature = apply_module_return_type(module_name, name, generated_signature)
+            lines.extend(render_function(name, resolved_signature(override, generated_signature), override.get("doc")))
         elif override.get("kind"):
             lines.extend(render_override_symbol(name, override))
-        elif kind == "function" and ref in analysis.functions:
-            lines.extend(render_function(name, function_signature(analysis.functions[ref], include_self=module_is_extensible, name=name), override.get("doc")))
         elif kind == "const":
             lines.append(f"{name}: {override.get('type', 'Any')}")
         else:

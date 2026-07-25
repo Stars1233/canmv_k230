@@ -13,6 +13,8 @@ import time
 
 class MuxerCfgStr:
     def __init__(self):
+        """Initialize the object.
+        """
         self.file_name = 0
         self.video_payload_type = 0
         self.pic_width = 0
@@ -23,10 +25,23 @@ class MuxerCfgStr:
 
 class Mp4CfgStr:
     def __init__(self, type):
+        """Initialize the object.
+        Args:
+            type: Codec or container type.
+        """
         self.type = type
         self.muxerCfg = MuxerCfgStr()
 
     def SetMuxerCfg(self, fileName, videoPayloadType, picWidth, picHeight, audioPayloadType, fmp4Flag = 0):
+        """Configure MP4 muxer settings.
+        Args:
+            fileName: MP4 file path.
+            videoPayloadType: Video payload type.
+            picWidth: Image width in pixels.
+            picHeight: Image height in pixels.
+            audioPayloadType: Audio payload type.
+            fmp4Flag: Whether to create fragmented MP4 output.
+        """
         self.muxerCfg.file_name = fileName
         self.muxerCfg.video_payload_type = videoPayloadType
         self.muxerCfg.pic_width = picWidth
@@ -35,6 +50,10 @@ class Mp4CfgStr:
         self.muxerCfg.fmp4_flag = fmp4Flag
 
     def SetDemuxerCfg(self, fileName):
+        """Configure MP4 demuxer settings.
+        Args:
+            fileName: MP4 file path.
+        """
         pass
 
 
@@ -52,6 +71,10 @@ class Mp4Container:
     MP4_CODEC_ID_OPUS = K_MP4_CODEC_ID_OPUS
 
     def __init__(self,sensor_csi_id = -1):
+        """Initialize the object.
+        Args:
+            sensor_csi_id: Associated sensor CSI identifier.
+        """
         if sensor_csi_id in [0, 1, 2]:
             self.sensor = Sensor(id=sensor_csi_id)
         else:
@@ -73,6 +96,10 @@ class Mp4Container:
         self.audio_timestamp = 0
 
     def Create(self, mp4Cfg):
+        """Create a media channel.
+        Args:
+            mp4Cfg: MP4 container configuration.
+        """
         if mp4Cfg.type == K_MP4_CONFIG_MUXER:
             # set chn0 output size
             self.sensor.set_framesize(width = mp4Cfg.muxerCfg.pic_width, height = mp4Cfg.muxerCfg.pic_height, alignment=12)
@@ -162,10 +189,14 @@ class Mp4Container:
             self.mp4_audio_track_handle = audio_track_handle.value
 
     def Start(self):
+        """Start a media channel.
+        """
         self.venc.Start()
         self.sensor.run()
 
     def Process(self):
+        """Process one MP4 packet.
+        """
         frame_data = k_mp4_frame_data_s()
         self.venc.GetStream(self.stream_data)
 
@@ -215,6 +246,8 @@ class Mp4Container:
                 raise OSError("Mp4Container, write audio stream failed.")
 
     def Stop(self):
+        """Stop a media channel.
+        """
         # 停止camera
         self.sensor.stop()
 
@@ -227,6 +260,8 @@ class Mp4Container:
         self.aenc.destroy()
 
     def Destroy(self):
+        """Destroy a media channel.
+        """
         ret = kd_mp4_destroy_tracks(self.mp4_handle)
         if ret:
             raise OSError("Mp4Container, kd_mp4_destroy_tracks failed.")

@@ -5140,7 +5140,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_w_obj, py_rect_w);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_h_obj, py_rect_h);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_rect_magnitude_obj, py_rect_magnitude);
 //| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
-//| module: cmath
+//| module: image
 //| class rect:
 //|     """cmath.rect object."""
 //|     def corners(self, /) -> Any:
