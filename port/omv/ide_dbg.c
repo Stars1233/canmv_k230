@@ -80,7 +80,7 @@
 #define PRINT_ALL 0
 #define IDE_DBG_MAX_FRAME_PAYLOAD (8 * 1024 * 1024)
 #define IDE_DBG_FRAME_POLL_MS 200
-#define IDE_DBG_FRAME_IDLE_TIMEOUT_MS 3000
+#define IDE_DBG_FRAME_IDLE_TIMEOUT_MS 5000
 
 ///////////////////////////////////////////////////////////////////////////////
 // Extern declarations & state ////////////////////////////////////////////////
@@ -88,7 +88,7 @@
 
 pthread_t ide_dbg_task_p;
 static struct ide_dbg_svfil_t ide_dbg_sv_file;
-static uint8_t ide_dbg_file_read_buffer[USBDBG_FILE_CHUNK_MAX];
+static uint8_t ide_dbg_file_io_buffer[USBDBG_FILE_CHUNK_MAX];
 static uint8_t ide_dbg_listdir_page_buffer[USBDBG_LISTDIR_PAGE_MAX_PAYLOAD];
 static struct {
     DIR *dir;
@@ -1105,6 +1105,12 @@ static void svfile_release_chunk_buffer(void) {
     }
 }
 
+static bool svfile_configure_write_buffer(FILE *file) {
+    return file != NULL && ide_dbg_sv_file.chunk_buffer != NULL &&
+           setvbuf(file, (char *)ide_dbg_sv_file.chunk_buffer, _IOFBF,
+                   USBDBG_FILE_CHUNK_MAX) == 0;
+}
+
 static void cmd_verifyfile(void) {
     pr_verb("cmd: USBDBG_VERIFYFILE");
     uint32_t resp = USBDBG_SVFILE_VERIFY_ERR_NONE;
@@ -1138,16 +1144,15 @@ static void cmd_verifyfile(void) {
         return;
     }
 
-    unsigned char buffer[256];
     mbedtls_sha256_context sha256;
     mbedtls_sha256_init(&sha256);
     mbedtls_sha256_starts_ret(&sha256, 0);
 
     size_t nbytes;
     do {
-        nbytes = fread(buffer, 1, sizeof(buffer), f);
-        mbedtls_sha256_update_ret(&sha256, buffer, nbytes);
-    } while (nbytes == sizeof(buffer));
+        nbytes = fread(ide_dbg_file_io_buffer, 1, sizeof(ide_dbg_file_io_buffer), f);
+        mbedtls_sha256_update_ret(&sha256, ide_dbg_file_io_buffer, nbytes);
+    } while (nbytes == sizeof(ide_dbg_file_io_buffer));
 
     fclose(f);
 
@@ -1207,10 +1212,17 @@ static void cmd_createfile(ide_dbg_state_t* state) {
         return;
     }
 
-    ide_dbg_sv_file.chunk_buffer = malloc(ide_dbg_sv_file.info.chunk_size);
+    ide_dbg_sv_file.chunk_buffer = malloc(USBDBG_FILE_CHUNK_MAX);
     if (ide_dbg_sv_file.chunk_buffer == NULL) {
         fclose(ide_dbg_sv_file.file);
         ide_dbg_sv_file.file = NULL;
+        ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
+        return;
+    }
+    if (!svfile_configure_write_buffer(ide_dbg_sv_file.file)) {
+        fclose(ide_dbg_sv_file.file);
+        ide_dbg_sv_file.file = NULL;
+        svfile_release_chunk_buffer();
         ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
         return;
     }
@@ -1777,11 +1789,11 @@ static void cmd_readfile(ide_dbg_state_t* state) {
         return;
     }
 
-    header[1] = (uint32_t)fread(ide_dbg_file_read_buffer, 1, req_size, f);
+    header[1] = (uint32_t)fread(ide_dbg_file_io_buffer, 1, req_size, f);
     fclose(f);
     mp_hal_uart_tx(header, sizeof(header));
     if (header[1] > 0) {
-        mp_hal_uart_tx(ide_dbg_file_read_buffer, header[1]);
+        mp_hal_uart_tx(ide_dbg_file_io_buffer, header[1]);
     }
 }
 
@@ -1801,7 +1813,7 @@ static void cmd_writefile(ide_dbg_state_t* state) {
         return;
     }
 
-    size_t received = read_from_frame(state, ide_dbg_sv_file.chunk_buffer, state->data_length);
+    size_t received = read_from_frame(state, ide_dbg_file_io_buffer, state->data_length);
     if (received != state->data_length) {
         close_active_sv_file();
         svfile_release_chunk_buffer();
@@ -1810,7 +1822,7 @@ static void cmd_writefile(ide_dbg_state_t* state) {
     }
     if (ide_dbg_sv_file.file == NULL) {
         ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_WRITE_ERR;
-    } else if (fwrite(ide_dbg_sv_file.chunk_buffer, 1, state->data_length, ide_dbg_sv_file.file) == state->data_length) {
+    } else if (fwrite(ide_dbg_file_io_buffer, 1, state->data_length, ide_dbg_sv_file.file) == state->data_length) {
         ide_dbg_sv_file.errcode = USBDBG_SVFILE_ERR_NONE;
     } else {
         fclose(ide_dbg_sv_file.file);
@@ -1843,7 +1855,7 @@ static void cmd_writefile_ack(ide_dbg_state_t* state) {
         mp_hal_uart_tx(&errcode, sizeof(errcode));
         return;
     }
-    size_t received = read_from_frame(state, ide_dbg_sv_file.chunk_buffer, write_size);
+    size_t received = read_from_frame(state, ide_dbg_file_io_buffer, write_size);
     if (received != write_size) {
         uint32_t errcode = USBDBG_SVFILE_ERR_CHUNK_ERR;
         pr_err("cmd: USBDBG_WRITEFILE2 incomplete payload: got %zu of %u bytes",
@@ -1859,13 +1871,19 @@ static void cmd_writefile_ack(ide_dbg_state_t* state) {
         char filepath[USBDBG_MAX_PATH_LEN + 64];
         if (resolve_filepath(ide_dbg_sv_file.info.name, filepath, sizeof(filepath))) {
             ide_dbg_sv_file.file = fopen(filepath, "ab");
+            if (!svfile_configure_write_buffer(ide_dbg_sv_file.file)) {
+                if (ide_dbg_sv_file.file != NULL) {
+                    fclose(ide_dbg_sv_file.file);
+                    ide_dbg_sv_file.file = NULL;
+                }
+            }
         }
     }
 
     uint32_t errcode = 0;
     if (ide_dbg_sv_file.file == NULL) {
         errcode = USBDBG_SVFILE_ERR_WRITE_ERR;
-    } else if (fwrite(ide_dbg_sv_file.chunk_buffer, 1, write_size, ide_dbg_sv_file.file) != write_size) {
+    } else if (fwrite(ide_dbg_file_io_buffer, 1, write_size, ide_dbg_sv_file.file) != write_size) {
         errcode = USBDBG_SVFILE_ERR_WRITE_ERR;
     }
     ide_dbg_sv_file.errcode = errcode;
@@ -2516,13 +2534,20 @@ static void* ide_dbg_task(void* args) {
             ide_dbg_route_pending_flush(&router);
             continue;
         } else if (result < 0) {
-            // DTR de-asserted or error
-            pr_verb("[uart] poll error %d", result);
-            if (ide_dbg_attach()) {
-                ide_dbg_protocol_fsm_recover(&state, &router, "host disconnected");
-                ide_dbg_disconnect_and_soft_reset();
-            } else if (state.state != FRAME_HEAD) {
-                ide_dbg_protocol_fsm_recover(&state, &router, "UART receive error");
+            // Some USB CDC drivers report a transient poll error while no RX
+            // data is available. Only a confirmed DTR drop is a disconnect.
+            int dtr = drv_uart_is_dtr_asserted(inst);
+            pr_verb("[uart] poll error %d, DTR %d", result, dtr);
+            if (dtr == 0) {
+                if (ide_dbg_attach()) {
+                    ide_dbg_protocol_fsm_recover(&state, &router, "host disconnected");
+                    ide_dbg_disconnect_and_soft_reset();
+                } else if (state.state != FRAME_HEAD) {
+                    ide_dbg_protocol_fsm_recover(&state, &router, "UART receive error");
+                }
+            } else if (state.state != FRAME_HEAD &&
+                       mp_hal_ticks_ms() - last_protocol_rx_ms >= IDE_DBG_FRAME_IDLE_TIMEOUT_MS) {
+                ide_dbg_protocol_fsm_recover(&state, &router, "incomplete frame poll timeout");
             }
             usleep(100000);
             continue;
