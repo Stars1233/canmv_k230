@@ -1976,6 +1976,72 @@ static void cmd_rmdir(ide_dbg_state_t* state) {
     mp_hal_uart_tx(&errcode, sizeof(errcode));
 }
 
+static uint32_t remove_tree(const char *path) {
+    struct stat st;
+    if (lstat(path, &st) != 0) {
+        return file_errno_to_usbdbg(errno);
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        return (unlink(path) == 0) ? USBDBG_SVFILE_ERR_NONE
+                                  : file_errno_to_usbdbg(errno);
+    }
+
+    DIR *dir = opendir(path);
+    if (dir == NULL) {
+        return file_errno_to_usbdbg(errno);
+    }
+
+    uint32_t errcode = USBDBG_SVFILE_ERR_NONE;
+    struct dirent *entry;
+    errno = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        char child[USBDBG_MAX_PATH_LEN + 64];
+        int n = snprintf(child, sizeof(child), "%s/%s", path, entry->d_name);
+        if (n < 0 || (size_t)n >= sizeof(child)) {
+            errcode = USBDBG_SVFILE_ERR_INVALID_PATH;
+            break;
+        }
+        errcode = remove_tree(child);
+        if (errcode != USBDBG_SVFILE_ERR_NONE) {
+            break;
+        }
+        errno = 0;
+    }
+    if (errcode == USBDBG_SVFILE_ERR_NONE && errno != 0) {
+        errcode = file_errno_to_usbdbg(errno);
+    }
+    if (closedir(dir) != 0 && errcode == USBDBG_SVFILE_ERR_NONE) {
+        errcode = file_errno_to_usbdbg(errno);
+    }
+
+    if (errcode == USBDBG_SVFILE_ERR_NONE && rmdir(path) != 0) {
+        errcode = file_errno_to_usbdbg(errno);
+    }
+    return errcode;
+}
+
+static void cmd_rmdir_recursive(ide_dbg_state_t* state) {
+    uint32_t errcode;
+    char path[USBDBG_MAX_PATH_LEN + 1];
+    char filepath[USBDBG_MAX_PATH_LEN + 64];
+
+    if (!read_path_nt(state, path, sizeof(path)) ||
+        !resolve_filepath(path, filepath, sizeof(filepath))) {
+        errcode = USBDBG_SVFILE_ERR_INVALID_PATH;
+    } else if (!((strncmp(filepath, "/sdcard/", 8) == 0 && filepath[8] != '\0' && filepath[8] != '/') ||
+               (strncmp(filepath, "/data/", 6) == 0 && filepath[6] != '\0' && filepath[6] != '/') ||
+               (strncmp(filepath, "/udisk/", 7) == 0 && filepath[7] != '\0' && filepath[7] != '/'))) {
+        errcode = USBDBG_SVFILE_ERR_PERM_DENIED;
+    } else {
+        close_active_sv_file();
+        errcode = remove_tree(filepath);
+    }
+    mp_hal_uart_tx(&errcode, sizeof(errcode));
+}
+
 static void file_exec_error(const char *fmt, ...) {
     char buf[256];
     va_list va;
@@ -2054,6 +2120,7 @@ static bool ide_dbg_cmd_known(uint8_t cmd) {
         case USBDBG_CAPABILITIES:
         case USBDBG_VTOUCH_EVENT:
         case USBDBG_VTOUCH_STATUS:
+        case USBDBG_RMDIR_RECURSIVE:
             return true;
         default:
             return false;
@@ -2186,7 +2253,7 @@ static void cmd_capabilities(ide_dbg_state_t* state) {
                     USBDBG_CAP_RENAME_FILE | USBDBG_CAP_MKDIR |
                     USBDBG_CAP_RMDIR | USBDBG_CAP_FILE_EXEC |
                     USBDBG_CAP_VIRTUAL_TOUCH | USBDBG_CAP_REPL_INPUT |
-                    USBDBG_CAP_LIST_DIR_PAGED)
+                    USBDBG_CAP_LIST_DIR_PAGED | USBDBG_CAP_RMDIR_RECURSIVE)
     };
     mp_hal_uart_tx(resp, sizeof(resp));
 }
@@ -2375,6 +2442,9 @@ static ide_dbg_status_t ide_dbg_update(ide_dbg_state_t* state, const uint8_t* da
                         break;
                     case USBDBG_RMDIR:
                         cmd_rmdir(state);
+                        break;
+                    case USBDBG_RMDIR_RECURSIVE:
+                        cmd_rmdir_recursive(state);
                         break;
                     case USBDBG_FILE_EXEC:
                         cmd_file_exec(state);

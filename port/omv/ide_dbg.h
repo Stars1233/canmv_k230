@@ -79,7 +79,7 @@ enum usbdbg_cmd {
     USBDBG_QUERY_FILE_STAT  = 0xA0,
 
     // Capability protocol v2 extensions. Keep this range contiguous; append
-    // new extension-only commands after USBDBG_VTOUCH_EVENT.
+    // new extension-only commands after USBDBG_RMDIR_RECURSIVE.
     USBDBG_CAPABILITIES     = 0xA2,
     USBDBG_FW_VERSION_FULL  = 0xA3,
     USBDBG_SCRIPT_STATUS    = 0xA4,
@@ -95,6 +95,7 @@ enum usbdbg_cmd {
     USBDBG_FILE_EXEC        = 0xAE,
     USBDBG_VTOUCH_STATUS    = 0xAF,
     USBDBG_VTOUCH_EVENT     = 0xB0,
+    USBDBG_RMDIR_RECURSIVE  = 0xB1,
 };
 
 #ifdef NEW_SAVE_FILE_IMPL
@@ -132,6 +133,7 @@ enum usbdbg_cmd {
 #define USBDBG_CAP_VIRTUAL_TOUCH          (1 << 8)
 #define USBDBG_CAP_REPL_INPUT             (1 << 9)
 #define USBDBG_CAP_LIST_DIR_PAGED         (1 << 10)
+#define USBDBG_CAP_RMDIR_RECURSIVE        (1 << 11)
 
 #define USBDBG_MAX_PATH_LEN               512
 #define USBDBG_FILE_CHUNK_MAX             (128 * 1024)
