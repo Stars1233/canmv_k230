@@ -91,7 +91,7 @@ build-image-and-stubs:
   stage: build
   timeout: 3 hours
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "canmv_k230" || $CI_COMMIT_BRANCH == "test_ci")'
+    - if: '$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "canmv_k230")'
   script:
     - echo '---------- Check changed files ----------'
     - |
@@ -139,6 +139,8 @@ build-image-and-stubs:
         git branch --show-current || true
         git rev-parse HEAD
     - popd > /dev/null || exit 1
+    - export CANMV_COMMIT="$(git -C ${HOME}/canmv_k230/src/canmv rev-parse HEAD)"
+    - 'echo "CanMV commit: ${CANMV_COMMIT}"'
 
     - echo '---------- Download Toolchain ----------'
     - cd ${HOME}/canmv_k230
@@ -153,25 +155,25 @@ build-image-and-stubs:
 
     - echo '---------- Generate CanMV K230 Stubs ----------'
     - mkdir -p ${CI_PROJECT_DIR}/generated
-    - export STUB_DIR="${CI_PROJECT_DIR}/generated/${CI_COMMIT_SHA}"
+    - export STUB_DIR="${CI_PROJECT_DIR}/generated/${CANMV_COMMIT}"
     - export VSCODE_ASSET_DIR="${CI_PROJECT_DIR}/generated/canmv_vscode_extension"
     - python3 ${HOME}/canmv_k230/src/canmv/tools/gen_canmv_stubs.py --build-dir ${HOME}/canmv_k230/output/${STUB_BOARD}_defconfig/canmv --out "${STUB_DIR}"
     - python3 -m compileall -q "${STUB_DIR}"
-    - python3 ${HOME}/canmv_k230/src/canmv/tools/package_canmv_vscode_examples.py ${HOME}/canmv_k230/src/canmv/resources --out "${VSCODE_ASSET_DIR}" --commit "${CI_COMMIT_SHA}"
+    - python3 ${HOME}/canmv_k230/src/canmv/tools/package_canmv_vscode_examples.py ${HOME}/canmv_k230/src/canmv/resources --out "${VSCODE_ASSET_DIR}" --commit "${CANMV_COMMIT}"
     - |
         EXAMPLES_ID="$(cat "${VSCODE_ASSET_DIR}/examples/latest")"
         echo "Current examples id: ${EXAMPLES_ID}"
         python3 ${HOME}/canmv_k230/src/canmv/tools/package_canmv_vscode_stubs.py \
           --stubs-dir "${STUB_DIR}" \
           --out "${VSCODE_ASSET_DIR}" \
-          --firmware-commit "${CI_COMMIT_SHA}" \
+          --firmware-commit "${CANMV_COMMIT}" \
           --board "${STUB_BOARD}" \
           --build-config "${STUB_BOARD}_defconfig" \
           --examples-id "${EXAMPLES_ID}"
     - ls -alh ${CI_PROJECT_DIR}/generated
 
     - echo '---------- Upload CanMV K230 Stubs ----------'
-    - ssh -p "$DNLD_SRV_PORT" "$DNLD_SRV" "mkdir -p '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/stubs' '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/firmware/${CI_COMMIT_SHA}' '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/examples'"
+    - ssh -p "$DNLD_SRV_PORT" "$DNLD_SRV" "mkdir -p '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/stubs' '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/firmware/${CANMV_COMMIT}' '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/examples'"
     - |
         if ssh -p "$DNLD_SRV_PORT" "$DNLD_SRV" "test -f '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/examples/${EXAMPLES_ID}.zip'"; then
           echo "Examples package already exists: ${EXAMPLES_ID}"
@@ -179,7 +181,7 @@ build-image-and-stubs:
           scp -P $DNLD_SRV_PORT -C "${VSCODE_ASSET_DIR}/examples/${EXAMPLES_ID}.zip" "${VSCODE_ASSET_DIR}/examples/${EXAMPLES_ID}.json" "${VSCODE_ASSET_DIR}/examples/latest" $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/examples/
         fi
     - scp -P $DNLD_SRV_PORT -C "${VSCODE_ASSET_DIR}"/stubs/*.zip "${VSCODE_ASSET_DIR}"/stubs/*.json "${VSCODE_ASSET_DIR}"/stubs/latest $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/stubs/
-    - scp -P $DNLD_SRV_PORT -C "${VSCODE_ASSET_DIR}/firmware/${CI_COMMIT_SHA}/manifest.json" $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/firmware/${CI_COMMIT_SHA}/
+    - scp -P $DNLD_SRV_PORT -C "${VSCODE_ASSET_DIR}/firmware/${CANMV_COMMIT}/manifest.json" $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/firmware/${CANMV_COMMIT}/
     - scp -P $DNLD_SRV_PORT -C "${VSCODE_ASSET_DIR}/firmware/latest" $DNLD_SRV:$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/firmware/latest
   artifacts:
     when: on_success
@@ -193,7 +195,9 @@ build-image-and-stubs:
 generate-resources:
   stage: generate
   script:
-    - python3 tools/package_canmv_vscode_examples.py resources --out generated/canmv_vscode_extension --commit "${CI_COMMIT_SHA}"
+    - export CANMV_COMMIT="$(git -C "${CI_PROJECT_DIR}" rev-parse HEAD)"
+    - 'echo "CanMV commit: ${CANMV_COMMIT}"'
+    - python3 tools/package_canmv_vscode_examples.py resources --out generated/canmv_vscode_extension --commit "${CANMV_COMMIT}"
     - ls -ald generated/*
     - export EXAMPLES_ID="$(cat generated/canmv_vscode_extension/examples/latest)"
     - ssh -p "$DNLD_SRV_PORT" "$DNLD_SRV" "mkdir -p '$DNLD_SRV_TOOLS_CANMV_IDE_K230_PATH/examples'"
@@ -205,7 +209,7 @@ generate-resources:
       - generated/canmv_vscode_extension/examples/*
 
   rules:
-  - if: '$CI_COMMIT_BRANCH == "canmv_k230" || $CI_COMMIT_BRANCH == "test_ci"'
+  - if: '$CI_COMMIT_BRANCH == "canmv_k230"'
     changes:
         - resources/examples/**/*
         - resources/models/**/*

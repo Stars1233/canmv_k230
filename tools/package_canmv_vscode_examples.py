@@ -13,37 +13,14 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 
 
-SOURCE_DIRS = [
-    "01-Micropython-Basics",
-    "02-Media",
-    "03-Machine",
-    "04-Cipher",
-    "05-AI-Demo",
-    "06-Display",
-    "07-April-Tags",
-    "08-Codes",
-    "09-Color-Tracking",
-    "10-Drawing",
-    "11-Feature-Detection",
-    "12-Image-Filters",
-    "14-Socket",
-    "15-LVGL",
-    "16-AI-Cube",
-    "17-Sensor",
-    "18-NNCase",
-    "19-CloudPlatScripts",
-    "20-YOLO-Module-Examples",
-    "21-AI-With-Others",
-    "22-Others",
-    "23-CV_Lite",
-    "99-HelloWorld",
-]
+EXAMPLE_DIR_PATTERN = re.compile(r"\d{2}-.+")
 
 
 def run_git(args: list[str], cwd: Path) -> str:
@@ -53,20 +30,33 @@ def run_git(args: list[str], cwd: Path) -> str:
         return ""
 
 
-def copy_selected_examples(resource_dir: Path, stage_dir: Path) -> None:
+def copy_examples(resource_dir: Path, stage_dir: Path) -> None:
+    src = resource_dir / "examples"
+    if not src.is_dir():
+        raise SystemExit(f"Examples directory not found: {src}")
+
+    example_dirs = sorted(
+        path for path in src.iterdir()
+        if path.is_dir() and EXAMPLE_DIR_PATTERN.fullmatch(path.name)
+    )
+    if not example_dirs:
+        raise SystemExit(f"No numbered example directories found in: {src}")
+    if not any(
+        path.is_file()
+        for directory in example_dirs
+        for path in directory.rglob("*.py")
+    ):
+        raise SystemExit(f"No Python examples found in numbered directories under: {src}")
+
     examples_out = stage_dir / "examples"
     examples_out.mkdir(parents=True, exist_ok=True)
-
-    for folder in SOURCE_DIRS:
-        src = resource_dir / "examples" / folder
-        dst = examples_out / folder
-        if not src.exists():
-            print(f"Warning: skipped missing example folder: {src}")
-            continue
-        dst.mkdir(parents=True, exist_ok=True)
-        for file_path in sorted(src.iterdir()):
-            if file_path.is_file() and file_path.suffix == ".py":
-                shutil.copy2(file_path, dst / file_path.name)
+    for directory in example_dirs:
+        for source in sorted(directory.rglob("*.py")):
+            if not source.is_file():
+                continue
+            destination = examples_out / directory.name / source.relative_to(directory)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
 
 
 def copy_models(resource_dir: Path, stage_dir: Path) -> None:
@@ -136,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(stage_dir)
     stage_dir.mkdir(parents=True, exist_ok=True)
 
-    copy_selected_examples(resource_dir, stage_dir)
+    copy_examples(resource_dir, stage_dir)
     copy_models(resource_dir, stage_dir)
 
     content_id = tree_hash(stage_dir)

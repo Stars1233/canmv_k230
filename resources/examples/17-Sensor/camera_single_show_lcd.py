@@ -38,7 +38,6 @@ try:
     # use hdmi as display output
     Display.init(Display.ST7701, to_ide = True, osd_num = 2)
 
-
     # sensor start run
     sensor.run()
 

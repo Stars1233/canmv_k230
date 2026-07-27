@@ -41,8 +41,6 @@ try:
     # use hdmi as display output
     Display.init(Display.LT9611, to_ide = True)
 
-
-
     # multiple sensor only need one excute run()
     sensor0.run()
 
