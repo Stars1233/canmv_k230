@@ -43,12 +43,48 @@
 #define BIND_PORT_RANGE_MIN     (65000)
 #define BIND_PORT_RANGE_MAX     (65535)
 
+#ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
+#define NETWORK_RT_DEV_INIT_TIMEOUT_MS (5000)
+#define NETWORK_RT_DEV_INIT_POLL_MS    (100)
+#define NETWORK_RT_WLAN_STA_DEV_NAME   "w0"
+#define NETWORK_RT_WLAN_AP_DEV_NAME    "w1"
+#endif
+
 static __attribute__((unused)) uint16_t bind_port = BIND_PORT_RANGE_MIN;
 
 typedef struct _py_rt_net_obj_t {
     mp_obj_base_t base;
     enum rt_netif_t itf;
 } py_rt_net_obj_t;
+
+#ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
+STATIC bool network_rt_wait_dev_registered(const char *dev_name) {
+    mp_uint_t start_ms = mp_hal_ticks_ms();
+
+    if (dev_name == NULL) {
+        return false;
+    }
+
+    while (1) {
+        int dev_num = 0;
+        char names[NET_DEV_MAX_CNT][32];
+
+        if (0x00 == netmgmt_utils_get_dev_list(&dev_num, names)) {
+            for (int i = 0; i < dev_num; i++) {
+                if (0x00 == strcmp(dev_name, names[i])) {
+                    return true;
+                }
+            }
+        }
+
+        if ((mp_hal_ticks_ms() - start_ms) >= NETWORK_RT_DEV_INIT_TIMEOUT_MS) {
+            return false;
+        }
+
+        mp_hal_delay_ms(NETWORK_RT_DEV_INIT_POLL_MS);
+    }
+}
+#endif
 
 STATIC mp_obj_t network_rt_net_active(size_t n_args, const mp_obj_t *args) {
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -1655,6 +1691,10 @@ STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
 
     if(MOD_NETWORK_STA_IF == itf) {
         if(0x00 == network_type_sta_init_flag) {
+            if (!network_rt_wait_dev_registered(NETWORK_RT_WLAN_STA_DEV_NAME)) {
+                mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Wait network device %s registration timeout"), NETWORK_RT_WLAN_STA_DEV_NAME);
+            }
+
             network_type_sta_init_flag = 1;
 
             const mp_map_elem_t *base_dict_map = (const mp_map_elem_t *)&rt_wlan_locals_dict_table;
@@ -1672,6 +1712,10 @@ STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
         return MP_OBJ_TYPE_GET_SLOT(&network_type_wlan_sta, make_new)(&network_type_wlan_sta, 0, 0, MP_OBJ_NULL);
     } else {
         if(0x00 == network_type_ap_init_flag) {
+            if (!network_rt_wait_dev_registered(NETWORK_RT_WLAN_AP_DEV_NAME)) {
+                mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Wait network device %s registration timeout"), NETWORK_RT_WLAN_AP_DEV_NAME);
+            }
+
             network_type_ap_init_flag = 1;
 
             const mp_map_elem_t *base_dict_map = (const mp_map_elem_t *)&rt_wlan_locals_dict_table;
