@@ -38,6 +38,7 @@ extern const mp_obj_type_t py_usb_touch_type;
 
 extern const mp_obj_type_t py_media_display_type;
 extern const mp_obj_type_t py_media_gsdma_type;
+extern const mp_obj_type_t py_media_mjpeg_encoder_type;
 extern const mp_obj_type_t py_media_uvc_type;
 extern const mp_obj_type_t py_media_vbmgmt_type;
 extern const mp_obj_type_t py_media_video_frame_type;
