@@ -22,13 +22,28 @@ class RtspServer:
     def start(self):
         if (self.start_stream == True):
             return
-        self.encoder.SetOutBufs(16, self.width, self.height)
-        chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, self.width, self.height,bit_rate=2048)
-        self.encoder.Create(chnAttr)
-        self.rtspserver.rtspserver_init(self.port)
-        self.rtspserver.rtspserver_createsession(self.session_name,self.video_type,self.enable_audio)
-        self.rtspserver.rtspserver_start()
-        self.encoder.Start()
+        encoder_created = False
+        server_initialized = False
+        try:
+            self.encoder.SetOutBufs(16, self.width, self.height)
+            chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, self.width, self.height,bit_rate=2048)
+            self.encoder.Create(chnAttr)
+            encoder_created = True
+
+            if self.rtspserver.rtspserver_init(self.port) != 0:
+                raise RuntimeError("RTSP server failed to bind port %d" % self.port)
+            server_initialized = True
+            if self.rtspserver.rtspserver_createsession(self.session_name,self.video_type,self.enable_audio) != 0:
+                raise RuntimeError("RTSP session creation failed")
+
+            self.rtspserver.rtspserver_start()
+            self.encoder.Start()
+        except:
+            if server_initialized:
+                self.rtspserver.rtspserver_deinit()
+            if encoder_created:
+                self.encoder.Destroy()
+            raise
         self.start_stream = True
 
     def stop(self):
@@ -51,7 +66,9 @@ class RtspServer:
         self.rtspserver.rtspserver_stop()
         self.rtspserver.rtspserver_deinit()
 
-    def get_rtsp_url(self):
+    def get_rtsp_url(self, host=None):
+        if host is not None:
+            return "rtsp://%s:%d/%s" % (host, self.port, self.session_name)
         return self.rtspserver.rtspserver_getrtspurl(self.session_name)
 
     def send_video_frame(self,frame_info):
@@ -87,8 +104,6 @@ class WBCRtsp:
     @classmethod
     def _wbc_rtsp(cls):
         """内部线程函数：循环获取WBC帧并发送到RTSP服务器"""
-        cls._running = True  # 启动线程时打开开关
-
         while cls._running:  # 用类属性控制循环
             os.exitpoint()
 
@@ -120,16 +135,24 @@ class WBCRtsp:
         )
 
     @classmethod
-    def start(cls):
+    def start(cls, network_ip=None):
         """启动WBC、RTSP服务器和推流线程"""
         if not cls._running:  # 避免重复启动线程
             if not Display.writeback(True):
                 raise RuntimeError("start wbc failed")
 
-            cls.rtspserver.start()
-            print("RTSP server started:", cls.rtspserver.get_rtsp_url())
-            # 启动线程：调用类的内部方法（需用cls引用）
-            _thread.start_new_thread(cls._wbc_rtsp, ())  # 注意参数是元组，即使无参数也要加逗号
+            try:
+                cls.rtspserver.start()
+                print("RTSP server started:", cls.rtspserver.get_rtsp_url(network_ip))
+                cls._running = True
+                cls._runthread_over = False
+                # 启动线程：调用类的内部方法（需用cls引用）
+                _thread.start_new_thread(cls._wbc_rtsp, ())  # 注意参数是元组，即使无参数也要加逗号
+            except:
+                cls._running = False
+                cls.rtspserver.stop()
+                Display.writeback(False)
+                raise
 
     @classmethod
     def stop(cls):

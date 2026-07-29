@@ -12,52 +12,120 @@ import aidemo
 import network,time
 
 
-nic = None
+# Select "wifi_sta", "wifi_ap", or "lan".
+NETWORK_MODE = "wifi_sta"
+NETWORK_TIMEOUT = 15
 
-#WIFI连接函数
-def WIFI_Connect(ssid, passwd = None):
-    global nic
+# Default test credentials. Change them before running the example.
+WIFI_STA_SSID = "Test"
+WIFI_STA_PASSWORD = "12345678"
 
-    wlan = network.WLAN(network.STA_IF) #STA模式
-    wlan.active(True)                   #激活接口
+WIFI_AP_SSID = "K230_RTSP"
+WIFI_AP_PASSWORD = "12345678"
 
-    start_time=time.time() #记录时间做超时判断
+NETWORK_DEVICE_NAMES = {
+    "wifi_sta": "w0",
+    "wifi_ap": "w1",
+    "lan": "u0",
+}
 
-    if not wlan.isconnected():
-        print('connecting to network...')
 
-        #输入WIFI账号密码（仅支持2.4G信号）, 连接超过5秒为超时
-        wlan.connect(ssid, passwd)
+def wait_for_ip(nic, timeout=NETWORK_TIMEOUT, require_connection=False):
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        config = nic.ifconfig()
+        connected = not require_connection or nic.isconnected()
+        if connected and config and config[0] != "0.0.0.0":
+            return config[0]
+        time.sleep(0.2)
+    raise RuntimeError("Network did not obtain an IP address")
 
-        while not wlan.isconnected():
-            #超时判断,10秒没连接成功判定为超时
-            if time.time()-start_time > 10 :
-                print('WIFI Connected Timeout!')
-                break
 
-    if wlan.isconnected(): #连接成功
-        print('connect success')
-        #等待获取IP地址
-        while wlan.ifconfig()[0] == '0.0.0.0':
-            pass
-        #串口打印信息
-        print('network information:', wlan.ifconfig())
+def require_network_device(mode):
+    if not hasattr(network, "get_dev_list"):
+        raise RuntimeError("Network device discovery is not supported by this firmware")
 
-        nic = wlan
-    else: #连接失败
-        print("Connect wifi failed.")
+    devices = network.get_dev_list()
+    device_name = NETWORK_DEVICE_NAMES[mode]
+    if devices is None or device_name not in devices:
+        raise RuntimeError("Network device '%s' is not available; found: %s" %
+                           (device_name, devices))
 
-#有线以太网连接函数
-def Lan_Connect():
-    global nic
+
+def connect_wifi_sta(ssid, password, timeout=NETWORK_TIMEOUT):
+    if not hasattr(network, "WLAN"):
+        raise RuntimeError("Wi-Fi is not supported by this firmware")
+
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+
+    # A WLAN connection survives a script restart. Disconnect first so new
+    # credentials can switch the station to a different access point.
+    if wlan.isconnected():
+        print("Disconnecting current Wi-Fi...")
+        if not wlan.disconnect():
+            raise RuntimeError("Wi-Fi disconnect failed")
+        start_time = time.time()
+        while wlan.isconnected():
+            if time.time() - start_time >= 5:
+                raise RuntimeError("Wi-Fi disconnect timeout")
+            os.exitpoint()
+            time.sleep_ms(100)
+
+    print("Connecting to Wi-Fi access point...")
+    if wlan.connect(ssid, password) is False:
+        raise RuntimeError("Failed to start Wi-Fi connection")
+
+    ip = wait_for_ip(wlan, timeout, True)
+    print("Wi-Fi STA network information:", wlan.ifconfig())
+    return wlan, ip
+
+
+def start_wifi_ap(ssid, password, timeout=NETWORK_TIMEOUT):
+    if not hasattr(network, "WLAN"):
+        raise RuntimeError("Wi-Fi is not supported by this firmware")
+
+    ap = network.WLAN(network.AP_IF)
+    print("Starting Wi-Fi access point:", ssid)
+    if ap.config(ssid=ssid, key=password) is False:
+        raise RuntimeError("Failed to start Wi-Fi access point")
+
+    ip = wait_for_ip(ap, timeout)
+    print("Wi-Fi AP network information:", ap.ifconfig())
+    return ap, ip
+
+
+def connect_lan(timeout=NETWORK_TIMEOUT):
+    if not hasattr(network, "LAN"):
+        raise RuntimeError("LAN is not supported by this firmware")
+
     lan = network.LAN()
+    print("Connecting LAN with DHCP...")
+    if lan.ifconfig("dhcp") is False:
+        raise RuntimeError("Failed to start LAN DHCP")
+    ip = wait_for_ip(lan, timeout, True)
+    print("LAN network information:", lan.ifconfig())
+    return lan, ip
 
-    if lan.isconnected(): #连接成功
-        print('network information:', lan.ifconfig())
 
-        nic = lan
-    else: #连接失败
-        print("Connect lan failed.")
+def connect_network(mode):
+    if mode not in NETWORK_DEVICE_NAMES:
+        raise ValueError("NETWORK_MODE must be 'wifi_sta', 'wifi_ap', or 'lan'")
+
+    require_network_device(mode)
+    if mode == "wifi_sta":
+        nic, ip = connect_wifi_sta(WIFI_STA_SSID, WIFI_STA_PASSWORD)
+    elif mode == "wifi_ap":
+        nic, ip = start_wifi_ap(WIFI_AP_SSID, WIFI_AP_PASSWORD)
+    else:
+        nic, ip = connect_lan()
+
+    if not hasattr(network, "set_default_dev"):
+        raise RuntimeError("Default network device selection is not supported by this firmware")
+    if network.set_default_dev(NETWORK_DEVICE_NAMES[mode]) is False:
+        raise RuntimeError("Failed to select network device '%s'" % NETWORK_DEVICE_NAMES[mode])
+
+    return nic, ip
 
 # 自定义人脸检测类，继承自AIBase基类
 class FaceDetectionApp(AIBase):
@@ -126,12 +194,9 @@ if __name__ == "__main__":
     anchors = np.fromfile(anchors_path, dtype=np.float)
     anchors = anchors.reshape((anchor_len, det_dim))
 
-    #执行WIFI连接函数
-    WIFI_Connect("Test", "12345678")
-    #执行以太网连接函数
-    # Lan_Connect()
+    nic, network_ip = connect_network(NETWORK_MODE)
 
-    print(f"virtual wbc ai + rtsp stream on rtsp://{nic.ifconfig()[0]}:8554/test")
+    print("Virtual WBC AI + RTSP stream: rtsp://%s:8554/test" % network_ip)
 
     # 初始化PipeLine，rgb888p_size为传给AI的图像分辨率，display_size为显示分辨率
     pl = PipeLine(rgb888p_size=rgb888p_size, display_mode=display_mode, display_size=display_size)
@@ -140,7 +205,7 @@ if __name__ == "__main__":
     # init wbc,wbc_width和wbc_height为原始屏幕的宽高
     WBCRtsp.configure(wbc_width=480,wbc_height=800)
     # 启用wbc编码推流
-    WBCRtsp.start()
+    WBCRtsp.start(network_ip)
 
     display_size=pl.get_display_size()
     # 初始化自定义人脸检测实例

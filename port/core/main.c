@@ -59,6 +59,7 @@
 #include "genhdr/mpversion.h"
 
 #include "ide_dbg.h"
+#include "multimedia_wrap.h"
 #include "mpp_vb_mgmt.h"
 #include "drivers/drv_canmv_misc_dev.h"
 
@@ -617,6 +618,10 @@ main_thread_exit:
     #if MICROPY_PY_THREAD
     mp_thread_shutdown_workers();
     #endif
+
+    // Native RTSP threads and listener sockets are not owned by MicroPython's
+    // worker-thread registry, so close them explicitly before network teardown.
+    RtspServer_DeInitAll();
 
     #if MICROPY_PY_BLUETOOTH
     mp_bluetooth_deinit();

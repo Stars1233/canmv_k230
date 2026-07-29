@@ -11,6 +11,7 @@ extern "C" {
 
 KdRtspServer * RtspServer_create();
 void RtspServer_destroy(KdRtspServer *p);
+void RtspServer_DeInitAll(void);
 int RtspServer_Init(KdRtspServer *p, int port);
 void RtspServer_DeInit(KdRtspServer *p);
 int RtspServer_CreateSession(KdRtspServer *p, const char *session_name, const SessionAttr *session_attr);

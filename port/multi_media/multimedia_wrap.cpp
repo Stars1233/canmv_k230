@@ -2,13 +2,41 @@
 #include "rtsp_server.h"
 #include "mpi_sys_api.h"
 
+#include <algorithm>
+#include <mutex>
+#include <vector>
+
+namespace {
+std::mutex g_rtsp_servers_mutex;
+std::vector<KdRtspServer *> g_rtsp_servers;
+}
+
 KdRtspServer * RtspServer_create() {
-    return new KdRtspServer();
+    KdRtspServer *server = new KdRtspServer();
+    std::lock_guard<std::mutex> lock(g_rtsp_servers_mutex);
+    g_rtsp_servers.push_back(server);
+    return server;
 }
 
 void RtspServer_destroy(KdRtspServer *p) {
+    if (!p) {
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(g_rtsp_servers_mutex);
+        g_rtsp_servers.erase(
+            std::remove(g_rtsp_servers.begin(), g_rtsp_servers.end(), p),
+            g_rtsp_servers.end());
+    }
     delete p;
-    p = nullptr;
+}
+
+void RtspServer_DeInitAll(void) {
+    std::lock_guard<std::mutex> lock(g_rtsp_servers_mutex);
+    for (KdRtspServer *server : g_rtsp_servers) {
+        server->DeInit();
+    }
 }
 
 int RtspServer_Init(KdRtspServer *p, int port) {

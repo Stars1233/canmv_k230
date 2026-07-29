@@ -5,7 +5,17 @@
 #include "py/runtime.h"
 #include "py/binary.h"
 #include "string.h"
+#include <stdlib.h>
 #include <stdio.h>
+
+
+STATIC KdRtspServer *mp_rtspserver_get(mp_obj_t self_in) {
+    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self->interp == NULL) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("RTSP server is deinitialized"));
+    }
+    return self->interp;
+}
 
 
 // init
@@ -19,114 +29,108 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(rtspserver_create_obj, mp_rtspserver_create);
 
 STATIC mp_obj_t mp_rtspserver_destroy(mp_obj_t self_in) {
     rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    RtspServer_destroy(self->interp);
+    if (self->interp != NULL) {
+        RtspServer_destroy(self->interp);
+        self->interp = NULL;
+    }
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(rtspserver_destroy_obj, mp_rtspserver_destroy);
 
 
 STATIC mp_obj_t mp_rtspserver_init(mp_obj_t self_in, mp_obj_t port) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    return mp_obj_new_int(RtspServer_Init(self->interp, mp_obj_get_int(port)));
+    return mp_obj_new_int(RtspServer_Init(mp_rtspserver_get(self_in), mp_obj_get_int(port)));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(rtspserver_init_obj, mp_rtspserver_init);
 
 STATIC mp_obj_t mp_rtspserver_deinit(mp_obj_t self_in) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    RtspServer_DeInit(self->interp);
+    RtspServer_DeInit(mp_rtspserver_get(self_in));
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(rtspserver_deinit_obj, mp_rtspserver_deinit);
 
 STATIC mp_obj_t mp_rtspserver_createsession(size_t n_args,const mp_obj_t *args)
 {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_obj_t session_name = args[1];
     mp_obj_t video_type = args[2];
     mp_obj_t enable_audio = args[3];
     SessionAttr attr = {true, mp_obj_get_int(enable_audio), false, mp_obj_get_int(video_type)};
     const SessionAttr *session_attr_obj = &attr;
-    return mp_obj_new_int(RtspServer_CreateSession(self->interp, mp_obj_str_get_str(session_name), session_attr_obj));
+    return mp_obj_new_int(RtspServer_CreateSession(mp_rtspserver_get(args[0]), mp_obj_str_get_str(session_name), session_attr_obj));
 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rtspserver_createsession_obj, 4,4,mp_rtspserver_createsession);
 
 STATIC mp_obj_t mp_rtspserver_destroysession(mp_obj_t self_in, mp_obj_t session_name) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    return mp_obj_new_int(RtspServer_DestroySession(self->interp, mp_obj_str_get_str(session_name)));
+    return mp_obj_new_int(RtspServer_DestroySession(mp_rtspserver_get(self_in), mp_obj_str_get_str(session_name)));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(rtspserver_destroysession_obj, mp_rtspserver_destroysession);
 
 STATIC mp_obj_t mp_rtspserver_getrtspurl(mp_obj_t self_in, mp_obj_t session_name) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    char* url = RtspServer_GetRtspUrl(self->interp, mp_obj_str_get_str(session_name));
-    mp_obj_t mp_url_string;
-    mp_url_string = mp_obj_new_str(url, strlen(url));
-    return MP_OBJ_TO_PTR(mp_url_string);
+    char* url = RtspServer_GetRtspUrl(mp_rtspserver_get(self_in), mp_obj_str_get_str(session_name));
+    if (url == NULL) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("RTSP session is not available"));
+    }
+    mp_obj_t mp_url_string = mp_obj_new_str(url, strlen(url));
+    free(url);
+    return mp_url_string;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(rtspserver_getrtspurl_obj, mp_rtspserver_getrtspurl);
 
 STATIC mp_obj_t mp_rtspserver_start(mp_obj_t self_in) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    RtspServer_Start(self->interp);
+    RtspServer_Start(mp_rtspserver_get(self_in));
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(rtspserver_start_obj, mp_rtspserver_start);
 
 STATIC mp_obj_t mp_rtspserver_stop(mp_obj_t self_in) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    RtspServer_Stop(self->interp);
+    RtspServer_Stop(mp_rtspserver_get(self_in));
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(rtspserver_stop_obj, mp_rtspserver_stop);
 
 STATIC mp_obj_t mp_rtspserver_sendvideodata(size_t n_args,const mp_obj_t *args) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_obj_t session_name = args[1];
     mp_obj_t data = args[2];
     mp_obj_t size = args[3];
     mp_obj_t timestamp = args[4];
 
-    return mp_obj_new_int(RtspServer_SendVideoData(self->interp, mp_obj_str_get_str(session_name), (const uint8_t *)mp_obj_str_get_str(data), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
+    return mp_obj_new_int(RtspServer_SendVideoData(mp_rtspserver_get(args[0]), mp_obj_str_get_str(session_name), (const uint8_t *)mp_obj_str_get_str(data), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rtspserver_sendvideodata_obj, 5,5,mp_rtspserver_sendvideodata);
 
 STATIC mp_obj_t mp_rtspserver_sendaudiodata(size_t n_args,const mp_obj_t *args) {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_obj_t session_name = args[1];
     mp_obj_t data = args[2];
     mp_obj_t size = args[3];
     mp_obj_t timestamp = args[4];
-    return mp_obj_new_int(RtspServer_SendAudioData(self->interp, mp_obj_str_get_str(session_name), (const uint8_t *)mp_obj_str_get_str(data), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
+    return mp_obj_new_int(RtspServer_SendAudioData(mp_rtspserver_get(args[0]), mp_obj_str_get_str(session_name), (const uint8_t *)mp_obj_str_get_str(data), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rtspserver_sendaudiodata_obj,5,5, mp_rtspserver_sendaudiodata);
 
 STATIC mp_obj_t mp_rtspserver_sendvideodata_byphyaddr(size_t n_args,const mp_obj_t *args){
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_obj_t session_name = args[1];
     mp_obj_t phy_addr = args[2];
     mp_obj_t size = args[3];
     mp_obj_t timestamp = args[4];
-    return mp_obj_new_int(RtspServer_SendVideoData_Byphyaddr(self->interp, mp_obj_str_get_str(session_name), mp_obj_get_int(phy_addr), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
+    return mp_obj_new_int(RtspServer_SendVideoData_Byphyaddr(mp_rtspserver_get(args[0]), mp_obj_str_get_str(session_name), mp_obj_get_int(phy_addr), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rtspserver_sendvideodata_byphyaddr_obj,5,5,mp_rtspserver_sendvideodata_byphyaddr);
 
 STATIC mp_obj_t mp_rtspserver_sendaudiodata_byphyaddr(size_t n_args,const mp_obj_t *args){
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_obj_t session_name = args[1];
     mp_obj_t phy_addr = args[2];
     mp_obj_t size = args[3];
     mp_obj_t timestamp = args[4];
-    return mp_obj_new_int(RtspServer_SendAudioData_Byphyaddr(self->interp, mp_obj_str_get_str(session_name), mp_obj_get_int(phy_addr), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
+    return mp_obj_new_int(RtspServer_SendAudioData_Byphyaddr(mp_rtspserver_get(args[0]), mp_obj_str_get_str(session_name), mp_obj_get_int(phy_addr), mp_obj_get_int(size), mp_obj_get_int(timestamp)));
 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rtspserver_sendaudiodata_byphyaddr_obj,5,5,mp_rtspserver_sendaudiodata_byphyaddr);
 
 STATIC mp_obj_t mp_rtspserver_test(mp_obj_t self_in)
 {
-    rtspserver_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    char* v = RtspServer_Test(self->interp);
+    char* v = RtspServer_Test(mp_rtspserver_get(self_in));
     mp_obj_t mp_v_string;
     mp_v_string = mp_obj_new_str(v, strlen(v));
     return MP_OBJ_TO_PTR(mp_v_string);
@@ -173,6 +177,7 @@ STATIC const mp_rom_map_elem_t RtspServer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_rtspserver) },
     { MP_ROM_QSTR(MP_QSTR_rtspserver_create), MP_ROM_PTR(&rtspserver_create_obj) },
     { MP_ROM_QSTR(MP_QSTR_rtspserver_destroy), MP_ROM_PTR(&rtspserver_destroy_obj) },
+    { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&rtspserver_destroy_obj) },
     { MP_ROM_QSTR(MP_QSTR_rtspserver_init), MP_ROM_PTR(&rtspserver_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_rtspserver_deinit), MP_ROM_PTR(&rtspserver_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_rtspserver_createsession), MP_ROM_PTR(&rtspserver_createsession_obj) },
