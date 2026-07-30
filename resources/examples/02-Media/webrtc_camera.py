@@ -132,10 +132,17 @@ def send_response(client, status, content_type, body):
 
 def read_request(client):
     data = b""
+    deadline = time.ticks_add(time.ticks_ms(), 2000)
+    client.settimeout(0.05)
     while data.find(b"\r\n\r\n") < 0 and len(data) < 16384:
-        chunk = client.recv(2048)
+        if time.ticks_diff(deadline, time.ticks_ms()) < 0:
+            return None
+        try:
+            chunk = client.recv(2048)
+        except OSError:
+            continue
         if not chunk:
-            break
+            return None
         data += chunk
     split = data.find(b"\r\n\r\n")
     if split < 0:
@@ -159,9 +166,14 @@ def read_request(client):
                 return None
             break
     while len(body) < content_length:
-        chunk = client.recv(min(2048, content_length - len(body)))
+        if time.ticks_diff(deadline, time.ticks_ms()) < 0:
+            return None
+        try:
+            chunk = client.recv(min(2048, content_length - len(body)))
+        except OSError:
+            continue
         if not chunk:
-            break
+            return None
         body += chunk
     return method, path, body[:content_length]
 
