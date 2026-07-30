@@ -9,7 +9,7 @@ from media.sensor import *
 from media.media import *
 import time, os
 
-def vi_bind_venc_test(file_name,width=1280, height=720):
+def vi_bind_venc_test(file_name, width=1280, height=720, bit_rate=512):
     print("venc_test start")
     width = ALIGN_UP(width, 16)
     venc_payload_type = K_PT_H264
@@ -40,9 +40,11 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     encoder.SetOutBufs(8, width, height)
 
     if (venc_payload_type == K_PT_H264):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN,
+                             width, height, bit_rate=bit_rate)
     elif (venc_payload_type == K_PT_H265):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN,
+                             width, height, bit_rate=bit_rate)
 
     streamData = StreamData()
 
@@ -92,7 +94,7 @@ def vi_bind_venc_test(file_name,width=1280, height=720):
     encoder.Destroy()
     print("venc_test stop")
 
-def stream_venc_test(file_name,width=1280, height=720):
+def stream_venc_test(file_name, width=1280, height=720, bit_rate=512):
     print("venc_test start")
     width = ALIGN_UP(width, 16)
     venc_payload_type = K_PT_H264
@@ -123,9 +125,11 @@ def stream_venc_test(file_name,width=1280, height=720):
     encoder.SetOutBufs(8, width, height)
 
     if (venc_payload_type == K_PT_H264):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN,
+                             width, height, bit_rate=bit_rate)
     elif (venc_payload_type == K_PT_H265):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN,
+                             width, height, bit_rate=bit_rate)
 
     streamData = StreamData()
 
@@ -177,5 +181,5 @@ def stream_venc_test(file_name,width=1280, height=720):
 
 if __name__ == "__main__":
     os.exitpoint(os.EXITPOINT_ENABLE)
-    vi_bind_venc_test("/data/test.264",800,480)  # vi绑定venc示例
-    #stream_venc_test("/data/test.264",800,480)  # venc编码数据流示例
+    vi_bind_venc_test("/data/test.265", 800, 480, bit_rate=512)  # vi绑定venc示例
+    #stream_venc_test("/data/test.265", 800, 480, bit_rate=512)  # venc编码数据流示例

@@ -52,7 +52,9 @@ def mp4_muxer_create_audio_track(mp4_handle,channel,sample_rate, bit_per_sample 
         raise OSError("kd_mp4_create_track failed.")
     return audio_track_handle.value
 
-def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K_PT_H264,fmp4_flag = False):
+def vi_bind_venc_mp4_test(file_name, width=1280, height=720,
+                           venc_payload_type=K_PT_H265, bit_rate=512,
+                           fmp4_flag=False):
     print("venc_test start")
     width = ALIGN_UP(width, 16)
 
@@ -85,9 +87,11 @@ def vi_bind_venc_mp4_test(file_name,width=1280, height=720,venc_payload_type = K
     encoder.SetOutBufs(8, width, height)
 
     if (venc_payload_type == K_PT_H264):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN,
+                             width, height, bit_rate=bit_rate)
     elif (venc_payload_type == K_PT_H265):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN,
+                             width, height, bit_rate=bit_rate)
 
     streamData = StreamData()
 
@@ -223,5 +227,6 @@ def mp4_muxer_test():
 
 if __name__ == "__main__":
     os.exitpoint(os.EXITPOINT_ENABLE)
-    vi_bind_venc_mp4_test("/data/test.mp4", 1280, 720)
+    vi_bind_venc_mp4_test("/data/test.mp4", 1280, 720,
+                           venc_payload_type=K_PT_H265, bit_rate=512)
     #mp4_muxer_test()

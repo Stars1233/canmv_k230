@@ -600,7 +600,7 @@ _check_timeout:
         } else {
             curr_tick_ms = mp_hal_ticks_ms();
             if(curr_tick_ms > stop_ms) {
-                printf("recv timeout!\n");
+                debug_printf("recv timeout!\n");
                 return received;
             }
         }

@@ -151,8 +151,9 @@ def ai_and_save_mp4():
     # 保存视频参数
     mp4_id=0
     mp4_size=[1280,720]
-    venc_payload_type = K_PT_H264
-    video_payload_type=K_MP4_CODEC_ID_H264
+    venc_bit_rate = 512
+    venc_payload_type = K_PT_H265
+    video_payload_type=K_MP4_CODEC_ID_H265
 
     # 初始化sensor
     sensor = Sensor()
@@ -187,9 +188,11 @@ def ai_and_save_mp4():
 
 
     if (venc_payload_type == K_PT_H264):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN, mp4_size[0], mp4_size[1])
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H264, encoder.H264_PROFILE_MAIN,
+                             mp4_size[0], mp4_size[1], bit_rate=venc_bit_rate)
     elif (venc_payload_type == K_PT_H265):
-        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN, mp4_size[0], mp4_size[1])
+        chnAttr = ChnAttrStr(encoder.PAYLOAD_TYPE_H265, encoder.H265_PROFILE_MAIN,
+                             mp4_size[0], mp4_size[1], bit_rate=venc_bit_rate)
 
     streamData = StreamData()
     # 启动camera
@@ -327,4 +330,3 @@ def ai_and_save_mp4():
 
 if __name__=="__main__":
     ai_and_save_mp4()
-

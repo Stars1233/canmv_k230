@@ -8,7 +8,7 @@ from media.media import *
 from mpp.video_struct import *
 
 class ChnAttrStr:
-    def __init__(self, payloadType, profile, picWidth, picHeight,bit_rate = 4000,gopLen = 30,src_frame_rate = 30,dst_frame_rate = 30,mjpeg_quality_factor = 45):
+    def __init__(self, payloadType, profile, picWidth, picHeight,bit_rate = 512,gopLen = 30,src_frame_rate = 30,dst_frame_rate = 30,mjpeg_quality_factor = 45):
         """Initialize the object.
         Args:
             payloadType: Video encoder payload type.
@@ -130,6 +130,15 @@ class Encoder:
         ret = kd_mpi_venc_start_chn(self.chn)
         if ret != 0:
             raise OSError("mpi venc start failed.")
+
+    def RequestIDR(self):
+        """Request an IDR frame from a running H.264 or H.265 encoder."""
+        if self.chn < 0:
+            raise ValueError("venc RequestIDR, chn not requested yet")
+
+        ret = kd_mpi_venc_request_idr(self.chn)
+        if ret != 0:
+            raise OSError("mpi venc request idr failed.")
 
     def GetStream(self, streamData, timeout=-1):
         """Get an encoded video stream.

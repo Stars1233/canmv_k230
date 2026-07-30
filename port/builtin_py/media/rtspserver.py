@@ -7,21 +7,42 @@ import multimedia as mm
 from time import *
 
 class RtspServer:
-    def __init__(self,session_name="test",port=8554,video_type = mm.multi_media_type.media_h264,enable_audio=False):
+    def __init__(self, session_name="test", port=8554,
+                 video_type=mm.multi_media_type.media_h265, enable_audio=False,
+                 width=1280, height=720, bit_rate=512, gop_len=30):
         """Initialize the object.
         Args:
             session_name: RTSP session name.
             port: RTSP listening port.
             video_type: RTSP video encoding type.
             enable_audio: Whether to enable audio streaming.
+            width: Encoded video width.
+            height: Encoded video height.
+            bit_rate: Target video bit rate in Kbit/s.
+            gop_len: Number of frames per GOP.
         """
         self.session_name = session_name
         self.video_type = video_type
         self.enable_audio = enable_audio
         self.port = port
+        self.width = ALIGN_UP(width, 16)
+        self.height = height
+        self.bit_rate = bit_rate
+        self.gop_len = gop_len
         self.rtspserver = mm.rtsp_server()
         self.start_stream = False
         self.runthread_over = False
+
+        if bit_rate < 100 or bit_rate > 20000:
+            raise ValueError("bit_rate must be between 100 and 20000 Kbit/s")
+        if video_type == mm.multi_media_type.media_h265:
+            self.payload_type = Encoder.PAYLOAD_TYPE_H265
+            self.profile = Encoder.H265_PROFILE_MAIN
+        elif video_type == mm.multi_media_type.media_h264:
+            self.payload_type = Encoder.PAYLOAD_TYPE_H264
+            self.profile = Encoder.H264_PROFILE_MAIN
+        else:
+            raise ValueError("video_type must be media_h265 or media_h264")
 
     def start(self):
         """Start processing.
@@ -57,16 +78,15 @@ class RtspServer:
     def _init_stream(self):
         """Internal helper method.
         """
-        width = 1280
-        height = 720
-        width = ALIGN_UP(width, 16)
         self.sensor = Sensor()
         self.sensor.reset()
-        self.sensor.set_framesize(width = width, height = height, alignment=12)
+        self.sensor.set_framesize(width=self.width, height=self.height, alignment=12)
         self.sensor.set_pixformat(Sensor.YUV420SP)
         self.encoder = Encoder()
-        self.encoder.SetOutBufs(15, width, height)
-        chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, width, height,bit_rate=1024)
+        self.encoder.SetOutBufs(15, self.width, self.height)
+        chnAttr = ChnAttrStr(self.payload_type, self.profile,
+                             self.width, self.height,
+                             bit_rate=self.bit_rate, gopLen=self.gop_len)
         self.encoder.Create(chnAttr)
         self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.encoder.chn))
 

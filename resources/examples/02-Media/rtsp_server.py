@@ -1,8 +1,8 @@
-# Description: This example demonstrates how to stream video and audio to the network using the RTSP server.
+# Description: This example demonstrates how to stream encoded video using the RTSP server.
 #
 # Note: You will need an SD card to run this example.
 #
-# You can run the rtsp server to stream video and audio to the network
+# H.265 video at 512 Kbit/s is the default. Audio is disabled.
 
 from media.vencoder import *
 from media.sensor import *
@@ -15,6 +15,12 @@ import multimedia as mm
 # Select "wifi_sta", "wifi_ap", or "lan".
 NETWORK_MODE = "wifi_sta"
 NETWORK_TIMEOUT = 15
+VIDEO_TYPE = mm.multi_media_type.media_h265
+ENABLE_AUDIO = False
+VIDEO_WIDTH = 1280
+VIDEO_HEIGHT = 720
+VIDEO_BIT_RATE = 512  # Kbit/s
+VIDEO_GOP = 30
 
 # Default test credentials. Change them before running the example.
 WIFI_STA_SSID = "Test"
@@ -128,14 +134,31 @@ def connect_network(mode):
 
 
 class RtspServer:
-    def __init__(self,session_name="test",port=8554,video_type = mm.multi_media_type.media_h264,enable_audio=False):
+    def __init__(self, session_name="test", port=8554,
+                 video_type=mm.multi_media_type.media_h265, enable_audio=False,
+                 width=1280, height=720, bit_rate=512, gop_len=30):
         self.session_name = session_name # session name
         self.video_type = video_type  # 视频类型264/265
         self.enable_audio = enable_audio # 是否启用音频
         self.port = port   #rtsp 端口号
+        self.width = ALIGN_UP(width, 16)
+        self.height = height
+        self.bit_rate = bit_rate
+        self.gop_len = gop_len
         self.rtspserver = mm.rtsp_server() # 实例化rtsp server
         self.start_stream = False #是否启动推流线程
         self.runthread_over = False #推流线程是否结束
+
+        if bit_rate < 100 or bit_rate > 20000:
+            raise ValueError("bit_rate must be between 100 and 20000 Kbit/s")
+        if video_type == mm.multi_media_type.media_h265:
+            self.payload_type = Encoder.PAYLOAD_TYPE_H265
+            self.profile = Encoder.H265_PROFILE_MAIN
+        elif video_type == mm.multi_media_type.media_h264:
+            self.payload_type = Encoder.PAYLOAD_TYPE_H264
+            self.profile = Encoder.H264_PROFILE_MAIN
+        else:
+            raise ValueError("video_type must be media_h265 or media_h264")
 
     def start(self):
         if self.rtspserver.rtspserver_init(self.port) != 0:
@@ -180,19 +203,18 @@ class RtspServer:
         return self.rtspserver.rtspserver_getrtspurl(self.session_name)
 
     def _init_stream(self):
-        width = 1280
-        height = 720
-        width = ALIGN_UP(width, 16)
         # 初始化sensor
         self.sensor = Sensor()
         self.sensor.reset()
-        self.sensor.set_framesize(width = width, height = height, alignment=12)
+        self.sensor.set_framesize(width=self.width, height=self.height, alignment=12)
         self.sensor.set_pixformat(Sensor.YUV420SP)
         # 实例化video encoder
         self.encoder = Encoder()
-        self.encoder.SetOutBufs(8, width, height)
+        self.encoder.SetOutBufs(8, self.width, self.height)
         # 创建编码器
-        chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, width, height)
+        chnAttr = ChnAttrStr(self.payload_type, self.profile,
+                             self.width, self.height,
+                             bit_rate=self.bit_rate, gopLen=self.gop_len)
         self.encoder.Create(chnAttr)
         # 绑定camera和venc
         self.link = MediaManager.link(self.sensor.bind_info()['src'], (VIDEO_ENCODE_MOD_ID, VENC_DEV_ID, self.encoder.chn))
@@ -207,7 +229,7 @@ class RtspServer:
         # 停止camera
         self.sensor.stop()
         # 接绑定camera和venc
-        del self.link
+        self.link.destroy()
         # 停止编码
         self.encoder.Stop()
         self.encoder.Destroy()
@@ -242,11 +264,20 @@ if __name__ == "__main__":
     # Connect the selected network interface before opening the RTSP socket.
     nic, network_ip = connect_network(NETWORK_MODE)
     # 创建rtsp server对象
-    rtspserver = RtspServer()
+    rtspserver = RtspServer(video_type=VIDEO_TYPE,
+                            enable_audio=ENABLE_AUDIO,
+                            width=VIDEO_WIDTH,
+                            height=VIDEO_HEIGHT,
+                            bit_rate=VIDEO_BIT_RATE,
+                            gop_len=VIDEO_GOP)
     # 启动rtsp server
     rtspserver.start()
     # 打印rtsp url
-    print("RTSP server started:", rtspserver.get_rtsp_url(network_ip))
+    codec_name = "H265" if VIDEO_TYPE == mm.multi_media_type.media_h265 else "H264"
+    audio_state = "enabled" if ENABLE_AUDIO else "disabled"
+    print("RTSP server started: %s (%s, %d Kbit/s, audio %s)" %
+          (rtspserver.get_rtsp_url(network_ip), codec_name,
+           VIDEO_BIT_RATE, audio_state))
     # 推流60s
     time.sleep(60)
     # 停止rtsp server

@@ -8,7 +8,9 @@ import _thread
 from _media import Display
 
 class RtspServer:
-    def __init__(self,session_name="test",port=8554,video_type = mm.multi_media_type.media_h264,enable_audio=False,width=1280,height=720):
+    def __init__(self, session_name="test", port=8554,
+                 video_type=mm.multi_media_type.media_h265, enable_audio=False,
+                 width=1280, height=720, bit_rate=512, gop_len=30):
         self.session_name = session_name
         self.video_type = video_type
         self.enable_audio = enable_audio
@@ -17,7 +19,20 @@ class RtspServer:
         self.start_stream = False
         self.width=ALIGN_UP(width, 16)
         self.height=height
+        self.bit_rate=bit_rate
+        self.gop_len=gop_len
         self.encoder = Encoder()
+
+        if bit_rate < 100 or bit_rate > 20000:
+            raise ValueError("bit_rate must be between 100 and 20000 Kbit/s")
+        if video_type == mm.multi_media_type.media_h265:
+            self.payload_type = Encoder.PAYLOAD_TYPE_H265
+            self.profile = Encoder.H265_PROFILE_MAIN
+        elif video_type == mm.multi_media_type.media_h264:
+            self.payload_type = Encoder.PAYLOAD_TYPE_H264
+            self.profile = Encoder.H264_PROFILE_MAIN
+        else:
+            raise ValueError("video_type must be media_h265 or media_h264")
 
     def start(self):
         if (self.start_stream == True):
@@ -26,7 +41,9 @@ class RtspServer:
         server_initialized = False
         try:
             self.encoder.SetOutBufs(16, self.width, self.height)
-            chnAttr = ChnAttrStr(self.encoder.PAYLOAD_TYPE_H264, self.encoder.H264_PROFILE_MAIN, self.width, self.height,bit_rate=2048)
+            chnAttr = ChnAttrStr(self.payload_type, self.profile,
+                                 self.width, self.height,
+                                 bit_rate=self.bit_rate, gopLen=self.gop_len)
             self.encoder.Create(chnAttr)
             encoder_created = True
 
@@ -117,7 +134,9 @@ class WBCRtsp:
         cls._runthread_over = True
 
     @classmethod
-    def configure(cls, wbc_width,wbc_height):
+    def configure(cls, wbc_width, wbc_height,
+                  video_type=mm.multi_media_type.media_h265,
+                  bit_rate=512, gop_len=30, enable_audio=False):
         if not Display.inited():
             raise RuntimeError("start wbc before Display.init()")
 
@@ -128,10 +147,12 @@ class WBCRtsp:
         cls.rtspserver = RtspServer(
             session_name="test",
             port=8554,
-            video_type=mm.multi_media_type.media_h264,
-            enable_audio=False,
+            video_type=video_type,
+            enable_audio=enable_audio,
             width=width,
-            height=height
+            height=height,
+            bit_rate=bit_rate,
+            gop_len=gop_len
         )
 
     @classmethod

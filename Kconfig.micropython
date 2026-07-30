@@ -46,4 +46,11 @@ menu "CanMV Micropython Components Configurations"
           frames from a hardware timer without executing Python in the timer
           callback.
 
+    config ENABLE_MODULE_WEBRTC
+        bool "Enable WebRTC module"
+        default y
+        select RTSMART_3RD_PARTY_ENABLE_LIBPEER
+        help
+          Build the native MicroPython WebRTC peer connection module.
+
 endmenu
