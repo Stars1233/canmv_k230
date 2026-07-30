@@ -67,6 +67,7 @@ jobs:
             "k230_canmv_lckfb_defconfig"
             "k230_canmv_rtt_evb_defconfig"
             "k230_canmv_v1p0p1_defconfig"
+            "k230_canmv_v1p0p1_wifi_rtl_defconfig"
             "k230_canmv_v3p0_defconfig"
             "k230_canmv_wondermk_defconfig"
             "k230_canmv_yahboom_defconfig"
