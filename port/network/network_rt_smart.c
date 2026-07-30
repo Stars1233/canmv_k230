@@ -1231,25 +1231,32 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_wlan_scan_obj, 1, 2, netwo
 STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
 
-    enum { ARG_ssid, ARG_key, ARG_info };
+    enum { ARG_ssid, ARG_key, ARG_info, ARG_security };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_ssid,     MP_ARG_OBJ, {.u_obj = mp_const_none} },
         { MP_QSTR_key,      MP_ARG_OBJ, {.u_obj = mp_const_none} },
         { MP_QSTR_info,     MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_security, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = SECURITY_UNKNOWN} },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
+    int security = args[ARG_security].u_int;
+    if ((MOD_NETWORK_STA_IF == self->itf) && (SECURITY_UNKNOWN != security)) {
+        mp_raise_ValueError(MP_ERROR_TEXT("security argument is only supported in ap mode"));
+    }
+
     int use_info = 0, result = -1;
     struct rt_wlan_info_t info;
     const char *ssid = NULL;
+    int ssid_len = 0;
 
     if (mp_const_none != args[ARG_ssid].u_obj) {
         use_info = 0x00;
 
         ssid = mp_obj_str_get_str(args[ARG_ssid].u_obj);
-        int ssid_len = strlen(ssid);
+        ssid_len = strlen(ssid);
         if ((0x00 == ssid_len) || (RT_WLAN_SSID_MAX_LENGTH < ssid_len)) {
             mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("SSID can't be empty, and can't longer than %d"), RT_WLAN_SSID_MAX_LENGTH);
         }
@@ -1286,10 +1293,20 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
         }
     } else {
         if(0x00 == use_info) {
-            result = netmgmt_wlan_ap_start_with_ssid((char *)ssid, (char *)key);
-        } else {
-            result = netmgmt_wlan_ap_start_with_info(&info, (char *)key);
+            memset(&info, 0, sizeof(info));
+            memcpy(info.ssid.val, ssid, ssid_len);
+            info.ssid.len = ssid_len;
+            info.channel = 6;
+            info.band = RT_802_11_BAND_2_4GHZ;
+            if (SECURITY_UNKNOWN == security) {
+                security = key == NULL ? SECURITY_OPEN : SECURITY_WPA2_AES_PSK;
+            }
+            info.security = security;
+        } else if (SECURITY_UNKNOWN != security) {
+            info.security = security;
         }
+
+        result = netmgmt_wlan_ap_start_with_info(&info, (char *)(key == NULL ? "" : key));
 
         if(0x00 != result) {
             mp_printf(&mp_plat_print, "start ap failed.\n");
@@ -1458,13 +1475,21 @@ STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_ar
                 }
                 return MP_OBJ_NEW_SMALL_INT(country);
             } break;
+            case MP_QSTR_security: {
+                struct rt_wlan_info_t info;
+
+                if(0x00 != netmgmt_wlan_ap_get_info(&info)) {
+                    mp_printf(&mp_plat_print, "run get ap info failed.\n");
+                    return mp_const_none;
+                }
+                return MP_OBJ_NEW_SMALL_INT(info.security);
+            } break;
         }
     } else {
         mp_map_elem_t *ssid = mp_map_lookup(kw_args, MP_OBJ_NEW_QSTR(MP_QSTR_ssid), MP_MAP_LOOKUP); // same in network_rt_wlan_connect
-        mp_map_elem_t *key = mp_map_lookup(kw_args, MP_OBJ_NEW_QSTR(MP_QSTR_key), MP_MAP_LOOKUP);   // same in network_rt_wlan_connect
         mp_map_elem_t *info = mp_map_lookup(kw_args, MP_OBJ_NEW_QSTR(MP_QSTR_info), MP_MAP_LOOKUP); // same in network_rt_wlan_connect
 
-        if((NULL != key) && ((NULL != ssid) || (NULL != info))) {
+        if((NULL != ssid) || (NULL != info)) {
             // Call connect to set WiFi access point.
             return network_rt_wlan_connect(n_args, pos_args, kw_args);
         }
