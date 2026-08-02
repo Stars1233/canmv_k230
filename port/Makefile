@@ -31,6 +31,7 @@ include $(TOP)/extmod/extmod.mk
 
 LIB_CFLAGS :=
 LIB_LDFLAGS :=
+RTSMART_LINK_NIMBLE := n
 
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libmpp.mk
 include $(SDK_RTSMART_SRC_DIR)/libs/mk/libopencv.mk
@@ -68,6 +69,7 @@ INC += -Iinclude/maix
 INC += -Iinclude/mpp
 INC += -Iinclude/multi_media
 INC += -Iinclude/omv
+INC += -Ibluetooth
 INC += -Iomv
 INC += -Iomv/alloc
 INC += -Iomv/boards/canmv
@@ -248,6 +250,13 @@ CANMV_SRC_C += $(addprefix drivers/,\
 ifneq ($(filter y,$(CONFIG_ENABLE_NETWORK_RT_WLAN) $(CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB)),)
 $(info Enable Network)
 CANMV_SRC_C += $(wildcard network/*.c)
+endif
+
+ifeq ($(CONFIG_ENABLE_BLUETOOTH),y)
+$(info Enable Bluetooth (NimBLE over RT-Smart HCI))
+CANMV_SRC_C += \
+	bluetooth/mpbthciport.c \
+	bluetooth/mpnimbleport.c
 endif
 
 # LVGL build rules

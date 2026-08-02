@@ -10,3 +10,8 @@ MICROPY_SSL_AXTLS = 0
 MICROPY_SSL_MBEDTLS = 0
 
 # we use mbedtls from rtsmart/libs/3rd-party
+
+ifeq ($(CONFIG_ENABLE_BLUETOOTH),y)
+MICROPY_PY_BLUETOOTH = 1
+MICROPY_BLUETOOTH_NIMBLE = 1
+endif
