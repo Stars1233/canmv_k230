@@ -19,7 +19,7 @@ distclean: clean
 
 .PHONY: build
 build:
-	@$(MAKE) -j$(NCPUS) -C port || exit $?;
+	@$(MAKE) -j$(NCPUS) -C port
 
 .PHONY: gen_image
 
