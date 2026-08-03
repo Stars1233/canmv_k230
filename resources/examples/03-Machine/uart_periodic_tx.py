@@ -21,26 +21,59 @@ UPDATE_PERIOD_MS = 50
 # True: send the most recently published frame on every timer tick.
 # False: send each successfully updated frame once, then skip until update().
 REPEAT_LAST = True
+# True: request immediate transmission whenever a new frame is published.
+SEND_NOW_ON_UPDATE = True
 
 FRAME_HEADER = b"\xA5\x5A"
 FRAME_TRAILER = 0x0D
-FRAME_LEN = 8
+FRAME_OVERHEAD = 6
+MIN_PAYLOAD_LEN = 1
+MAX_PAYLOAD_LEN = 16
+MIN_FRAME_LEN = FRAME_OVERHEAD + MIN_PAYLOAD_LEN
+MAX_FRAME_LEN = FRAME_OVERHEAD + MAX_PAYLOAD_LEN
+# Loopback test pattern: payload byte n is (sequence + n) & 0xFF.
 
 
 def make_frame(sequence):
-    inverse = sequence ^ 0xFF
-    checksum = 0xA5 ^ 0x5A ^ sequence ^ inverse ^ 0x3C ^ 0xC3
-    return bytes((0xA5, 0x5A, sequence, inverse, 0x3C, 0xC3, checksum, FRAME_TRAILER))
+    payload_len = MIN_PAYLOAD_LEN + sequence % (
+        MAX_PAYLOAD_LEN - MIN_PAYLOAD_LEN + 1
+    )
+    frame_len = FRAME_OVERHEAD + payload_len
+    frame = bytearray(frame_len)
+    frame[0] = FRAME_HEADER[0]
+    frame[1] = FRAME_HEADER[1]
+    frame[2] = frame_len
+    frame[3] = sequence
+    for index in range(payload_len):
+        frame[4 + index] = (sequence + index) & 0xFF
+
+    checksum = 0
+    for index in range(frame_len - 2):
+        checksum ^= frame[index]
+    frame[-2] = checksum
+    frame[-1] = FRAME_TRAILER
+    return bytes(frame)
 
 
 def valid_frame(frame):
-    if len(frame) != FRAME_LEN:
+    """Validate the frame and the loopback test's payload pattern."""
+    frame_len = len(frame)
+    if frame_len < MIN_FRAME_LEN or frame_len > MAX_FRAME_LEN:
         return False
-    if frame[0:2] != FRAME_HEADER or frame[7] != FRAME_TRAILER:
+    if frame[0:2] != FRAME_HEADER or frame[2] != frame_len:
         return False
-    if frame[3] != (frame[2] ^ 0xFF):
+    if frame[-1] != FRAME_TRAILER:
         return False
-    return frame[6] == (frame[0] ^ frame[1] ^ frame[2] ^ frame[3] ^ frame[4] ^ frame[5])
+
+    payload_len = frame_len - FRAME_OVERHEAD
+    for index in range(payload_len):
+        if frame[4 + index] != ((frame[3] + index) & 0xFF):
+            return False
+
+    checksum = 0
+    for index in range(frame_len - 2):
+        checksum ^= frame[index]
+    return frame[-2] == checksum
 
 
 def collect_frames(data, frame_buffer, frame_len):
@@ -60,11 +93,20 @@ def collect_frames(data, frame_buffer, frame_len):
                 frame_buffer[0] = byte
             else:
                 frame_len = 0
+        elif frame_len == 2:
+            if MIN_FRAME_LEN <= byte <= MAX_FRAME_LEN:
+                frame_buffer[2] = byte
+                frame_len = 3
+            elif byte == FRAME_HEADER[0]:
+                frame_buffer[0] = byte
+                frame_len = 1
+            else:
+                frame_len = 0
         else:
             frame_buffer[frame_len] = byte
             frame_len += 1
-            if frame_len == FRAME_LEN:
-                frames.append(bytes(frame_buffer))
+            if frame_len == frame_buffer[2]:
+                frames.append(bytes(frame_buffer[:frame_len]))
                 frame_len = 0
 
     return frames, frame_len
@@ -89,12 +131,17 @@ def run_test():
     transmitter = None
     received = 0
     invalid = 0
+    immediate_requests = 0
+    immediate_submitted = 0
+    sent_state_errors = 0
     interval_count = 0
     interval_total_us = 0
     interval_min_us = None
     interval_max_us = None
     last_receive_us = None
-    rx_frame = bytearray(FRAME_LEN)
+    received_min_len = None
+    received_max_len = None
+    rx_frame = bytearray(MAX_FRAME_LEN)
     rx_frame_len = 0
 
     try:
@@ -103,7 +150,7 @@ def run_test():
             UART.UART3,
             TIMER_ID,
             PERIOD_MS,
-            max_len=FRAME_LEN,
+            max_len=MAX_FRAME_LEN,
             baudrate=BAUDRATE,
             bits=UART.EIGHTBITS,
             parity=UART.PARITY_NONE,
@@ -118,8 +165,11 @@ def run_test():
         start_ms = time.ticks_ms()
         next_update_ms = time.ticks_add(start_ms, UPDATE_PERIOD_MS)
         print(
-            "UARTPeriodicTx loopback test: period={} ms, duration={} ms, repeat_last={}".format(
-                PERIOD_MS, TEST_DURATION_MS, REPEAT_LAST
+            (
+                "UARTPeriodicTx loopback test: period={} ms, duration={} ms, "
+                "repeat_last={}, send_now={}"
+            ).format(
+                PERIOD_MS, TEST_DURATION_MS, REPEAT_LAST, SEND_NOW_ON_UPDATE
             )
         )
 
@@ -127,7 +177,15 @@ def run_test():
             now_ms = time.ticks_ms()
             if time.ticks_diff(now_ms, next_update_ms) >= 0:
                 sequence = (sequence + 1) & 0xFF
-                transmitter.update(make_frame(sequence))
+                sent_now = transmitter.update(
+                    make_frame(sequence), send_now=SEND_NOW_ON_UPDATE
+                )
+                if SEND_NOW_ON_UPDATE:
+                    immediate_requests += 1
+                    if sent_now:
+                        immediate_submitted += 1
+                        if not transmitter.is_sent():
+                            sent_state_errors += 1
                 next_update_ms = time.ticks_add(next_update_ms, UPDATE_PERIOD_MS)
 
             data = uart.read()
@@ -149,12 +207,34 @@ def run_test():
                                 interval_max_us = interval_us
                     last_receive_us = now_us
                     received += 1
+                    frame_len = len(frame)
+                    if received_min_len is None or frame_len < received_min_len:
+                        received_min_len = frame_len
+                    if received_max_len is None or frame_len > received_max_len:
+                        received_max_len = frame_len
 
             time.sleep_ms(1)
 
         sent, short_write, errors, skipped = transmitter.stats()
+        latest_sent = transmitter.is_sent()
+        last_error = transmitter.last_error()
         print("frames: sent={}, received={}, invalid={}".format(sent, received, invalid))
-        print("tx stats: short_write={}, errors={}, skipped={}".format(short_write, errors, skipped))
+        print(
+            "frame length: min={}, max={}".format(
+                received_min_len, received_max_len
+            )
+        )
+        print(
+            "immediate: submitted={}, requested={}, state_errors={}".format(
+                immediate_submitted, immediate_requests, sent_state_errors
+            )
+        )
+        print("latest packet submitted={}".format(latest_sent))
+        print(
+            "tx stats: short_write={}, errors={}, skipped={}, last_error={}".format(
+                short_write, errors, skipped, last_error
+            )
+        )
         if interval_count:
             print(
                 "rx interval us: avg={}, min={}, max={}".format(
@@ -165,12 +245,22 @@ def run_test():
             )
 
         expected = TEST_DURATION_MS // (PERIOD_MS if REPEAT_LAST else UPDATE_PERIOD_MS)
-        expected_skipped = 0 if REPEAT_LAST else None
+        expected_skipped = 0 if REPEAT_LAST and not SEND_NOW_ON_UPDATE else None
+        immediate_ok = not SEND_NOW_ON_UPDATE or immediate_submitted >= immediate_requests - 3
+        dynamic_lengths_ok = (
+            received_min_len is not None
+            and received_max_len is not None
+            and received_min_len < received_max_len
+        )
         if (
-            received >= expected - 3
+            received >= max(expected, sent) - 3
             and invalid == 0
             and short_write == 0
             and errors == 0
+            and last_error == 0
+            and immediate_ok
+            and sent_state_errors == 0
+            and dynamic_lengths_ok
             and (expected_skipped is None or skipped == expected_skipped)
         ):
             print("PASS")

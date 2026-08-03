@@ -22,6 +22,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -85,6 +86,7 @@ struct _uart_periodic_tx_obj_t {
     uint32_t volatile short_write_count;
     uint32_t volatile error_count;
     uint32_t volatile skipped_count;
+    int volatile last_error;
 };
 
 STATIC uart_periodic_tx_slot_t uart_periodic_tx_slots[KD_TIMER_MAX_NUM];
@@ -153,10 +155,81 @@ STATIC void uart_periodic_tx_uart_release(uart_periodic_tx_obj_t* self)
     self->uart_claimed = false;
 }
 
+STATIC bool uart_periodic_tx_try_send(uart_periodic_tx_obj_t* self, bool allow_repeat,
+                                      bool require_generation, uint32_t required_generation)
+{
+    uart_periodic_tx_uart_state_t* uart_state = self->uart_state;
+
+    if (require_generation &&
+        required_generation == __atomic_load_n(&self->last_sent_generation, __ATOMIC_ACQUIRE)) {
+        return true;
+    }
+    if (uart_state == NULL ||
+        __atomic_exchange_n(&uart_state->tx_busy, 1, __ATOMIC_ACQUIRE) != 0) {
+        bool sent = require_generation &&
+            required_generation == __atomic_load_n(&self->last_sent_generation, __ATOMIC_ACQUIRE);
+        if (!sent) {
+            __atomic_fetch_add(&self->skipped_count, 1, __ATOMIC_RELAXED);
+        }
+        return sent;
+    }
+
+    bool sent = false;
+    uint32_t index = UART_PERIODIC_TX_NO_READER;
+
+    // Publish the buffer being read before using it. update() only writes a
+    // buffer that is neither active nor being read by a sender.
+    for (size_t attempt = 0; attempt < UART_PERIODIC_TX_BUFFER_COUNT; ++attempt) {
+        index = __atomic_load_n(&self->active_idx, __ATOMIC_ACQUIRE);
+        __atomic_store_n(&self->reader_idx, index, __ATOMIC_RELEASE);
+        if (index == __atomic_load_n(&self->active_idx, __ATOMIC_ACQUIRE)) {
+            break;
+        }
+        index = UART_PERIODIC_TX_NO_READER;
+    }
+
+    if (index != UART_PERIODIC_TX_NO_READER) {
+        size_t len = self->buffer_len[index];
+        uint32_t generation = __atomic_load_n(&self->buffer_generation[index], __ATOMIC_ACQUIRE);
+        uint32_t last_sent = __atomic_load_n(&self->last_sent_generation, __ATOMIC_ACQUIRE);
+        bool generation_matches = !require_generation || generation == required_generation;
+        bool should_send = generation_matches && len != 0 && (allow_repeat || generation != last_sent);
+
+        if (should_send) {
+            ssize_t written = write(uart_state->fd, self->buffers[index], len);
+            if (written == (ssize_t)len) {
+                __atomic_fetch_add(&self->sent_count, 1, __ATOMIC_RELAXED);
+                __atomic_store_n(&self->last_sent_generation, generation, __ATOMIC_RELEASE);
+                sent = true;
+            } else if (written >= 0) {
+                __atomic_fetch_add(&self->short_write_count, 1, __ATOMIC_RELAXED);
+            } else {
+                int write_error = errno;
+                __atomic_store_n(&self->last_error, write_error, __ATOMIC_RELEASE);
+                __atomic_fetch_add(&self->error_count, 1, __ATOMIC_RELAXED);
+            }
+        } else if (require_generation && generation_matches && generation == last_sent) {
+            // A timer tick may have sent this generation before send_now could
+            // acquire the UART. Treat that as a successful immediate request.
+            sent = true;
+        } else {
+            __atomic_fetch_add(&self->skipped_count, 1, __ATOMIC_RELAXED);
+        }
+        __atomic_store_n(&self->reader_idx, UART_PERIODIC_TX_NO_READER, __ATOMIC_RELEASE);
+    } else {
+        __atomic_store_n(&self->reader_idx, UART_PERIODIC_TX_NO_READER, __ATOMIC_RELEASE);
+        __atomic_fetch_add(&self->skipped_count, 1, __ATOMIC_RELAXED);
+    }
+
+    __atomic_store_n(&uart_state->tx_busy, 0, __ATOMIC_RELEASE);
+    return sent;
+}
+
 STATIC void uart_periodic_tx_callback(void* arg)
 {
     uart_periodic_tx_slot_t* slot = arg;
     uart_periodic_tx_obj_t*  self;
+    int saved_errno = errno;
 
     // This signal handler uses only atomics and write(2); the static slot also
     // prevents a late signal from dereferencing freed memory.
@@ -164,57 +237,11 @@ STATIC void uart_periodic_tx_callback(void* arg)
     self = __atomic_load_n(&slot->owner, __ATOMIC_ACQUIRE);
 
     if (self != NULL && __atomic_load_n(&self->running, __ATOMIC_ACQUIRE)) {
-        uint32_t index = UART_PERIODIC_TX_NO_READER;
-
-        // Publish the buffer being read before using it.  update() only writes a
-        // buffer that is neither active nor being read by this callback.
-        for (size_t attempt = 0; attempt < UART_PERIODIC_TX_BUFFER_COUNT; ++attempt) {
-            index = __atomic_load_n(&self->active_idx, __ATOMIC_ACQUIRE);
-            __atomic_store_n(&self->reader_idx, index, __ATOMIC_RELEASE);
-            if (index == __atomic_load_n(&self->active_idx, __ATOMIC_ACQUIRE)) {
-                break;
-            }
-            index = UART_PERIODIC_TX_NO_READER;
-        }
-
-        if (index != UART_PERIODIC_TX_NO_READER) {
-            size_t len = self->buffer_len[index];
-            uint32_t generation = __atomic_load_n(&self->buffer_generation[index], __ATOMIC_ACQUIRE);
-            bool should_send = len != 0 && (self->repeat_last ||
-                generation != __atomic_load_n(&self->last_sent_generation, __ATOMIC_ACQUIRE));
-
-            if (should_send) {
-                uart_periodic_tx_uart_state_t* uart_state = self->uart_state;
-                if (uart_state == NULL ||
-                    __atomic_exchange_n(&uart_state->tx_busy, 1, __ATOMIC_ACQUIRE) != 0) {
-                    __atomic_fetch_add(&self->skipped_count, 1, __ATOMIC_RELAXED);
-                } else {
-                    ssize_t written = write(uart_state->fd, self->buffers[index], len);
-                    if (written == (ssize_t)len) {
-                        __atomic_fetch_add(&self->sent_count, 1, __ATOMIC_RELAXED);
-                        // In one-shot mode, retain data after a short or failed
-                        // write so it can be retried by a later timer tick.
-                        if (!self->repeat_last) {
-                            __atomic_store_n(&self->last_sent_generation, generation, __ATOMIC_RELEASE);
-                        }
-                    } else if (written >= 0) {
-                        __atomic_fetch_add(&self->short_write_count, 1, __ATOMIC_RELAXED);
-                    } else {
-                        __atomic_fetch_add(&self->error_count, 1, __ATOMIC_RELAXED);
-                    }
-                    __atomic_store_n(&uart_state->tx_busy, 0, __ATOMIC_RELEASE);
-                }
-            } else {
-                __atomic_fetch_add(&self->skipped_count, 1, __ATOMIC_RELAXED);
-            }
-            __atomic_store_n(&self->reader_idx, UART_PERIODIC_TX_NO_READER, __ATOMIC_RELEASE);
-        } else {
-            __atomic_store_n(&self->reader_idx, UART_PERIODIC_TX_NO_READER, __ATOMIC_RELEASE);
-            __atomic_fetch_add(&self->skipped_count, 1, __ATOMIC_RELAXED);
-        }
+        (void)uart_periodic_tx_try_send(self, self->repeat_last, false, 0);
     }
 
     __atomic_fetch_sub(&slot->in_callback, 1, __ATOMIC_ACQ_REL);
+    errno = saved_errno;
 }
 
 STATIC void uart_periodic_tx_stop_internal(uart_periodic_tx_obj_t* self)
@@ -424,11 +451,25 @@ STATIC mp_obj_t uart_periodic_tx_deinit(mp_obj_t self_in)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(uart_periodic_tx_deinit_obj, uart_periodic_tx_deinit);
 
-STATIC mp_obj_t uart_periodic_tx_update(mp_obj_t self_in, mp_obj_t data_in)
+STATIC mp_obj_t uart_periodic_tx_update(size_t n_args, const mp_obj_t* pos_args, mp_map_t* kw_args)
 {
+    enum { ARG_send_now };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_send_now, MP_ARG_KW_ONLY | MP_ARG_BOOL, { .u_bool = false } },
+    };
+    mp_arg_val_t parsed_args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args - 2, pos_args + 2, kw_args,
+                     MP_ARRAY_SIZE(allowed_args), allowed_args, parsed_args);
+
+    mp_obj_t self_in = pos_args[0];
+    mp_obj_t data_in = pos_args[1];
     uart_periodic_tx_obj_t* self = MP_OBJ_TO_PTR(self_in);
     if (self->buffers[0] == NULL) {
         mp_raise_ValueError(MP_ERROR_TEXT("object is deinitialized"));
+    }
+    bool send_now = parsed_args[ARG_send_now].u_bool;
+    if (send_now && !__atomic_load_n(&self->running, __ATOMIC_ACQUIRE)) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("transmitter is not running"));
     }
 
     mp_buffer_info_t bufinfo;
@@ -458,9 +499,12 @@ STATIC mp_obj_t uart_periodic_tx_update(mp_obj_t self_in, mp_obj_t data_in)
     __atomic_store_n(&self->buffer_generation[target], generation, __ATOMIC_RELEASE);
     __atomic_store_n(&self->active_idx, target, __ATOMIC_RELEASE);
 
-    return mp_const_none;
+    if (!send_now) {
+        return mp_const_false;
+    }
+    return mp_obj_new_bool(uart_periodic_tx_try_send(self, false, true, generation));
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(uart_periodic_tx_update_obj, uart_periodic_tx_update);
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(uart_periodic_tx_update_obj, 2, uart_periodic_tx_update);
 
 STATIC mp_obj_t uart_periodic_tx_active(mp_obj_t self_in)
 {
@@ -468,6 +512,28 @@ STATIC mp_obj_t uart_periodic_tx_active(mp_obj_t self_in)
     return mp_obj_new_bool(__atomic_load_n(&self->running, __ATOMIC_ACQUIRE));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(uart_periodic_tx_active_obj, uart_periodic_tx_active);
+
+STATIC mp_obj_t uart_periodic_tx_is_sent(mp_obj_t self_in)
+{
+    uart_periodic_tx_obj_t* self = MP_OBJ_TO_PTR(self_in);
+    if (self->buffers[0] == NULL) {
+        mp_raise_ValueError(MP_ERROR_TEXT("object is deinitialized"));
+    }
+
+    uint32_t index = __atomic_load_n(&self->active_idx, __ATOMIC_ACQUIRE);
+    size_t len = self->buffer_len[index];
+    uint32_t generation = __atomic_load_n(&self->buffer_generation[index], __ATOMIC_ACQUIRE);
+    uint32_t last_sent = __atomic_load_n(&self->last_sent_generation, __ATOMIC_ACQUIRE);
+    return mp_obj_new_bool(len != 0 && generation == last_sent);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(uart_periodic_tx_is_sent_obj, uart_periodic_tx_is_sent);
+
+STATIC mp_obj_t uart_periodic_tx_last_error(mp_obj_t self_in)
+{
+    uart_periodic_tx_obj_t* self = MP_OBJ_TO_PTR(self_in);
+    return mp_obj_new_int(__atomic_load_n(&self->last_error, __ATOMIC_ACQUIRE));
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(uart_periodic_tx_last_error_obj, uart_periodic_tx_last_error);
 
 STATIC mp_obj_t uart_periodic_tx_stats(mp_obj_t self_in)
 {
@@ -500,12 +566,21 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(uart_periodic_tx_stats_obj, uart_periodic_tx_st
 //|         """Stop periodic transmission without releasing the buffers."""
 //|     def deinit(self) -> None:
 //|         """Stop transmission and release native resources."""
-//|     def update(self, data: Any) -> None:
-//|         """Atomically publish a complete frame for the next timer tick."""
+//|     def update(self, data: Any, *, send_now: bool = False) -> bool:
+//|         """Publish a complete frame and optionally attempt to send it immediately.
+//|
+//|         Return whether the new frame was submitted immediately. If immediate
+//|         transmission fails, retain the frame for a later timer tick. The
+//|         transmitter must be running when send_now is true.
+//|         """
 //|     def active(self) -> bool:
 //|         """Return whether the hardware timer is running."""
+//|     def is_sent(self) -> bool:
+//|         """Return whether the latest non-empty packet was submitted successfully."""
+//|     def last_error(self) -> int:
+//|         """Return errno from the most recent failed UART write, or zero."""
 //|     def stats(self) -> tuple:
-//|         """Return sent, short-write, error, and skipped-tick counts."""
+//|         """Return sent, short-write, error, and skipped-attempt counts."""
 
 STATIC const mp_rom_map_elem_t uart_periodic_tx_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&uart_periodic_tx_deinit_obj) },
@@ -514,6 +589,8 @@ STATIC const mp_rom_map_elem_t uart_periodic_tx_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_deinit), MP_ROM_PTR(&uart_periodic_tx_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_update), MP_ROM_PTR(&uart_periodic_tx_update_obj) },
     { MP_ROM_QSTR(MP_QSTR_active), MP_ROM_PTR(&uart_periodic_tx_active_obj) },
+    { MP_ROM_QSTR(MP_QSTR_is_sent), MP_ROM_PTR(&uart_periodic_tx_is_sent_obj) },
+    { MP_ROM_QSTR(MP_QSTR_last_error), MP_ROM_PTR(&uart_periodic_tx_last_error_obj) },
     { MP_ROM_QSTR(MP_QSTR_stats), MP_ROM_PTR(&uart_periodic_tx_stats_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(uart_periodic_tx_locals_dict, uart_periodic_tx_locals_dict_table);
