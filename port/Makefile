@@ -29,6 +29,10 @@ USER_C_MODULES = 3rd-party/ulab
 include $(TOP)/py/py.mk 
 include $(TOP)/extmod/extmod.mk
 
+# Kconfig options affect conditional MP_QSTR references through mpconfigport.h.
+# Regenerate the qstr pool whenever menuconfig updates the generated header.
+QSTR_GLOBAL_DEPENDENCIES += $(SDK_SRC_ROOT_DIR)/include/generated/autoconf.h
+
 LIB_CFLAGS :=
 LIB_LDFLAGS :=
 RTSMART_LINK_NIMBLE := n

@@ -49,6 +49,11 @@
 #include "ide_dbg.h"
 
 #define MP_HAL_STDIN_WAIT_US (20000)
+#define MP_HAL_UART_TX_BLOCK_SIZE (4U * 1024U)
+/* End each internal USB chunk with a short packet at both FS (64-byte MPS)
+ * and HS (512-byte MPS). This prevents a ZLP from being inserted between
+ * chunks of one USBDBG response. */
+#define MP_HAL_USB_TX_BLOCK_SIZE (MP_HAL_UART_TX_BLOCK_SIZE - 1U)
 
 ///////////////////////////////////////////////////////////////////////////////
 // K230 UART low-level (used by mp_hal stdio & IDE) //////////////////////////
@@ -67,9 +72,13 @@ drv_uart_inst_t *mp_hal_uart_get_instance(void) {
     return __atomic_load_n(&mp_hal_uart_inst, __ATOMIC_ACQUIRE);
 }
 
-bool mp_hal_uart_is_usb(void) {
-    drv_uart_inst_t *inst = mp_hal_uart_get_instance();
+static bool mp_hal_uart_inst_is_usb(drv_uart_inst_t *inst) {
+    /* mp_hal_uart_init() reserves negative UART IDs for the USB CDC device. */
     return inst != NULL && drv_uart_get_id(inst) < 0;
+}
+
+bool mp_hal_uart_is_usb(void) {
+    return mp_hal_uart_inst_is_usb(mp_hal_uart_get_instance());
 }
 
 static void mp_hal_uart_set_instance(drv_uart_inst_t *inst) {
@@ -104,7 +113,6 @@ void mp_hal_uart_init(int id) {
 }
 
 int mp_hal_uart_tx(const void* buffer, size_t size) {
-#define MP_HAL_UART_TX_BLOCK_SIZE (4 * 1024)
     drv_uart_inst_t *inst = mp_hal_uart_get_instance();
 
     if (inst == NULL)
@@ -114,11 +122,14 @@ int mp_hal_uart_tx(const void* buffer, size_t size) {
     }
 
     pthread_mutex_lock(&mp_hal_uart_tx_mutex);
+    const size_t block_size = mp_hal_uart_inst_is_usb(inst) ?
+                                  MP_HAL_USB_TX_BLOCK_SIZE :
+                                  MP_HAL_UART_TX_BLOCK_SIZE;
     size_t sent = 0;
     while (sent < size) {
         size_t chunk = size - sent;
-        if (chunk > MP_HAL_UART_TX_BLOCK_SIZE)
-            chunk = MP_HAL_UART_TX_BLOCK_SIZE;
+        if (chunk > block_size)
+            chunk = block_size;
         // Check DTR again in loop to abort if host detaches mid-transfer
         if (drv_uart_is_dtr_asserted(inst) <= 0)
             break;
@@ -135,7 +146,6 @@ int mp_hal_uart_tx(const void* buffer, size_t size) {
     }
     pthread_mutex_unlock(&mp_hal_uart_tx_mutex);
     return sent;
-#undef MP_HAL_UART_TX_BLOCK_SIZE
 }
 
 ///////////////////////////////////////////////////////////////////////////////
