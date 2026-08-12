@@ -53,20 +53,12 @@ menu "CanMV Micropython Components Configurations"
         help
           Build the native MicroPython WebRTC peer connection module.
 
-    menuconfig ENABLE_BLUETOOTH
+    config ENABLE_BLUETOOTH
         bool "Enable Bluetooth module (NimBLE over RT-Smart HCI)"
         default n
         help
           Build MicroPython's bluetooth module with the NimBLE host stack.
-          The RT-Smart image must expose a Bluetooth H:4 controller at the
-          configured device path.
-
-    if ENABLE_BLUETOOTH
-
-        config BLUETOOTH_HCI_DEVICE_PATH
-            string "Bluetooth HCI device path"
-            default "/dev/hci0"
-
-    endif
+          The RT-Smart image must expose at least one Bluetooth H:4
+          controller. CanMV selects the first available /dev/hciX device.
 
 endmenu

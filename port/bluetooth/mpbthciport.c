@@ -74,10 +74,9 @@ int mp_bluetooth_hci_uart_init(uint32_t port, uint32_t baudrate) {
         return 0;
     }
 
-    error = drv_hci_inst_create(CONFIG_BLUETOOTH_HCI_DEVICE_PATH, &hci_inst);
+    error = drv_hci_inst_create_auto(&hci_inst, NULL, 0);
     if (error != 0) {
-        printf("bluetooth: cannot open %s: %d\n",
-            CONFIG_BLUETOOTH_HCI_DEVICE_PATH, error);
+        printf("bluetooth: cannot open an HCI device: %d\n", error);
         return -1;
     }
 
@@ -104,7 +103,7 @@ int mp_bluetooth_hci_uart_deinit(void) {
 }
 
 int mp_bluetooth_hci_uart_set_baudrate(uint32_t baudrate) {
-    // /dev/hci0 is a logical HCI device, so UART baud rate does not apply.
+    // The selected HCI device is logical, so UART baud rate does not apply.
     (void)baudrate;
     return 0;
 }
@@ -149,12 +148,12 @@ int mp_bluetooth_hci_uart_write(const uint8_t *buffer, size_t length) {
 }
 
 int mp_bluetooth_hci_controller_init(void) {
-    // Opening /dev/hci0 starts the remote ESP controller.
+    // Opening the selected HCI device starts its controller.
     return 0;
 }
 
 int mp_bluetooth_hci_controller_deinit(void) {
-    // Closing /dev/hci0 stops the remote ESP controller.
+    // Closing the selected HCI device stops its controller.
     return 0;
 }
 
