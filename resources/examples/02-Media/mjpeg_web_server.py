@@ -1,10 +1,9 @@
 # MJPEG web server example
 #
 # Connect the board and the viewing device to the same network, then open the
-# URL printed on the serial console. Set USE_WIFI to False to use wired LAN.
+# URL printed on the serial console. Select the network type below.
 
 import gc
-import network
 import os
 import socket
 import sys
@@ -12,11 +11,14 @@ import time
 
 from media.mjpeg import MJPEGEncoder
 from media.sensor import Sensor
+from libs.Network import connect_network
 
 
-USE_WIFI = True
+NETWORK_TYPE = "wifi_sta"  # "default", "lan", "wifi_sta", or "wifi_ap"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
 WIFI_SSID = "Test"
 WIFI_PASSWORD = "12345678"
+NETWORK_TIMEOUT = 20
 
 SERVER_PORT = 8080
 FRAME_WIDTH = 1920
@@ -72,55 +74,6 @@ connectStream();
 </body>
 </html>
 """
-
-
-def wait_for_ip(netif, timeout_s=20):
-    start = time.time()
-    while netif.ifconfig()[0] == "0.0.0.0":
-        if time.time() - start >= timeout_s:
-            raise RuntimeError("network address timeout")
-        os.exitpoint()
-        time.sleep_ms(100)
-    return netif.ifconfig()[0]
-
-
-def connect_network():
-    if USE_WIFI:
-        netif = network.WLAN(network.STA_IF)
-        netif.active(True)
-
-        # A WLAN connection survives a script restart. Disconnect first so new
-        # credentials can switch the station to a different access point.
-        if netif.isconnected():
-            print("Disconnecting current Wi-Fi...")
-            if not netif.disconnect():
-                raise RuntimeError("Wi-Fi disconnect failed")
-            start = time.time()
-            while netif.isconnected():
-                if time.time() - start >= 5:
-                    raise RuntimeError("Wi-Fi disconnect timeout")
-                os.exitpoint()
-                time.sleep_ms(100)
-
-        print("Connecting to Wi-Fi...")
-        if not netif.connect(WIFI_SSID, WIFI_PASSWORD):
-            raise RuntimeError("Wi-Fi connect failed")
-        start = time.time()
-        while not netif.isconnected():
-            if time.time() - start >= 20:
-                raise RuntimeError("Wi-Fi connection timeout")
-            os.exitpoint()
-            time.sleep_ms(100)
-    else:
-        netif = network.LAN()
-        if not netif.active():
-            raise RuntimeError("LAN interface is not active")
-        if netif.ifconfig()[0] == "0.0.0.0":
-            netif.ifconfig("dhcp")
-
-    ip = wait_for_ip(netif)
-    print("Network:", netif.ifconfig())
-    return netif, ip
 
 
 def capture_jpeg(sensor, encoder):
@@ -252,7 +205,13 @@ def main():
     client = None
 
     try:
-        netif, ip = connect_network()
+        netif, ip = connect_network(
+            NETWORK_TYPE,
+            ssid=WIFI_SSID,
+            password=WIFI_PASSWORD,
+            wlan_device=WLAN_DEVICE,
+            timeout=NETWORK_TIMEOUT,
+        )
 
         sensor = Sensor()
         sensor.reset()

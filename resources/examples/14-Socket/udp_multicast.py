@@ -1,45 +1,26 @@
 import socket
 import struct
 import time
-import network
+from libs.Network import connect_network
 
 MULTICAST_GROUP = '239.255.0.1'
 MULTICAST_PORT = 5007
 
-# Toggle for WLAN or LAN
-IS_WLAN = True
+# Select "default", "lan", "wifi_sta", or "wifi_ap".
+NETWORK_TYPE = "wifi_sta"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
 # Toggle for sender or receiver
 IS_SENDER = False
+NETWORK_TIMEOUT = 20
+WIFI_SSID = "TEST"
+WIFI_PASSWORD = "12345678"
 
 def inet_aton(ip_str):
     """Convert dotted string to 4-byte IP (like socket.inet_aton)."""
     return bytes(map(int, ip_str.split('.')))
 
-def network_use_wlan(is_wlan=True):
-    """Initialize network interface and return IP address."""
-    if is_wlan:
-        sta = network.WLAN(0)
-        sta.connect("TEST","12345678")
-        print("[WLAN] Connecting...")
-        while sta.ifconfig()[0] == '0.0.0.0':
-            time.sleep(0.5)
-        ip = sta.ifconfig()[0]
-        print("[WLAN] Connected:", sta.ifconfig())
-    else:
-        lan = network.LAN()
-        if not lan.active():
-            raise RuntimeError("LAN interface is not active.")
-        lan.ifconfig("dhcp")
-        while lan.ifconfig()[0] == '0.0.0.0':
-            time.sleep(0.5)
-        ip = lan.ifconfig()[0]
-        print("[LAN] Connected:", lan.ifconfig())
-    return ip
-
-def multicast_sender():
+def multicast_sender(ip):
     """Send UDP multicast messages every 2 seconds."""
-    ip = network_use_wlan(IS_WLAN)
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ttl = struct.pack('b', 1)
     sock.setsockopt(0, 33, ttl)  # IPPROTO_IP = 0, IP_MULTICAST_TTL = 33
@@ -58,8 +39,6 @@ def multicast_sender():
 
 def multicast_receiver():
     """Listen to UDP multicast messages."""
-    network_ip = network_use_wlan(IS_WLAN)
-
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', MULTICAST_PORT))
@@ -87,8 +66,15 @@ def multicast_receiver():
             break
 
 def main():
+    netif, ip = connect_network(
+        NETWORK_TYPE,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        wlan_device=WLAN_DEVICE,
+        timeout=NETWORK_TIMEOUT,
+    )
     if IS_SENDER:
-        multicast_sender()
+        multicast_sender(ip)
     else:
         multicast_receiver()
 

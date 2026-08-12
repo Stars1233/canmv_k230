@@ -1,24 +1,12 @@
-import time
-import network
 import usocket
 import ussl
+from libs.Network import connect_network
 
-# Connect to Wi-Fi
-def connect_wifi(ssid="TEST", password="12345678"):
-    wlan = network.WLAN(0)
-    wlan.connect(ssid, password)
-
-    print("Connecting to Wi-Fi", end="")
-    for _ in range(20):
-        if wlan.ifconfig()[0] != '0.0.0.0':
-            break
-        print(".", end="")
-        time.sleep(0.5)
-    print()
-
-    if wlan.ifconfig()[0] == '0.0.0.0':
-        raise RuntimeError("Wi-Fi connection failed")
-    print("[✓] Wi-Fi Connected:", wlan.ifconfig())
+NETWORK_TIMEOUT = 20
+NETWORK_TYPE = "wifi_sta"  # "default", "lan", "wifi_sta", or "wifi_ap"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
+WIFI_SSID = "TEST"
+WIFI_PASSWORD = "12345678"
 
 # HTTPS GET to www.baidu.com
 def test_https_baidu():
@@ -46,6 +34,15 @@ def test_https_baidu():
     except Exception as e:
         print("❌ HTTPS request failed:", e)
 
-# Run everything
-connect_wifi()
-test_https_baidu()
+def main():
+    netif, _ = connect_network(
+        NETWORK_TYPE,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        wlan_device=WLAN_DEVICE,
+        timeout=NETWORK_TIMEOUT,
+    )
+    test_https_baidu()
+
+
+main()

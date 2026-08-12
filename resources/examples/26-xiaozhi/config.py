@@ -8,7 +8,7 @@ import os
 import ubinascii
 import machine
 import urandom
-import network
+from libs.Network import NetworkManager, mac_address
 from state import (
     DeviceState, SpeechInteractionMode, ListeningMode,
     MessageType, TTSState, ListenState, ListenMode,
@@ -18,23 +18,27 @@ from state import (
 class ConfigManager:
     """配置管理器"""
     
-    def __init__(self):
+    def __init__(self, project_config):
+        network_config = project_config["network"]
+        xiaozhi_config = project_config["xiaozhi"]
+        webtts_config = project_config["webtts"]
+
         self.config_file = "/data/xiaozhi.cfg"
         self.default_config = {
             "uuid": "",
             "mac_address": "00:00:00:00:00:00",
             "xiaozhi": {
-                "xiaozhi_ota_url": "https://api.tenclass.net/xiaozhi/ota/",
-                "xiaozhi_ws_addr": "wss://api.tenclass.net:443/xiaozhi/v1/"
+                "xiaozhi_ota_url": xiaozhi_config["ota_url"],
+                "xiaozhi_ws_addr": xiaozhi_config["websocket_url"],
             },
             "webtts": {
-                "app_id": "",
-                "api_key": "",
-                "api_secret": "",
-                "sample_rate": 16000,
-                "voice_name": "xiaoyan",
-                "speed": 50
-            }
+                "app_id": webtts_config["app_id"],
+                "api_key": webtts_config["api_key"],
+                "api_secret": webtts_config["api_secret"],
+                "sample_rate": webtts_config["sample_rate"],
+                "voice_name": webtts_config["voice_name"],
+                "speed": webtts_config["speed"],
+            },
         }
         
         # 运行时配置
@@ -47,27 +51,62 @@ class ConfigManager:
         self.ws_path = ""
         self.ws_headers = ""
         self.ws_hello = ""
+
+        # The configuration manager owns the one interface used by HTTP and
+        # WebSocket clients.  It never creates a second interface just to read
+        # the MAC address.
+        self.network_manager = NetworkManager(
+            network_type=network_config["type"],
+            ssid=network_config["ssid"],
+            password=network_config["password"],
+            timeout=network_config["timeout"],
+            wlan_device=network_config["wlan_device"],
+        )
+        self.netif = None
+        self.network_ip = None
+        self.network_mac = None
+
+    def ensure_network(self):
+        """Connect or recover the single shared network interface."""
+        self.netif, self.network_ip = self.network_manager.connect()
+        if self.network_mac is None:
+            self.network_mac = mac_address(self.netif)
+        return self.netif
         
     def load_config(self):
         """加载配置文件"""
+        create_config = False
         try:
-                # 尝试读取配置文件
+            # 尝试读取配置文件
             with open(self.config_file, 'r') as f:
                 config_data = ujson.load(f)
                 
             # 合并配置
             self._merge_config(config_data)
+            # 旧版文件保存过用户可编辑配置，迁移后只保留设备标识。
+            if "xiaozhi" in config_data or "webtts" in config_data:
+                create_config = True
             
         except Exception as e:
             print("读取配置文件失败: %s" % e)
             # 使用默认配置
             self._merge_config(self.default_config)
-            
+
             # 生成新的UUID
             self.uuid = self._generate_uuid()
-            self.mac_address = self._get_mac_address()
-            
-            # 保存配置
+            create_config = True
+
+        try:
+            self.ensure_network()
+        except Exception as e:
+            print("网络尚未就绪: %s" % e)
+
+        # Repair files created before network ownership moved here.
+        if not self.mac_address or self.mac_address == self.default_config["mac_address"]:
+            self.mac_address = self.network_mac or self._get_device_id()
+            create_config = True
+
+        if create_config:
             self.save_config()
             
         # 解析WebSocket地址
@@ -88,16 +127,11 @@ class ConfigManager:
         return True
         
     def save_config(self):
-        """保存配置文件"""
+        """保存设备生成的标识信息"""
         try:
             config_data = {
                 "uuid": self.uuid,
                 "mac_address": self.mac_address,
-                "xiaozhi": {
-                    "xiaozhi_ota_url": self.ota_url,
-                    "xiaozhi_ws_addr": self.ws_addr
-                },
-                "webtts": self.default_config["webtts"]
             }
             
             with open(self.config_file, 'w') as f:
@@ -114,21 +148,10 @@ class ConfigManager:
         """合并配置数据"""
         self.uuid = config_data.get("uuid", self.default_config["uuid"])
         self.mac_address = config_data.get("mac_address", self.default_config["mac_address"])
-        
-        # 处理xiaozhi配置
-        xiaozhi_config = config_data.get("xiaozhi", {})
-        self.ota_url = xiaozhi_config.get(
-            "xiaozhi_ota_url", 
-            self.default_config["xiaozhi"]["xiaozhi_ota_url"]
-        )
-        self.ws_addr = xiaozhi_config.get(
-            "xiaozhi_ws_addr",
-            self.default_config["xiaozhi"]["xiaozhi_ws_addr"]
-        )
-        
-        # 处理webtts配置
-        webtts_config = config_data.get("webtts", {})
-        self.default_config["webtts"].update(webtts_config)
+        # User-editable settings always come from run.py. The persisted file
+        # only supplies generated device identity.
+        self.ota_url = self.default_config["xiaozhi"]["xiaozhi_ota_url"]
+        self.ws_addr = self.default_config["xiaozhi"]["xiaozhi_ws_addr"]
         
     def _generate_uuid(self):
         """生成UUID"""
@@ -142,48 +165,6 @@ class ConfigManager:
         uuid = f"{hex_str[:8]}-{hex_str[8:12]}-{hex_str[12:16]}-{hex_str[16:20]}-{hex_str[20:]}"
         return uuid.upper()
 
-    def _network_connect(self, is_wlan=True):
-        if is_wlan:
-            sta = network.WLAN(0)
-            sta.connect("canaan", "Canaan314")
-            print(sta.status())
-            while sta.ifconfig()[0] == '0.0.0.0':
-                os.exitpoint()
-            print(sta.ifconfig())
-            ip = sta.ifconfig()[0]
-            mac_bytes = sta.config("mac")
-            if len(mac_bytes) != 6:
-                print("Invalid MAC address (must be 6 bytes)")
-                raise ValueError("Invalid MAC address length")
-            mac_str = ":".join("%02x" % b for b in mac_bytes)
-            return ip, mac_str
-        else:
-            a = network.LAN()
-            if not a.active():
-                raise RuntimeError("LAN interface is not active.")
-            a.ifconfig('dhcp')
-            ip = a.ifconfig()[0]
-            mac_bytes = a.config("mac")
-            if len(mac_bytes) != 6:
-                print("Invalid MAC address (must be 6 bytes)")
-                raise ValueError("Invalid MAC address length")
-            mac_str = ":".join("%02x" % b for b in mac_bytes)
-            return ip, mac_str
-                   
-    def _get_mac_address(self):
-        """获取MAC地址"""
-        try:
-            # 在MicroPython中获取网络接口MAC地址
-            ip, mac = self._network_connect(False)
-            return mac
-        except Exception as e:
-            print("获取MAC地址失败: %s，尝试使用设备ID" % e)
-            try:
-                return self._get_device_id()
-            except Exception as e2:
-                print("获取设备ID失败: %s，使用默认MAC" % e2)
-                return self.default_config["mac_address"]
-            
     def _get_device_id(self):
         """获取设备ID作为MAC地址的替代"""
         try:
@@ -237,10 +218,7 @@ class ConfigManager:
                 
         except Exception as e:
             print("解析WebSocket URL失败: %s" % e)
-            # 使用默认值
-            self.ws_hostname = "api.tenclass.net"
-            self.ws_port = "443"
-            self.ws_path = "/xiaozhi/v1/"
+            raise ValueError("run.py 中的 websocket_url 无效")
             
     def _build_websocket_headers(self):
         """构建WebSocket头部"""
@@ -274,9 +252,8 @@ class ConfigManager:
         return self.default_config["webtts"]
         
     def update_webtts_config(self, config):
-        """更新WebTTS配置"""
+        """更新当前运行的WebTTS配置"""
         self.default_config["webtts"].update(config)
-        self.save_config()
         
     def get_websocket_config(self):
         """获取WebSocket配置"""

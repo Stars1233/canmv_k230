@@ -1,30 +1,21 @@
-import network
 import socket
-import os,time
+from libs.Network import connect_network
 
-def network_use_wlan(is_wlan=True):
-    if is_wlan:
-        sta=network.WLAN(0)
-        sta.connect("TEST","12345678")
-        print(sta.status())
-        while sta.ifconfig()[0] == '0.0.0.0':
-            os.exitpoint()
-        print(sta.ifconfig())
-        ip = sta.ifconfig()[0]
-        return ip
-    else:
-        a=network.LAN()
-        if not a.active():
-            raise RuntimeError("LAN interface is not active.")
-        a.ifconfig("dhcp")
-        print(a.ifconfig())
-        ip = a.ifconfig()[0]
-        return ip
+NETWORK_TIMEOUT = 20
+# Select "default", "lan", "wifi_sta", or "wifi_ap".
+NETWORK_TYPE = "wifi_sta"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
+WIFI_SSID = "TEST"
+WIFI_PASSWORD = "12345678"
 
 def main(use_stream=True):
-    
-    #获取lan接口
-    network_use_wlan(True)
+    netif, _ = connect_network(
+        NETWORK_TYPE,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        wlan_device=WLAN_DEVICE,
+        timeout=NETWORK_TIMEOUT,
+    )
     #创建socket
     s = socket.socket()
     #获取地址及端口号 对应地址

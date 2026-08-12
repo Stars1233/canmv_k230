@@ -1,108 +1,205 @@
-# port from micropython/examples/network/http_server.py
+import gc
+import os
 import socket
-import network
-import time,os
-# print(network.LAN().ifconfig()[0])
-# print("Listening, connect your browser to http://%s:8081/" % (network.LAN().ifconfig()[0]))
+import time
 
-CONTENT = b"""\
-HTTP/1.0 200 OK
+from libs.Network import connect_network, get_devices, network_info
 
-Hello #%d from k230 canmv MicroPython!
-"""
 
-def network_use_wlan(is_wlan=True):
-    if is_wlan:
-        sta=network.WLAN(0)
-        sta.connect("TEST","12345678")
-        print(sta.status())
-        while sta.ifconfig()[0] == '0.0.0.0':
-            os.exitpoint()
-        print(sta.ifconfig())
-        ip = sta.ifconfig()[0]
-        return ip
-    else:
-        a=network.LAN()
-        if not a.active():
-            raise RuntimeError("LAN interface is not active.")
-        a.ifconfig("dhcp")
-        print(a.ifconfig())
-        ip = a.ifconfig()[0]
-        return ip
+NETWORK_TIMEOUT = 20
+NETWORK_TYPE = "wifi_sta"  # "default", "lan", "wifi_sta", or "wifi_ap"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
+WIFI_SSID = "TEST"
+WIFI_PASSWORD = "12345678"
 
-def main(micropython_optimize=True):
-    #获取lan接口
-    ip = network_use_wlan(True)
-    
-    #建立socket
-    s = socket.socket()
-    #获取地址及端口号 对应地址
-    # Binding to all interfaces - server will be accessible to other hosts!
-    ai = socket.getaddrinfo("0.0.0.0", 8081)
-    print("Bind address info:", ai)
-    addr = ai[0][-1]
-    #设置属性
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    #绑定地址
-    s.bind(addr)
-    #开始监听
-    s.listen(5)
-    print("Listening, connect your browser to http://%s:8081/" % (ip))
+SERVER_PORT = 8081
+REQUEST_TIMEOUT_MS = 2000
+MAX_REQUEST_BYTES = 4096
 
-    counter = 0
+
+def read_request(client):
+    request = bytearray()
+    deadline = time.ticks_add(time.ticks_ms(), REQUEST_TIMEOUT_MS)
+
+    # CanMV's blocking recv waits for the requested byte count. Accumulate the
+    # request in nonblocking mode until the complete HTTP header is available.
+    client.setblocking(False)
+    while len(request) < MAX_REQUEST_BYTES:
+        chunk = client.recv(min(256, MAX_REQUEST_BYTES - len(request)))
+        if chunk:
+            request.extend(chunk)
+            if request.find(b"\r\n\r\n") >= 0 or request.find(b"\n\n") >= 0:
+                return bytes(request)
+
+        if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
+            raise OSError(110)
+
+        os.exitpoint()
+        time.sleep_ms(10)
+
+    raise ValueError("HTTP request header is too large")
+
+
+def html_escape(value):
+    return (str(value).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def build_status_page(netif, client_address, counter):
+    info = network_info(netif)
+    config = info["ifconfig"] or ("unavailable",) * 4
+    system = os.uname()
+    connected = "Online" if info["connected"] else "Offline"
+    client = "%s:%s" % client_address
+    devices = ", ".join(get_devices()) or "none"
+    uptime = time.ticks_ms() // 1000
+
+    return ("""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CanMV Device Status</title>
+<style>
+*{box-sizing:border-box}
+:root{color-scheme:light;--ink:#18202a;--muted:#657080;--line:#d9dee5;--panel:#fff;--wash:#f3f5f7;--accent:#087f5b}
+body{margin:0;background:var(--wash);color:var(--ink);font:14px/1.5 Arial,sans-serif;letter-spacing:0}
+header{background:#17212b;color:#fff;border-bottom:4px solid var(--accent)}
+.bar,main,footer{width:min(920px,calc(100%% - 32px));margin:auto}
+.bar{min-height:112px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.product{margin:0 0 4px;color:#9daab7;font-size:13px;text-transform:uppercase}
+h1{margin:0;font-size:30px;font-weight:650;letter-spacing:0}
+.state{display:flex;align-items:center;gap:9px;font-weight:600;white-space:nowrap}
+.dot{width:10px;height:10px;border-radius:50%%;background:#20c997;box-shadow:0 0 0 4px rgba(32,201,151,.16)}
+main{padding:28px 0;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+section.wide{grid-column:1/-1}
+h2{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);font-size:15px;background:#f8f9fa;letter-spacing:0}
+dl{margin:0}
+.row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:11px 16px;border-bottom:1px solid #edf0f3}
+.row:last-child{border-bottom:0}
+dt{color:var(--muted)}
+dd{margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+footer{padding:0 0 28px;color:var(--muted);font-size:12px}
+@media(max-width:680px){.bar{min-height:96px}.bar,main,footer{width:min(100%% - 24px,920px)}h1{font-size:24px}main{grid-template-columns:1fr;padding:18px 0}.row{grid-template-columns:1fr;gap:2px}section.wide{grid-column:auto}}
+</style>
+</head>
+<body>
+<header><div class="bar"><div><p class="product">CanMV K230</p><h1>Device Status</h1></div><div class="state"><span class="dot"></span>%s</div></div></header>
+<main>
+<section><h2>System</h2><dl>
+<div class="row"><dt>Board</dt><dd>%s</dd></div>
+<div class="row"><dt>Firmware</dt><dd>%s</dd></div>
+<div class="row"><dt>MicroPython build</dt><dd>%s</dd></div>
+<div class="row"><dt>Uptime</dt><dd>%d seconds</dd></div>
+<div class="row"><dt>Free heap</dt><dd>%d bytes</dd></div>
+</dl></section>
+<section><h2>Request</h2><dl>
+<div class="row"><dt>Request number</dt><dd>%d</dd></div>
+<div class="row"><dt>Client</dt><dd>%s</dd></div>
+<div class="row"><dt>Server port</dt><dd>%d</dd></div>
+<div class="row"><dt>Registered devices</dt><dd>%s</dd></div>
+</dl></section>
+<section class="wide"><h2>Network</h2><dl>
+<div class="row"><dt>Selected interface</dt><dd>%s</dd></div>
+<div class="row"><dt>Default interface</dt><dd>%s</dd></div>
+<div class="row"><dt>IPv4 address</dt><dd>%s</dd></div>
+<div class="row"><dt>Subnet mask</dt><dd>%s</dd></div>
+<div class="row"><dt>Gateway</dt><dd>%s</dd></div>
+<div class="row"><dt>DNS server</dt><dd>%s</dd></div>
+<div class="row"><dt>MAC address</dt><dd>%s</dd></div>
+</dl></section>
+</main>
+<footer>Generated by /sdcard/examples/14-Socket/http_server.py</footer>
+</body>
+</html>
+""" % (
+        connected,
+        html_escape(system.machine),
+        html_escape(system.release),
+        html_escape(system.version),
+        uptime,
+        gc.mem_free(),
+        counter + 1,
+        html_escape(client),
+        SERVER_PORT,
+        html_escape(devices),
+        html_escape(info["device"]),
+        html_escape(info["default"] or "automatic"),
+        html_escape(config[0]),
+        html_escape(config[1]),
+        html_escape(config[2]),
+        html_escape(config[3]),
+        html_escape(info["mac"] or "unavailable"),
+    )).encode()
+
+
+def send_response(client, netif, client_address, counter):
+    body = build_status_page(netif, client_address, counter)
+    header = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Content-Length: %d\r\n"
+        "Connection: close\r\n"
+        "Cache-Control: no-store\r\n"
+        "\r\n"
+    ) % len(body)
+
+    # The response is small. Blocking sendall() guarantees that it is queued
+    # completely before close() releases the client socket.
+    client.setblocking(True)
+    client.sendall(header.encode() + body)
+
+
+def accept_client(server):
     while True:
-        #接受连接
         try:
-            res = s.accept()
-        except Exception as e:
-            if e.errno == 11:
-                continue    
-            else:
+            return server.accept()
+        except OSError as error:
+            if error.errno != 11:
                 raise
+        os.exitpoint()
+        time.sleep_ms(10)
 
-        client_sock = res[0]
-        client_addr = res[1]
-        print("Client address:", client_addr)
-        print("Client socket:", client_sock)
-        #非阻塞模式
-        client_sock.setblocking(False)
-        if not micropython_optimize:
-            # To read line-oriented protocol (like HTTP) from a socket (and
-            # avoid short read problem), it must be wrapped in a stream (aka
-            # file-like) object. That's how you do it in CPython:
-            client_stream = client_sock.makefile("rwb")
-        else:
-            # .. but MicroPython socket objects support stream interface
-            # directly, so calling .makefile() method is not required. If
-            # you develop application which will run only on MicroPython,
-            # especially on a resource-constrained embedded device, you
-            # may take this shortcut to save resources.
-            client_stream = client_sock
 
-        while True:
-            ##获取内容
-            h = client_stream.read()
-            if h == None:
-                continue
-            print(h)
-            if h.endswith(b'\r\n\r\n'):
-                break
-            os.exitpoint()
+def main():
+    netif, ip = connect_network(
+        NETWORK_TYPE,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        wlan_device=WLAN_DEVICE,
+        timeout=NETWORK_TIMEOUT,
+    )
 
-        #回复内容
-        client_stream.write(CONTENT % counter)
-        #time.sleep(0.5)
-        #关闭
-        client_stream.close()
-        # if not micropython_optimize:
-        #     client_sock.close()
-        counter += 1
-        #print("wjx", counter)
-        time.sleep(2)
-        if counter > 0 :
-            print("http server exit!")
-            #关闭 
-            s.close()
-            break
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        address = socket.getaddrinfo("0.0.0.0", SERVER_PORT)[0][-1]
+        server.bind(address)
+        server.listen(5)
+        print("Listening, connect your browser to http://%s:%d/" %
+              (ip, SERVER_PORT))
 
-main()
+        counter = 0
+        while counter < 1:
+            client, client_address = accept_client(server)
+            print("Client address:", client_address)
+            try:
+                request = read_request(client)
+                print(request)
+                send_response(client, netif, client_address, counter)
+                counter += 1
+            except Exception as error:
+                print("HTTP client error:", error)
+            finally:
+                client.close()
+
+        print("HTTP server exit!")
+    finally:
+        server.close()
+        # Keep the selected interface referenced until all sockets are closed.
+        netif = None
+
+
+if __name__ == "__main__":
+    main()

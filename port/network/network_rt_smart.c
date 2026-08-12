@@ -42,12 +42,13 @@
 // For auto-binding UDP sockets
 #define BIND_PORT_RANGE_MIN     (65000)
 #define BIND_PORT_RANGE_MAX     (65535)
+#define NETWORK_RT_LEGACY_LAN_ECM (3)
 
 #ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
-#define NETWORK_RT_DEV_INIT_TIMEOUT_MS (10000)
+#define NETWORK_RT_DEV_INIT_TIMEOUT_MS (15000)
 #define NETWORK_RT_DEV_INIT_POLL_MS    (100)
-#define NETWORK_RT_WLAN_STA_DEV_NAME   "w0"
-#define NETWORK_RT_WLAN_AP_DEV_NAME    "w1"
+#define NETWORK_RT_WLAN_CONNECT_RETRIES (2)
+#define NETWORK_RT_WLAN_CONNECT_RETRY_DELAY_MS (250)
 #endif
 
 static __attribute__((unused)) uint16_t bind_port = BIND_PORT_RANGE_MIN;
@@ -55,35 +56,35 @@ static __attribute__((unused)) uint16_t bind_port = BIND_PORT_RANGE_MIN;
 typedef struct _py_rt_net_obj_t {
     mp_obj_base_t base;
     enum rt_netif_t itf;
+    enum netmgmt_wlan_device wlan_device;
 } py_rt_net_obj_t;
 
 #ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
-STATIC bool network_rt_wait_dev_registered(const char *dev_name) {
+STATIC int network_rt_select_wlan(py_rt_net_obj_t *self) {
+    if (self->itf != RT_NET_DEV_WLAN_STA &&
+        self->itf != RT_NET_DEV_WLAN_AP) {
+        return 0;
+    }
+    return netmgmt_wlan_select_device(self->wlan_device, self->itf);
+}
+
+STATIC bool network_rt_wait_dev_registered(py_rt_net_obj_t *self) {
+    char dev_name[32];
     mp_uint_t start_ms = mp_hal_ticks_ms();
 
-    if (dev_name == NULL) {
-        return false;
-    }
-
-    while (1) {
-        int dev_num = 0;
-        char names[NET_DEV_MAX_CNT][32];
-
-        if (0x00 == netmgmt_utils_get_dev_list(&dev_num, names)) {
-            for (int i = 0; i < dev_num; i++) {
-                if (0x00 == strcmp(dev_name, names[i])) {
-                    return true;
-                }
-            }
-        }
-
-        if ((mp_hal_ticks_ms() - start_ms) >= NETWORK_RT_DEV_INIT_TIMEOUT_MS) {
+    while (network_rt_select_wlan(self) != 0 ||
+           netmgmt_utils_get_netdev_name(self->itf, dev_name) != 0) {
+        if ((mp_hal_ticks_ms() - start_ms) >=
+            NETWORK_RT_DEV_INIT_TIMEOUT_MS) {
             return false;
         }
-
+        MICROPY_EVENT_POLL_HOOK
         mp_hal_delay_ms(NETWORK_RT_DEV_INIT_POLL_MS);
     }
+    return true;
 }
+#else
+#define network_rt_select_wlan(self) (0)
 #endif
 
 STATIC mp_obj_t network_rt_net_active(size_t n_args, const mp_obj_t *args) {
@@ -93,23 +94,54 @@ STATIC mp_obj_t network_rt_net_active(size_t n_args, const mp_obj_t *args) {
         int isactive = -1;
         enum rt_netif_t itf = self->itf;
 
+        if (network_rt_select_wlan(self) != 0) {
+            return mp_const_false;
+        }
         if(0x00 != netmgmt_utils_probe_device(itf, &isactive)) {
             mp_printf(&mp_plat_print, "run get isactive failed.\n");
             return mp_const_false;
         }
         return mp_obj_new_bool(0x00 != isactive);
+    } else if (mp_obj_is_true(args[1])) {
+#ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
+        if (self->itf == RT_NET_DEV_WLAN_STA ||
+            self->itf == RT_NET_DEV_WLAN_AP) {
+            if (!network_rt_wait_dev_registered(self)) {
+                return mp_const_false;
+            }
+        }
+#endif
+        return mp_const_true;
     } else {
-        mp_printf(&mp_plat_print, "Network (rt-smart) is always active and cannot be disabled.\n");
+        mp_printf(&mp_plat_print, "Network (rt-smart) cannot be disabled.\n");
 
         return mp_const_none;
     }
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_rt_net_active_obj, 1, 2, network_rt_net_active);
 
+STATIC mp_obj_t network_rt_netdev_name(mp_obj_t self_in) {
+    py_rt_net_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    char name[32];
+
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_none;
+    }
+    if (netmgmt_utils_get_netdev_name(self->itf, name) != 0) {
+        return mp_const_none;
+    }
+    return mp_obj_new_str(name, strlen(name));
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_netdev_name_obj, network_rt_netdev_name);
+
 STATIC mp_obj_t network_rt_net_ifconfig(size_t n_args, const mp_obj_t *args) {
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     enum rt_netif_t itf = self->itf;
     struct ifconfig_t ifconfig;
+
+    if (network_rt_select_wlan(self) != 0) {
+        mp_raise_OSError(MP_ENODEV);
+    }
 
     if (n_args == 1) {
         if(0x00 != netmgmt_utils_get_ifconfig(itf, &ifconfig)) {
@@ -302,8 +334,6 @@ STATIC int network_rt_wlan_socket_socket(struct _mod_network_socket_obj_t *_sock
 
     if (MOD_NETWORK_AF_INET == _socket->domain) {
         domain = AF_INET;
-    } else if(MOD_NETWORK_AF_INET6 == _socket->domain) {
-        domain = AF_INET6;
     } else {
         *_errno = MP_EAFNOSUPPORT;
         return -1;
@@ -322,6 +352,18 @@ STATIC int network_rt_wlan_socket_socket(struct _mod_network_socket_obj_t *_sock
     _socket->callback = MP_OBJ_NULL;
 
     return network_rt_wlan_socke_setblocking(_socket, false, _errno);
+}
+
+STATIC void network_rt_wlan_socket_addr(struct sockaddr_in *addr, const byte *ip,
+                                        mp_uint_t port) {
+    memset(addr, 0, sizeof(*addr));
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(port);
+    if (ip != NULL) {
+        memcpy(&addr->sin_addr, ip, sizeof(addr->sin_addr));
+    } else {
+        addr->sin_addr.s_addr = htonl(INADDR_ANY);
+    }
 }
 
 STATIC void network_rt_wlan_socket_close(struct _mod_network_socket_obj_t *socket)
@@ -344,9 +386,7 @@ STATIC int network_rt_wlan_socket_bind(struct _mod_network_socket_obj_t *_socket
     debug_printf("socket_bind(%d, %d)\n", _socket->fileno, port);
 
     struct sockaddr_in addr;
-    addr.sin_family = _socket->domain;
-    addr.sin_port = htons(port);
-    memcpy(&addr.sin_addr, ip, MOD_NETWORK_IPADDR_BUF_SIZE);
+    network_rt_wlan_socket_addr(&addr, ip, port);
 
     int ret = bind(_socket->fileno, (struct sockaddr*)&addr, sizeof(addr));
     if (ret < 0) {
@@ -400,9 +440,8 @@ STATIC int network_rt_wlan_socket_accept(struct _mod_network_socket_obj_t *_sock
         return -1;
     }
 
-    struct sockaddr_in addr;
-    int addrlen = sizeof(addr);
-    addr.sin_family = _socket->domain;
+    struct sockaddr_in addr = {0};
+    socklen_t addrlen = sizeof(addr);
 
     *port = 0;
     int fd = -1;
@@ -410,7 +449,7 @@ STATIC int network_rt_wlan_socket_accept(struct _mod_network_socket_obj_t *_sock
         *_errno = 0;
         MICROPY_EVENT_POLL_HOOK
 
-        fd = accept(_socket->fileno, (struct sockaddr*)&addr, (socklen_t*)&addrlen);
+        fd = accept(_socket->fileno, (struct sockaddr*)&addr, &addrlen);
         if(0 > fd) {
             *_errno = errno;
 
@@ -453,9 +492,7 @@ STATIC int network_rt_wlan_socket_connect(struct _mod_network_socket_obj_t *_soc
     debug_printf("socket_connect(%d)\n", _socket->fileno);
     
     struct sockaddr_in addr;
-    addr.sin_family = _socket->domain;
-    addr.sin_port = htons(port);
-    memcpy(&addr.sin_addr, ip, MOD_NETWORK_IPADDR_BUF_SIZE);
+    network_rt_wlan_socket_addr(&addr, ip, port);
     
     int ret = -1;
     
@@ -623,9 +660,7 @@ STATIC mp_uint_t network_rt_wlan_socket_sendto(struct _mod_network_socket_obj_t 
     }
 
     struct sockaddr_in addr;
-    addr.sin_family = _socket->domain;
-    addr.sin_port = htons(port);
-    memcpy(&addr.sin_addr, ip, MOD_NETWORK_IPADDR_BUF_SIZE);
+    network_rt_wlan_socket_addr(&addr, ip, port);
 
     int ret = sendto(_socket->fileno, buf, len, 0, (struct sockaddr *)&addr, sizeof(addr));
     if (ret < 0) {
@@ -648,9 +683,8 @@ STATIC mp_uint_t network_rt_wlan_socket_recvfrom(struct _mod_network_socket_obj_
         return -1;
     }
 
-    struct sockaddr_in addr;
+    struct sockaddr_in addr = {0};
     socklen_t server_addr_len = sizeof(addr);
-    addr.sin_family = _socket->domain;
 
     *port = 0;
 
@@ -826,7 +860,7 @@ STATIC int network_rt_wlan_socket_ioctl(struct _mod_network_socket_obj_t *_socke
     return ret;
 }
 
-STATIC const mod_network_nic_protocol_t mod_network_nic_protocol_rtt_posix = {
+mod_network_nic_protocol_t mod_network_nic_protocol_rtt_posix = {
     // API for non-socket operations
     .gethostbyname = network_rt_wlan_socket_gethostbyname,
 
@@ -940,25 +974,27 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(network_rt_lan_config_obj, 1, network_rt_lan_c
 
 const struct _mp_obj_type_t network_type_eth_lan;
 
-STATIC py_rt_net_obj_t network_rt_eth_lan = {{(mp_obj_type_t *)&network_type_eth_lan}, RT_NET_DEV_USB_RTL8152};
-STATIC py_rt_net_obj_t network_rt_eth_lte = {{(mp_obj_type_t *)&network_type_eth_lan}, RT_NET_DEV_USB_ECM};
+STATIC py_rt_net_obj_t network_rt_lan = {
+    {(mp_obj_type_t *)&network_type_eth_lan},
+    RT_NET_DEV_LAN,
+    NETMGMT_WLAN_DEVICE_AUTO,
+};
 
 STATIC mp_obj_t py_rt_eth_lan_type_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_itf };
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_itf, MP_ARG_INT, {.u_int = RT_NET_DEV_USB_RTL8152} },
+        { MP_QSTR_itf, MP_ARG_INT, {.u_int = RT_NET_DEV_LAN} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     mp_obj_t rt_net_obj;
 
-    if(RT_NET_DEV_USB_RTL8152 == args[ARG_itf].u_int) {
-        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lan);
-    } else if(RT_NET_DEV_USB_ECM == args[ARG_itf].u_int) {
-        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_eth_lte);
+    if(RT_NET_DEV_LAN == args[ARG_itf].u_int ||
+       NETWORK_RT_LEGACY_LAN_ECM == args[ARG_itf].u_int) {
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_lan);
     } else {
-        mp_raise_TypeError(MP_ERROR_TEXT("Unsupport type"));
+        mp_raise_TypeError(MP_ERROR_TEXT("unsupported interface"));
     }
 
     // Register with network module
@@ -973,6 +1009,7 @@ STATIC const mp_rom_map_elem_t network_type_lan_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_status), MP_ROM_PTR(&network_rt_lan_status_obj) },
     { MP_ROM_QSTR(MP_QSTR_ifconfig), MP_ROM_PTR(&network_rt_net_ifconfig_obj) },
     { MP_ROM_QSTR(MP_QSTR_config), MP_ROM_PTR(&network_rt_lan_config_obj) },
+    { MP_ROM_QSTR(MP_QSTR_netdev_name), MP_ROM_PTR(&network_rt_netdev_name_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(network_type_lan_locals_dict, network_type_lan_locals_dict_table);
 
@@ -1198,6 +1235,9 @@ STATIC mp_obj_t network_rt_wlan_scan(size_t n_args, const mp_obj_t *args) {
     if(MOD_NETWORK_STA_IF != self->itf) {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("ap mode not support scan"));
     }
+    if (!network_rt_wait_dev_registered(self)) {
+        mp_raise_OSError(MP_ENODEV);
+    }
 
     if(0x02 == n_args) {
         ssid = mp_obj_str_get_str(args[1]);
@@ -1248,6 +1288,7 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
     }
 
     int use_info = 0, result = -1;
+    int connect_attempt;
     struct rt_wlan_info_t info;
     const char *ssid = NULL;
     int ssid_len = 0;
@@ -1269,6 +1310,10 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("should set ssid or ap"));
     }
 
+    if (!network_rt_wait_dev_registered(self)) {
+        mp_raise_OSError(MP_ENODEV);
+    }
+
     int key_len = 0;
     const char *key = NULL;
     if (mp_const_none != args[ARG_key].u_obj) {
@@ -1281,10 +1326,28 @@ STATIC mp_obj_t network_rt_wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_ar
     }
 
     if(MOD_NETWORK_STA_IF == self->itf) {
-        if(0x00 == use_info) {
-            result = netmgmt_wlan_sta_connect_with_ssid((char *)ssid, (char *)key);
-        } else {
-            result = netmgmt_wlan_sta_connect_with_scan_info(&info, (char *)key);
+        /* Association can be rejected transiently by an AP while the radio
+         * is coming up.  The shell command is commonly retried by hand, so
+         * give the role-based MicroPython API the same bounded retry. */
+        for (connect_attempt = 0;
+             connect_attempt < NETWORK_RT_WLAN_CONNECT_RETRIES;
+             connect_attempt++) {
+            if (0x00 == use_info) {
+                result = netmgmt_wlan_sta_connect_with_ssid((char *)ssid,
+                                                            (char *)key);
+            } else {
+                result = netmgmt_wlan_sta_connect_with_scan_info(&info,
+                                                                 (char *)key);
+            }
+            if (0x00 == result ||
+                connect_attempt + 1 >= NETWORK_RT_WLAN_CONNECT_RETRIES) {
+                break;
+            }
+            MICROPY_EVENT_POLL_HOOK
+            mp_hal_delay_ms(NETWORK_RT_WLAN_CONNECT_RETRY_DELAY_MS);
+            if (network_rt_select_wlan(self) != 0) {
+                break;
+            }
         }
 
         if(0x00 != result) {
@@ -1321,6 +1384,9 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(network_rt_wlan_connect_obj, 1, network_rt_wla
 STATIC mp_obj_t network_rt_wlan_disconnect(size_t n_args, const mp_obj_t *args) {
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_false;
+    }
     if(MOD_NETWORK_STA_IF == self->itf) {
         if(0x00 != netmgmt_wlan_sta_disconnect_ap()) {
             mp_printf(&mp_plat_print, "run disconnect failed.\n");
@@ -1352,6 +1418,9 @@ STATIC mp_obj_t network_rt_wlan_isconnected(mp_obj_t self_in) {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("ap mode not support connect"));
     }
 
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_false;
+    }
     if(0x00 != netmgmt_wlan_sta_isconnected(&status)) {
         status = false;
         mp_printf(&mp_plat_print, "run isconnected failed.\n");
@@ -1363,7 +1432,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_wlan_isconnected_obj, network_rt_wla
 
 STATIC mp_obj_t _network_rt_wlan_sta_config(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
-    // py_rt_net_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+    py_rt_net_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_false;
+    }
 
     if (kw_args->used == 0) {
         // Get config value
@@ -1441,6 +1514,10 @@ STATIC mp_obj_t _network_rt_wlan_ap_get_info(mp_obj_t self_in)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("only ap if can get info"));
     }
 
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_none;
+    }
+
     struct rt_wlan_info_t info;
     
     if(0x00 != netmgmt_wlan_ap_get_info(&info)) {
@@ -1454,7 +1531,11 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_rt_wlan_ap_get_info_obj, _network_rt_wl
 
 STATIC mp_obj_t _network_rt_wlan_ap_config(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
-    // py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    py_rt_net_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
+
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_false;
+    }
 
     if (kw_args->used == 0) {
         // Get config value
@@ -1596,6 +1677,9 @@ STATIC mp_obj_t _network_rt_wlan_get_ap_status(size_t n_args, const mp_obj_t *ar
 STATIC mp_obj_t network_rt_wlan_status(size_t n_args, const mp_obj_t *args) {
     py_rt_net_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_false;
+    }
     if(MOD_NETWORK_STA_IF == self->itf) {
         return _network_rt_wlan_get_sta_status(n_args, args);
     }
@@ -1610,6 +1694,9 @@ STATIC mp_obj_t network_rt_wlan_stop(mp_obj_t self_in) {
         mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("sta mode not support stop"));
     }
 
+    if (network_rt_select_wlan(self) != 0) {
+        return mp_const_false;
+    }
     if(0x00 != netmgmt_wlan_ap_stop()) {
         mp_printf(&mp_plat_print, "run stop failed.\n");
         return mp_const_false;
@@ -1629,6 +1716,7 @@ STATIC const mp_rom_map_elem_t rt_wlan_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ifconfig),                MP_ROM_PTR(&network_rt_net_ifconfig_obj) },
     { MP_ROM_QSTR(MP_QSTR_config),                  MP_ROM_PTR(&network_rt_wlan_config_obj) },
     { MP_ROM_QSTR(MP_QSTR_status),                  MP_ROM_PTR(&network_rt_wlan_status_obj) },
+    { MP_ROM_QSTR(MP_QSTR_netdev_name),             MP_ROM_PTR(&network_rt_netdev_name_obj) },
 // { MP_ROM_QSTR(MP_QSTR_stop),                    MP_ROM_PTR(&network_rt_wlan_stop_obj) },             // only for ap
 // { MP_ROM_QSTR(MP_QSTR_info),                    MP_ROM_PTR(&py_rt_wlan_info_type) },                 // only for ap
 
@@ -1660,16 +1748,34 @@ STATIC const mp_rom_map_elem_t rt_wlan_locals_dict_table[] = {
 
 const mp_obj_type_t network_type_wlan_sta, network_type_wlan_ap;
 
-STATIC py_rt_net_obj_t network_rt_wlan_sta = {{(mp_obj_type_t *)&network_type_wlan_sta}, MOD_NETWORK_STA_IF};
-STATIC py_rt_net_obj_t network_rt_wlan_ap = {{(mp_obj_type_t *)&network_type_wlan_ap}, MOD_NETWORK_AP_IF};
+STATIC py_rt_net_obj_t network_rt_wlan_sta[] = {
+    {{(mp_obj_type_t *)&network_type_wlan_sta}, MOD_NETWORK_STA_IF,
+     NETMGMT_WLAN_DEVICE_AUTO},
+    {{(mp_obj_type_t *)&network_type_wlan_sta}, MOD_NETWORK_STA_IF,
+     NETMGMT_WLAN_DEVICE_USB},
+    {{(mp_obj_type_t *)&network_type_wlan_sta}, MOD_NETWORK_STA_IF,
+     NETMGMT_WLAN_DEVICE_SDIO},
+    {{(mp_obj_type_t *)&network_type_wlan_sta}, MOD_NETWORK_STA_IF,
+     NETMGMT_WLAN_DEVICE_SPI},
+};
+STATIC py_rt_net_obj_t network_rt_wlan_ap[] = {
+    {{(mp_obj_type_t *)&network_type_wlan_ap}, MOD_NETWORK_AP_IF,
+     NETMGMT_WLAN_DEVICE_AUTO},
+    {{(mp_obj_type_t *)&network_type_wlan_ap}, MOD_NETWORK_AP_IF,
+     NETMGMT_WLAN_DEVICE_USB},
+    {{(mp_obj_type_t *)&network_type_wlan_ap}, MOD_NETWORK_AP_IF,
+     NETMGMT_WLAN_DEVICE_SDIO},
+    {{(mp_obj_type_t *)&network_type_wlan_ap}, MOD_NETWORK_AP_IF,
+     NETMGMT_WLAN_DEVICE_SPI},
+};
 
 STATIC mp_obj_t py_rt_wlan_type_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     mp_obj_t rt_net_obj;
 
     if(type == &network_type_wlan_sta) {
-        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_wlan_sta);
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_wlan_sta[NETMGMT_WLAN_DEVICE_AUTO]);
     } else {
-        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_wlan_ap);
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_wlan_ap[NETMGMT_WLAN_DEVICE_AUTO]);
     }
 
     // Register with network module
@@ -1709,17 +1815,22 @@ MP_DEFINE_CONST_OBJ_TYPE(
 STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
 {
     int itf = MOD_NETWORK_STA_IF;
+    int wlan_device = NETMGMT_WLAN_DEVICE_AUTO;
+    mp_obj_t rt_net_obj;
 
-    if(0x01 == n_args) {
+    if(n_args >= 1) {
         itf = mp_obj_get_int(args[0]);
+    }
+    if(n_args >= 2) {
+        wlan_device = mp_obj_get_int(args[1]);
+    }
+    if (wlan_device < NETMGMT_WLAN_DEVICE_AUTO ||
+        wlan_device > NETMGMT_WLAN_DEVICE_SPI) {
+        mp_raise_ValueError(MP_ERROR_TEXT("unsupported WLAN device"));
     }
 
     if(MOD_NETWORK_STA_IF == itf) {
         if(0x00 == network_type_sta_init_flag) {
-            if (!network_rt_wait_dev_registered(NETWORK_RT_WLAN_STA_DEV_NAME)) {
-                mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Wait network device %s registration timeout"), NETWORK_RT_WLAN_STA_DEV_NAME);
-            }
-
             network_type_sta_init_flag = 1;
 
             const mp_map_elem_t *base_dict_map = (const mp_map_elem_t *)&rt_wlan_locals_dict_table;
@@ -1734,13 +1845,9 @@ STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
                 (mp_map_elem_t){ MP_ROM_QSTR(MP_QSTR_isconnected), MP_OBJ_FROM_PTR(&network_rt_wlan_isconnected_obj) };
         }
 
-        return MP_OBJ_TYPE_GET_SLOT(&network_type_wlan_sta, make_new)(&network_type_wlan_sta, 0, 0, MP_OBJ_NULL);
-    } else {
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_wlan_sta[wlan_device]);
+    } else if (MOD_NETWORK_AP_IF == itf) {
         if(0x00 == network_type_ap_init_flag) {
-            if (!network_rt_wait_dev_registered(NETWORK_RT_WLAN_AP_DEV_NAME)) {
-                mp_raise_msg_varg(&mp_type_OSError, MP_ERROR_TEXT("Wait network device %s registration timeout"), NETWORK_RT_WLAN_AP_DEV_NAME);
-            }
-
             network_type_ap_init_flag = 1;
 
             const mp_map_elem_t *base_dict_map = (const mp_map_elem_t *)&rt_wlan_locals_dict_table;
@@ -1753,10 +1860,15 @@ STATIC mp_obj_t network_wlan_make_new(size_t n_args, const mp_obj_t *args)
                 (mp_map_elem_t){ MP_ROM_QSTR(MP_QSTR_info), MP_OBJ_FROM_PTR(&network_rt_wlan_ap_get_info_obj) };
         }
 
-        return MP_OBJ_TYPE_GET_SLOT(&network_type_wlan_ap, make_new)(&network_type_wlan_ap, 0, 0, MP_OBJ_NULL);
+        rt_net_obj = MP_OBJ_FROM_PTR(&network_rt_wlan_ap[wlan_device]);
+    } else {
+        mp_raise_ValueError(MP_ERROR_TEXT("unsupported WLAN interface"));
     }
+
+    mod_network_register_nic(rt_net_obj);
+    return rt_net_obj;
 }
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_wlan_make_new_obj, 0, 1, network_wlan_make_new);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_wlan_make_new_obj, 0, 2, network_wlan_make_new);
 
 #endif // CONFIG_ENABLE_NETWORK_RT_WLAN
 
@@ -1768,16 +1880,54 @@ void network_rt_wlan_deinit(void)
 #endif // CONFIG_ENABLE_NETWORK_RT_WLAN
 }
 
-STATIC mp_obj_t network_rt_set_dft_dev(mp_obj_t name)
+STATIC mp_obj_t network_rt_set_dft_dev(mp_obj_t device)
 {
-    const char* dev_name = mp_obj_str_get_str(name);
-    int         name_len = strlen(dev_name);
+    char resolved_name[32];
+    const char* dev_name;
+    int name_len;
+
+    if (device == mp_const_none) {
+        if (netmgmt_utils_set_default_dev(NULL) != 0) {
+            mp_printf(&mp_plat_print, "restore automatic netdev selection failed.\n");
+            return mp_const_false;
+        }
+        return mp_const_true;
+    } else if (mp_obj_is_str(device)) {
+        dev_name = mp_obj_str_get_str(device);
+    } else if (mp_obj_is_int(device)) {
+        enum rt_netif_t itf = (enum rt_netif_t)mp_obj_get_int(device);
+
+        if (netmgmt_utils_get_netdev_name(itf, resolved_name) != 0) {
+            mp_raise_ValueError(MP_ERROR_TEXT("network interface unavailable"));
+        }
+        dev_name = resolved_name;
+    } else {
+        py_rt_net_obj_t *nic = MP_OBJ_TO_PTR(device);
+        bool is_network_nic = false;
+
+#ifdef CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB
+        is_network_nic = mp_obj_is_type(device, &network_type_eth_lan);
+#endif
+#ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
+        is_network_nic = is_network_nic ||
+                         mp_obj_is_type(device, &network_type_wlan_sta) ||
+                         mp_obj_is_type(device, &network_type_wlan_ap);
+#endif
+        if (!is_network_nic ||
+            network_rt_select_wlan(nic) != 0 ||
+            netmgmt_utils_get_netdev_name(nic->itf, resolved_name) != 0) {
+            mp_raise_TypeError(MP_ERROR_TEXT("expected NIC, device name, or interface"));
+        }
+        dev_name = resolved_name;
+    }
+
+    name_len = strlen(dev_name);
 
     if ((0x00 >= name_len) || (32 <= name_len)) {
         mp_raise_ValueError(MP_ERROR_TEXT("invalid device name"));
     }
 
-    if(0x00 != netmgmt_utils_set_defeault_dev((char *)dev_name)) {
+    if(0x00 != netmgmt_utils_set_default_dev((char *)dev_name)) {
         mp_printf(&mp_plat_print, "run set default netdev failed.\n");
         return mp_const_false;
     }
@@ -1790,8 +1940,11 @@ STATIC mp_obj_t network_rt_get_dft_dev(void)
 {
     char dev_name[32];
 
-    if(0x00 != netmgmt_utils_get_defeault_dev(dev_name)) {
+    if(0x00 != netmgmt_utils_get_default_dev(dev_name)) {
         mp_printf(&mp_plat_print, "run get default netdev failed.\n");
+        return mp_const_none;
+    }
+    if (dev_name[0] == '\0') {
         return mp_const_none;
     }
 
@@ -1820,5 +1973,18 @@ STATIC mp_obj_t network_rt_get_dev_list(void)
     return dev_list;
 }
 MP_DEFINE_CONST_FUN_OBJ_0(network_rt_get_dev_list_obj, network_rt_get_dev_list);
+
+STATIC mp_obj_t network_rt_get_netdev_name(mp_obj_t itf_in)
+{
+    enum rt_netif_t itf = (enum rt_netif_t)mp_obj_get_int(itf_in);
+    char name[32];
+
+    if (netmgmt_utils_get_netdev_name(itf, name) != 0) {
+        return mp_const_none;
+    }
+    return mp_obj_new_str(name, strlen(name));
+}
+MP_DEFINE_CONST_FUN_OBJ_1(network_rt_get_netdev_name_obj,
+                          network_rt_get_netdev_name);
 
 #endif // MICROPY_PY_NETWORK

@@ -26,15 +26,20 @@ class XiaoZhiClient:
     _instance = None
 
     @classmethod
-    def get_instance(cls):
+    def get_instance(cls, project_config=None):
         if cls._instance is None:
-            cls._instance = XiaoZhiClient()
+            if project_config is None:
+                raise ValueError("project config is required")
+            cls._instance = XiaoZhiClient(project_config)
         return cls._instance
        
-    def __init__(self):
-        self.config = ConfigManager()
+    def __init__(self, project_config):
+        self.project_config = project_config
+        self.config = ConfigManager(project_config)
         self.ws_client = WebSocketClient()
-        self.http_client = HttpClient()
+        # ConfigManager initializes the network once.  HttpClient is created
+        # after that and receives the same interface object.
+        self.http_client = None
         self.audio_manager = AudioManager.get_instance()
         self.thing_manager = ThingManager.get_instance()
         
@@ -129,17 +134,17 @@ class XiaoZhiClient:
                 last_reg_result = ""
                 time.sleep_ms(500)
                             
-    def init_device(self, audio_callback, tts_callback, ws_state_callback,
-                   key_pin=21, led_pin=52):
+    def init_device(self, audio_callback, tts_callback, ws_state_callback):
         """初始化设备 - 根据通信协议
 
         Args:
             audio_callback: 音频下载回调
             tts_callback: TTS 状态回调
             ws_state_callback: WebSocket 状态回调
-            key_pin: 对话按键 GPIO 编号（低电平有效），默认 21
-            led_pin: 状态指示灯 GPIO 编号，默认 52
         """
+        hardware = self.project_config["hardware"]
+        key_pin = hardware["key_pin"]
+        led_pin = hardware["led_pin"]
         print("初始化小智语音助手设备...")
         print("按键GPIO: %d, LED GPIO: %d" % (key_pin, led_pin))
         fpioa = FPIOA()
@@ -162,6 +167,15 @@ class XiaoZhiClient:
         if not self.config.load_config():
             print("加载配置失败，使用默认配置")
             return -1
+
+        try:
+            self.http_client = HttpClient(
+                self.config.netif,
+                network_callback=self.config.ensure_network,
+            )
+        except Exception as error:
+            print("HTTP网络初始化失败: %s" % error)
+            return -1
             
         # 设置WebSocket回调
         self.ws_client.set_callbacks(
@@ -169,6 +183,7 @@ class XiaoZhiClient:
             self._process_text_data,
             self._ws_state_changed
         )
+        self.ws_client.set_network_callback(self.config.ensure_network)
         
         # 设置WebSocket连接参数
         ws_config = self.config.get_websocket_config()

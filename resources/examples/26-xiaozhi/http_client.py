@@ -6,42 +6,30 @@ HTTP客户端模块
 import usocket
 import ujson
 import ussl
-import network
+from libs.Network import get_interface, has_ip, isconnected, network_device_name
 
 class HttpClient:
     """HTTP客户端"""
     
-    def __init__(self):
+    def __init__(self, netif=None, network_callback=None):
         self.timeout = 10  # 超时时间（秒）
-        self._init_network()
-        
-    def _init_network(self):
-        """初始化网络连接"""
-        try:
-            # 初始化WLAN
-            wlan = network.LAN()
-            if not wlan.active():
-                print("激活WLAN...")
-                wlan.active(True)
-                
-            # 检查网络连接状态
-            if wlan.isconnected():
-                print("网络已连接")
-                print("IP地址: %s" % wlan.ifconfig()[0])
-            else:
-                print("警告: 网络未连接，请确保设备已连接到WiFi")
-                print("尝试扫描可用网络...")
-                networks = wlan.scan()
-                if networks:
-                    print("发现 %d 个网络" % len(networks))
-                else:
-                    print("未发现可用网络")
-                    
-        except Exception as e:
-            print("网络初始化失败: %s" % e)
+        self.netif = netif
+        self.network_callback = network_callback
+
+    def _ensure_network(self):
+        if self.network_callback is not None:
+            self.netif = self.network_callback()
+        if self.netif is None:
+            self.netif = get_interface()
+        if not has_ip(self.netif) or not isconnected(self.netif):
+            raise RuntimeError("shared network interface is not connected")
+        print("网络已连接")
+        print("网络设备: %s" % network_device_name(self.netif))
+        print("IP地址: %s" % self.netif.ifconfig()[0])
         
     def post(self, url, data, headers=None):
         """发送HTTP POST请求"""
+        self._ensure_network()
         #try:
             # 解析URL
         host, port, path = self._parse_url(url)
@@ -100,6 +88,7 @@ class HttpClient:
     def get(self, url, headers=None):
         """发送HTTP GET请求"""
         try:
+            self._ensure_network()
             # 解析URL
             host, port, path = self._parse_url(url)
             

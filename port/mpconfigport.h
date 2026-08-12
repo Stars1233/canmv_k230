@@ -108,14 +108,24 @@ typedef long long mp_off_t;
 
 #ifdef CONFIG_ENABLE_NETWORK_RT_LAN_OVER_USB
     extern const struct _mp_obj_type_t network_type_eth_lan;
-    #define MICROPY_BOARD_NETWORK_RT_LAN   { MP_ROM_QSTR(MP_QSTR_LAN), MP_ROM_PTR(&network_type_eth_lan) },
+    #define MICROPY_BOARD_NETWORK_RT_LAN \
+        { MP_ROM_QSTR(MP_QSTR_LAN), MP_ROM_PTR(&network_type_eth_lan) }, \
+        { MP_ROM_QSTR(MP_QSTR_LAN_IF), MP_ROM_INT(2) }, \
+        { MP_ROM_QSTR(MP_QSTR_LAN_RTL8152), MP_ROM_INT(2) }, \
+        { MP_ROM_QSTR(MP_QSTR_LAN_NCM), MP_ROM_INT(2) }, \
+        { MP_ROM_QSTR(MP_QSTR_LAN_ECM), MP_ROM_INT(3) }, /* will treat as 2 */
 #else
     #define MICROPY_BOARD_NETWORK_RT_LAN
 #endif
 
 #ifdef CONFIG_ENABLE_NETWORK_RT_WLAN
     extern const struct _mp_obj_fun_builtin_var_t network_wlan_make_new_obj;
-    #define MICROPY_BOARD_NETWORK_RT_WLAN   { MP_ROM_QSTR(MP_QSTR_WLAN), MP_ROM_PTR(&network_wlan_make_new_obj) },
+    #define MICROPY_BOARD_NETWORK_RT_WLAN \
+        { MP_ROM_QSTR(MP_QSTR_WLAN), MP_ROM_PTR(&network_wlan_make_new_obj) }, \
+        { MP_ROM_QSTR(MP_QSTR_WLAN_AUTO), MP_ROM_INT(0) }, \
+        { MP_ROM_QSTR(MP_QSTR_WLAN_USB), MP_ROM_INT(1) }, \
+        { MP_ROM_QSTR(MP_QSTR_WLAN_SDIO), MP_ROM_INT(2) }, \
+        { MP_ROM_QSTR(MP_QSTR_WLAN_SPI), MP_ROM_INT(3) },
 #else
     #define MICROPY_BOARD_NETWORK_RT_WLAN
 #endif
@@ -124,12 +134,12 @@ typedef long long mp_off_t;
     extern const struct _mp_obj_fun_builtin_fixed_t network_rt_get_dev_list_obj;
     extern const struct _mp_obj_fun_builtin_fixed_t network_rt_set_dft_dev_obj;
     extern const struct _mp_obj_fun_builtin_fixed_t network_rt_get_dft_dev_obj;
+    extern const struct _mp_obj_fun_builtin_fixed_t network_rt_get_netdev_name_obj;
     #define MICROPY_BOARD_NETWORK_SET_DEFAULT \
         { MP_ROM_QSTR(MP_QSTR_get_dev_list), MP_ROM_PTR(&network_rt_get_dev_list_obj) }, \
         { MP_ROM_QSTR(MP_QSTR_set_default_dev), MP_ROM_PTR(&network_rt_set_dft_dev_obj) }, \
         { MP_ROM_QSTR(MP_QSTR_get_default_dev), MP_ROM_PTR(&network_rt_get_dft_dev_obj) }, \
-        { MP_ROM_QSTR(MP_QSTR_LAN_RTL8152), MP_ROM_INT(2) }, \
-        { MP_ROM_QSTR(MP_QSTR_LAN_ECM), MP_ROM_INT(3) }, \
+        { MP_ROM_QSTR(MP_QSTR_get_netdev_name), MP_ROM_PTR(&network_rt_get_netdev_name_obj) }, \
 
 #else
     #define MICROPY_BOARD_NETWORK_SET_DEFAULT

@@ -1,22 +1,11 @@
-import network
-import time
+from libs.Network import connect_network
 
 SSID = "TEST"
 PASSWORD = "12345678"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
 
-sta = network.WLAN(network.STA_IF)
-
-sta.connect(SSID, PASSWORD)
-
-timeout = 10  # 单位：秒
-start_time = time.time()
-
-while not sta.isconnected():
-    if time.time() - start_time > timeout:
-        print("连接超时")
-        break
-    time.sleep(1)  # 请稍等片刻再连接
-
+sta, _ = connect_network("wifi_sta", ssid=SSID, password=PASSWORD,
+                         wlan_device=WLAN_DEVICE, timeout=10)
 print(sta.ifconfig())
 
 print(sta.status())

@@ -8,130 +8,22 @@ from media.vencoder import *
 from media.sensor import *
 from media.media import *
 import time, os
-import network
 import _thread
 import multimedia as mm
+from libs.Network import connect_network
 
-# Select "wifi_sta", "wifi_ap", or "lan".
-NETWORK_MODE = "wifi_sta"
+# Select "default", "lan", "wifi_sta", or "wifi_ap".
+NETWORK_TYPE = "wifi_sta"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
 NETWORK_TIMEOUT = 15
+WIFI_SSID = "Test"
+WIFI_PASSWORD = "12345678"
 VIDEO_TYPE = mm.multi_media_type.media_h265
 ENABLE_AUDIO = False
 VIDEO_WIDTH = 1280
 VIDEO_HEIGHT = 720
 VIDEO_BIT_RATE = 512  # Kbit/s
 VIDEO_GOP = 30
-
-# Default test credentials. Change them before running the example.
-WIFI_STA_SSID = "Test"
-WIFI_STA_PASSWORD = "12345678"
-
-WIFI_AP_SSID = "K230_RTSP"
-WIFI_AP_PASSWORD = "12345678"
-
-NETWORK_DEVICE_NAMES = {
-    "wifi_sta": "w0",
-    "wifi_ap": "w1",
-    "lan": "u0",
-}
-
-def wait_for_ip(nic, timeout=NETWORK_TIMEOUT, require_connection=False):
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        config = nic.ifconfig()
-        connected = not require_connection or nic.isconnected()
-        if connected and config and config[0] != "0.0.0.0":
-            return config[0]
-        time.sleep(0.2)
-    raise RuntimeError("Network did not obtain an IP address")
-
-
-def require_network_device(mode):
-    if not hasattr(network, "get_dev_list"):
-        raise RuntimeError("Network device discovery is not supported by this firmware")
-
-    devices = network.get_dev_list()
-    device_name = NETWORK_DEVICE_NAMES[mode]
-    if devices is None or device_name not in devices:
-        raise RuntimeError("Network device '%s' is not available; found: %s" %
-                           (device_name, devices))
-
-
-def connect_wifi_sta(ssid, password, timeout=NETWORK_TIMEOUT):
-    if not hasattr(network, "WLAN"):
-        raise RuntimeError("Wi-Fi is not supported by this firmware")
-
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-
-    # A WLAN connection survives a script restart. Disconnect first so new
-    # credentials can switch the station to a different access point.
-    if wlan.isconnected():
-        print("Disconnecting current Wi-Fi...")
-        if not wlan.disconnect():
-            raise RuntimeError("Wi-Fi disconnect failed")
-        start_time = time.time()
-        while wlan.isconnected():
-            if time.time() - start_time >= 5:
-                raise RuntimeError("Wi-Fi disconnect timeout")
-            os.exitpoint()
-            time.sleep_ms(100)
-
-    print("Connecting to Wi-Fi access point...")
-    if wlan.connect(ssid, password) is False:
-        raise RuntimeError("Failed to start Wi-Fi connection")
-
-    ip = wait_for_ip(wlan, timeout, True)
-    print("Wi-Fi STA network information:", wlan.ifconfig())
-    return wlan, ip
-
-
-def start_wifi_ap(ssid, password, timeout=NETWORK_TIMEOUT):
-    if not hasattr(network, "WLAN"):
-        raise RuntimeError("Wi-Fi is not supported by this firmware")
-
-    ap = network.WLAN(network.AP_IF)
-    print("Starting Wi-Fi access point:", ssid)
-    if ap.config(ssid=ssid, key=password) is False:
-        raise RuntimeError("Failed to start Wi-Fi access point")
-
-    ip = wait_for_ip(ap, timeout)
-    print("Wi-Fi AP network information:", ap.ifconfig())
-    return ap, ip
-
-
-def connect_lan(timeout=NETWORK_TIMEOUT):
-    if not hasattr(network, "LAN"):
-        raise RuntimeError("LAN is not supported by this firmware")
-
-    lan = network.LAN()
-    print("Connecting LAN with DHCP...")
-    if lan.ifconfig("dhcp") is False:
-        raise RuntimeError("Failed to start LAN DHCP")
-    ip = wait_for_ip(lan, timeout, True)
-    print("LAN network information:", lan.ifconfig())
-    return lan, ip
-
-
-def connect_network(mode):
-    if mode not in NETWORK_DEVICE_NAMES:
-        raise ValueError("NETWORK_MODE must be 'wifi_sta', 'wifi_ap', or 'lan'")
-
-    require_network_device(mode)
-    if mode == "wifi_sta":
-        nic, ip = connect_wifi_sta(WIFI_STA_SSID, WIFI_STA_PASSWORD)
-    elif mode == "wifi_ap":
-        nic, ip = start_wifi_ap(WIFI_AP_SSID, WIFI_AP_PASSWORD)
-    else:
-        nic, ip = connect_lan()
-
-    if not hasattr(network, "set_default_dev"):
-        raise RuntimeError("Default network device selection is not supported by this firmware")
-    if network.set_default_dev(NETWORK_DEVICE_NAMES[mode]) is False:
-        raise RuntimeError("Failed to select network device '%s'" % NETWORK_DEVICE_NAMES[mode])
-
-    return nic, ip
-
 
 class RtspServer:
     def __init__(self, session_name="test", port=8554,
@@ -262,7 +154,13 @@ class RtspServer:
 if __name__ == "__main__":
     os.exitpoint(os.EXITPOINT_ENABLE)
     # Connect the selected network interface before opening the RTSP socket.
-    nic, network_ip = connect_network(NETWORK_MODE)
+    nic, network_ip = connect_network(
+        NETWORK_TYPE,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        wlan_device=WLAN_DEVICE,
+        timeout=NETWORK_TIMEOUT,
+    )
     # 创建rtsp server对象
     rtspserver = RtspServer(video_type=VIDEO_TYPE,
                             enable_audio=ENABLE_AUDIO,

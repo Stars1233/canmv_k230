@@ -5,29 +5,25 @@ from media.vencoder import *
 from media.sensor import *
 from media.media import *
 import _thread
-import network
 import os
 import socket
 import sys
 import time
 import uctypes
 import webrtc
+from libs.Network import connect_network
 
-NETWORK_MODE = "lan"  # "lan", "wifi_sta", or "wifi_ap"
+NETWORK_TYPE = "lan"  # "default", "lan", "wifi_sta", or "wifi_ap"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
 WIFI_SSID = "Test"
 WIFI_PASSWORD = "12345678"
+NETWORK_TIMEOUT = 15
 HTTP_PORT = 8080
 WIDTH = 1280
 HEIGHT = 720
 VIDEO_CODEC = "h265"  # "h265" or "h264"
 BIT_RATE = 512  # Kbit/s
 AUDIO_CODEC = webrtc.CODEC_NONE
-
-DEVICE_NAMES = {
-    "lan": "u0",
-    "wifi_sta": "w0",
-    "wifi_ap": "w1",
-}
 
 PAGE = b"""<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -69,46 +65,6 @@ showStep('Negotiating video','Selecting a compatible video codec.',id);await pc.
 let answer=await pc.createAnswer(),candidate=waitCandidate(pc);showStep('Finding network path','Gathering the browser network address.',id);await pc.setLocalDescription(answer);await candidate;if(id!==attempt)return;
 showStep('Connecting secure stream','Sending the browser response to the camera.',id);response=await fetch('/answer',{method:'POST',headers:{'Content-Type':'application/sdp'},body:pc.localDescription.sdp});if(!response.ok)throw new Error();
 showStep('Starting video','Connection details are ready. Waiting for the first encoded frame.',id)}catch(e){if(streamingAttempt!==id)failed(id,'Unable to complete negotiation. Try H.264 if this browser does not support H.265.')}};</script></body></html>"""
-
-
-def wait_for_ip(nic, require_connection=False, timeout=15):
-    start = time.time()
-    while time.time() - start < timeout:
-        config = nic.ifconfig()
-        if (not require_connection or nic.isconnected()) and config and config[0] != "0.0.0.0":
-            return config[0]
-        time.sleep_ms(200)
-    raise RuntimeError("network did not obtain an IP address")
-
-
-def connect_network():
-    if NETWORK_MODE not in DEVICE_NAMES:
-        raise ValueError("invalid NETWORK_MODE")
-    devices = network.get_dev_list()
-    device = DEVICE_NAMES[NETWORK_MODE]
-    if devices is None or device not in devices:
-        raise RuntimeError("network device '%s' is not available" % device)
-
-    if NETWORK_MODE == "lan":
-        nic = network.LAN()
-        if nic.ifconfig("dhcp") is False:
-            raise RuntimeError("LAN DHCP failed")
-        ip = wait_for_ip(nic, True)
-    elif NETWORK_MODE == "wifi_sta":
-        nic = network.WLAN(network.STA_IF)
-        nic.active(True)
-        if not nic.isconnected() and nic.connect(WIFI_SSID, WIFI_PASSWORD) is False:
-            raise RuntimeError("Wi-Fi connection failed")
-        ip = wait_for_ip(nic, True)
-    else:
-        nic = network.WLAN(network.AP_IF)
-        if nic.config(ssid=WIFI_SSID, key=WIFI_PASSWORD) is False:
-            raise RuntimeError("Wi-Fi AP start failed")
-        ip = wait_for_ip(nic)
-
-    if network.set_default_dev(device) is False:
-        raise RuntimeError("failed to select the default network device")
-    return nic, ip
 
 
 def send_all(sock, data):
@@ -239,7 +195,13 @@ def run():
     link = None
     peer = None
 
-    _, ip = connect_network()
+    netif, ip = connect_network(
+        NETWORK_TYPE,
+        ssid=WIFI_SSID,
+        password=WIFI_PASSWORD,
+        wlan_device=WLAN_DEVICE,
+        timeout=NETWORK_TIMEOUT,
+    )
     try:
         if VIDEO_CODEC == "h265":
             peer_video_codec = webrtc.CODEC_H265

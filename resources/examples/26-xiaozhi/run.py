@@ -10,24 +10,47 @@ from xiaozhiclient import XiaoZhiClient
 from lvgl_ai import XiaoZhi_UI
 import lvgl as lv
 
-# ========================= 客户可修改参数 =========================
-# 对话按键 GPIO（低电平有效，按住说话 / 松开结束）
-KEY_PIN = 21
-# 状态指示灯 GPIO（按键按下时点亮）
-LED_PIN = 52
-# =================================================================
+# ========================= 用户配置 =========================
+# 项目运行参数统一在这里修改，其他文件不需要修改。
+PROJECT_CONFIG = {
+    "hardware": {
+        # 对话按键 GPIO（低电平有效，按住说话 / 松开结束）
+        "key_pin": 21,
+        # 状态指示灯 GPIO（按键按下时点亮）
+        "led_pin": 52,
+    },
+    "network": {
+        # 可选值：default、lan、wifi_sta
+        "type": "wifi_sta",
+        # Wi-Fi 设备可选值：auto、usb、sdio、spi
+        "wlan_device": "auto",
+        "timeout": 20,
+        "ssid": "TEST",
+        "password": "12345678",
+    },
+    "xiaozhi": {
+        "ota_url": "https://api.tenclass.net/xiaozhi/ota/",
+        "websocket_url": "wss://api.tenclass.net:443/xiaozhi/v1/",
+    },
+    "webtts": {
+        "app_id": "",
+        "api_key": "",
+        "api_secret": "",
+        "sample_rate": 16000,
+        "voice_name": "xiaoyan",
+        "speed": 50,
+    },
+}
+# ============================================================
 
 
-def main(key_pin=KEY_PIN, led_pin=LED_PIN):
-    """主函数
-
-    Args:
-        key_pin: 对话按键 GPIO 编号，默认取文件顶部 KEY_PIN
-        led_pin: 状态指示灯 GPIO 编号，默认取文件顶部 LED_PIN
-    """
+def main(project_config=PROJECT_CONFIG):
+    """运行小智项目。"""
+    hardware = project_config["hardware"]
     print("=" * 50)
     print("小智语音助手 - MicroPython版本")
-    print("按键GPIO=%d, LED GPIO=%d" % (key_pin, led_pin))
+    print("按键GPIO=%d, LED GPIO=%d" %
+          (hardware["key_pin"], hardware["led_pin"]))
     print("=" * 50)
     
     
@@ -72,7 +95,7 @@ def main(key_pin=KEY_PIN, led_pin=LED_PIN):
     def llm_callback(llm):
         xiaozhi_gui.Update_llm(llm)
         
-    xiaozhi_client = XiaoZhiClient.get_instance()
+    xiaozhi_client = XiaoZhiClient.get_instance(project_config)
     xiaozhi_gui = XiaoZhi_UI()
     xiaozhi_gui.user_gui_init()
     
@@ -81,9 +104,7 @@ def main(key_pin=KEY_PIN, led_pin=LED_PIN):
     if xiaozhi_client.init_device(
             audio_download_callback,
             tts_state_callback,
-            ws_state_callback,
-            key_pin=key_pin,
-            led_pin=led_pin) != 0:
+            ws_state_callback) != 0:
         print("设备初始化失败")
         return
         
@@ -143,6 +164,4 @@ def main(key_pin=KEY_PIN, led_pin=LED_PIN):
         print("小智语音助手已关闭")
 
 if __name__ == "__main__":
-    # 直接改文件顶部 KEY_PIN / LED_PIN 即可；也可在此显式传入，例如：
-    # main(key_pin=21, led_pin=52)
     main()

@@ -3,10 +3,9 @@
 # This example runs face detection, draws the detections over the camera image,
 # and serves the composited display through an MJPEG stream. Connect the board
 # and the viewing device to the same network, then open the URL printed on the
-# serial console. Set USE_WIFI to False to use wired LAN.
+# serial console. Select the network type below.
 
 import gc
-import network
 import os
 import socket
 import sys
@@ -20,14 +19,17 @@ from libs.AI2D import Ai2d
 from libs.AIBase import AIBase
 from libs.PipeLine import PipeLine
 from libs.Utils import *
+from libs.Network import connect_network
 from media.display import Display
 from media.media import *
 from media.mjpeg import MJPEGEncoder
 
 
-USE_WIFI = True
+NETWORK_TYPE = "wifi_sta"  # "default", "lan", "wifi_sta", or "wifi_ap"
+WLAN_DEVICE = "auto"  # "auto", "usb", "sdio", or "spi"
 WIFI_SSID = "Test"
 WIFI_PASSWORD = "12345678"
+NETWORK_TIMEOUT = 20
 
 SERVER_PORT = 8080
 STREAM_FPS = 15
@@ -170,53 +172,6 @@ class FaceDetectionApp(AIBase):
                 )
 
 
-def wait_for_ip(netif, timeout_s=20):
-    start = time.time()
-    while netif.ifconfig()[0] == "0.0.0.0":
-        if time.time() - start >= timeout_s:
-            raise RuntimeError("network address timeout")
-        os.exitpoint()
-        time.sleep_ms(100)
-    return netif.ifconfig()[0]
-
-
-def connect_network():
-    if USE_WIFI:
-        netif = network.WLAN(network.STA_IF)
-        netif.active(True)
-
-        if netif.isconnected():
-            print("Disconnecting current Wi-Fi...")
-            if not netif.disconnect():
-                raise RuntimeError("Wi-Fi disconnect failed")
-            start = time.time()
-            while netif.isconnected():
-                if time.time() - start >= 5:
-                    raise RuntimeError("Wi-Fi disconnect timeout")
-                os.exitpoint()
-                time.sleep_ms(100)
-
-        print("Connecting to Wi-Fi...")
-        if not netif.connect(WIFI_SSID, WIFI_PASSWORD):
-            raise RuntimeError("Wi-Fi connect failed")
-        start = time.time()
-        while not netif.isconnected():
-            if time.time() - start >= 20:
-                raise RuntimeError("Wi-Fi connection timeout")
-            os.exitpoint()
-            time.sleep_ms(100)
-    else:
-        netif = network.LAN()
-        if not netif.active():
-            raise RuntimeError("LAN interface is not active")
-        if netif.ifconfig()[0] == "0.0.0.0":
-            netif.ifconfig("dhcp")
-
-    ip = wait_for_ip(netif)
-    print("Network:", netif.ifconfig())
-    return netif, ip
-
-
 def capture_jpeg(pipeline, face_detector, encoder):
     ai_frame = pipeline.get_frame()
     detections = face_detector.run(ai_frame)
@@ -353,7 +308,13 @@ def main():
     writeback_enabled = False
 
     try:
-        netif, ip = connect_network()
+        netif, ip = connect_network(
+            NETWORK_TYPE,
+            ssid=WIFI_SSID,
+            password=WIFI_PASSWORD,
+            wlan_device=WLAN_DEVICE,
+            timeout=NETWORK_TIMEOUT,
+        )
 
         anchors = np.fromfile(ANCHORS_PATH, dtype=np.float)
         anchors = anchors.reshape((ANCHOR_LENGTH, ANCHOR_DIMENSION))

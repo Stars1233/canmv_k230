@@ -25,6 +25,7 @@ class WebSocketClient:
         self.binary_callback = None
         self.text_callback = None
         self.state_callback = None
+        self.network_callback = None
         
         # 配置
         self.config = {}
@@ -41,6 +42,10 @@ class WebSocketClient:
         self.binary_callback = binary_cb
         self.text_callback = text_cb
         self.state_callback = state_cb
+
+    def set_network_callback(self, callback):
+        """Set the application-owned network recovery callback."""
+        self.network_callback = callback
         
     def set_config(self, config):
         """设置配置"""
@@ -202,6 +207,9 @@ class WebSocketClient:
     def _connect(self):
         """建立WebSocket连接"""
         try:
+            if self.network_callback is not None:
+                self.network_callback()
+
             hostname = self.config.get('hostname', '')
             port = int(self.config.get('port', 443))
             path = self.config.get('path', '/')

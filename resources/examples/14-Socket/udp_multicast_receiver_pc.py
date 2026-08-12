@@ -2,8 +2,8 @@ import socket
 import struct
 
 
-Note:
-This is a test script intended to run on a PC. If you understand how to test this functionality, you may remove this message.
+# This is a test script intended to run on a PC.
+# It joins the same multicast group used by the board receiver.
 
 
 MCAST_GRP = '239.255.0.1'
