@@ -53,6 +53,14 @@ menu "CanMV Micropython Components Configurations"
         help
           Build the native MicroPython WebRTC peer connection module.
 
+    config ENABLE_MODULE_RTSP_PUSHER
+        bool "Enable RTSP pusher module"
+        default n
+        select MPP_ENABLE_MIDDLEWARE_LIB_RTSP_PUSHER
+        help
+          Build the MicroPython RTSP pusher module and its middleware
+          dependency.
+
     config ENABLE_BLUETOOTH
         bool "Enable Bluetooth module (NimBLE over RT-Smart HCI)"
         default n

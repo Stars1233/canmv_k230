@@ -85,7 +85,9 @@ INC += -I3rd-party/ulab/code
 INC += -I3rd-party/lv_bindings
 INC += -I3rd-party/opencv/code
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_server/include
+ifeq ($(CONFIG_ENABLE_MODULE_RTSP_PUSHER),y)
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/rtsp_pusher/include
+endif
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/mp4_format/include
 INC += -I$(SDK_RTSMART_SRC_DIR)/mpp/middleware/src/ogg/include
 
@@ -199,7 +201,11 @@ CANMV_SRC_C += $(wildcard ai_demo/*.c)
 CANMV_SRC_C += $(wildcard omv/*.c)
 CANMV_SRC_C += $(wildcard omv/*/*.c)
 # multi_media
-CANMV_SRC_C += $(wildcard multi_media/*.c)
+CANMV_SRC_C += $(filter-out multi_media/RtspPusher.c,$(wildcard multi_media/*.c))
+
+ifeq ($(CONFIG_ENABLE_MODULE_RTSP_PUSHER),y)
+CANMV_SRC_C += multi_media/RtspPusher.c
+endif
 # drivers
 CANMV_SRC_C += $(wildcard drivers/*.c)
 # modules
@@ -338,7 +344,11 @@ CANMV_SRC_CXX += $(wildcard ai_demo/kws/*.cpp)
 CANMV_SRC_CXX += $(wildcard ai_demo/tts_zh/*.cpp)
 CANMV_SRC_CXX += $(wildcard modules/*.cpp)
 CANMV_SRC_CXX += $(wildcard modules/*/*.cpp)
-CANMV_SRC_CXX += $(wildcard multi_media/*.cpp)
+CANMV_SRC_CXX += $(filter-out multi_media/multimedia_wrap_pusher.cpp,$(wildcard multi_media/*.cpp))
+
+ifeq ($(CONFIG_ENABLE_MODULE_RTSP_PUSHER),y)
+CANMV_SRC_CXX += multi_media/multimedia_wrap_pusher.cpp
+endif
 
 ifeq ($(CONFIG_ENABLE_MODULE_CV_LITE),y)
 CANMV_SRC_CXX += $(wildcard cv_lite/opencv_code/*.cpp)
