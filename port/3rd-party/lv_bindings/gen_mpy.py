@@ -793,13 +793,16 @@ STATIC mp_obj_t lv_fun_builtin_var_call(mp_obj_t self_in, size_t n_args, size_t 
     MP_THREAD_GIL_EXIT();
     lv_mp_thread_lock();
     MP_THREAD_GIL_ENTER();
+    lv_mp_thread_python_call_enter();
     if (nlr_push(&nlr) == 0) {
         mp_obj_t result = self->mp_fun(n_args, args, self->lv_fun);
         nlr_pop();
+        lv_mp_thread_python_call_exit();
         lv_mp_thread_unlock();
         return result;
     }
     else {
+        lv_mp_thread_python_call_exit();
         lv_mp_thread_unlock();
         nlr_jump(nlr.ret_val);
     }
@@ -831,9 +834,13 @@ typedef struct mp_lv_struct_t
 {
     mp_obj_base_t base;
     void *data;
+    mp_obj_t references;
+    mp_obj_t owner;
 } mp_lv_struct_t;
 
 STATIC const mp_lv_struct_t mp_lv_null_obj;
+
+STATIC void mp_lv_struct_store_reference(mp_lv_struct_t *self, qstr key, mp_obj_t value);
 
 #ifdef LV_OBJ_T
 STATIC mp_int_t mp_lv_obj_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags);
@@ -897,6 +904,9 @@ typedef struct mp_lv_obj_t {
     mp_obj_base_t base;
     LV_OBJ_T *lv_obj;
     LV_OBJ_T *callbacks;
+    mp_obj_t user_data;
+    mp_obj_t references;
+    mp_obj_t owner;
 } mp_lv_obj_t;
 
 STATIC inline LV_OBJ_T *mp_to_lv(mp_obj_t mp_obj)
@@ -906,6 +916,9 @@ STATIC inline LV_OBJ_T *mp_to_lv(mp_obj_t mp_obj)
     if (MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(native_obj), buffer) != mp_lv_obj_get_buffer)
         return NULL;
     mp_lv_obj_t *mp_lv_obj = MP_OBJ_TO_PTR(native_obj);
+    if (mp_lv_obj->owner != MP_OBJ_NULL) {
+        mp_lv_obj = MP_OBJ_TO_PTR(mp_lv_obj->owner);
+    }
     if (mp_lv_obj->lv_obj == NULL) {
         nlr_raise(
             mp_obj_new_exception_msg(
@@ -922,6 +935,8 @@ STATIC inline LV_OBJ_T *mp_get_callbacks(mp_obj_t mp_obj)
         nlr_raise(
             mp_obj_new_exception_msg(
                 &mp_type_SyntaxError, MP_ERROR_TEXT("'user_data' argument must be either a dict or None!")));
+    // The only caller passes lv_obj->user_data, which is always the canonical
+    // wrapper, so there is no owner to follow here.
     if (!mp_lv_obj->callbacks) mp_lv_obj->callbacks = mp_obj_new_dict(0);
     return mp_lv_obj->callbacks;
 }
@@ -962,6 +977,9 @@ STATIC inline mp_obj_t lv_to_mp(LV_OBJ_T *lv_obj)
             .base = {(const mp_obj_type_t *)mp_obj_type},
             .lv_obj = lv_obj,
             .callbacks = NULL,
+            .user_data = MP_OBJ_NULL,
+            .references = MP_OBJ_NULL,
+            .owner = MP_OBJ_NULL,
         };
 
         // Register the Python object in user_data
@@ -973,15 +991,40 @@ STATIC inline mp_obj_t lv_to_mp(LV_OBJ_T *lv_obj)
     return MP_OBJ_FROM_PTR(self);
 }
 
+// Resolve an argument to the canonical wrapper of its lv_obj.
+// lv_obj->user_data is only guaranteed to be set once the object went through
+// lv_to_mp(), which is not the case for an object reached through a raw
+// pointer cast, so go through lv_to_mp() rather than reading user_data.
+GENMPY_UNUSED STATIC mp_lv_obj_t *mp_lv_obj_wrapper(mp_obj_t mp_obj)
+{
+    LV_OBJ_T *lv_obj = mp_to_lv(mp_obj);
+    if (lv_obj == NULL) {
+        nlr_raise(
+            mp_obj_new_exception_msg(
+                &mp_type_SyntaxError, MP_ERROR_TEXT("Expected an lv_obj argument!")));
+    }
+    return MP_OBJ_TO_PTR(lv_to_mp(lv_obj));
+}
+
 STATIC void* mp_to_ptr(mp_obj_t self_in);
 
 STATIC mp_obj_t cast_obj_type(const mp_obj_type_t* type, mp_obj_t obj)
 {
+    mp_obj_t native_obj = get_native_obj(obj);
+    mp_obj_t owner = MP_OBJ_NULL;
+    if (native_obj != NULL && MP_OBJ_IS_OBJ(native_obj) &&
+        MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(native_obj), buffer) == mp_lv_obj_get_buffer) {
+        mp_lv_obj_t *native_lv_obj = MP_OBJ_TO_PTR(native_obj);
+        owner = native_lv_obj->owner != MP_OBJ_NULL ? native_lv_obj->owner : native_obj;
+    }
     mp_lv_obj_t *self = m_new_obj(mp_lv_obj_t);
     *self = (mp_lv_obj_t){
         .base = {type},
         .lv_obj = mp_to_ptr(obj),
         .callbacks = NULL,
+        .user_data = MP_OBJ_NULL,
+        .references = MP_OBJ_NULL,
+        .owner = owner,
     };
     if (!self->lv_obj) return mp_const_none;
     return MP_OBJ_FROM_PTR(self);
@@ -1024,6 +1067,9 @@ STATIC MP_DEFINE_CONST_CLASSMETHOD_OBJ(cast_obj_class_method, MP_ROM_PTR(&cast_o
 STATIC mp_int_t mp_lv_obj_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
     (void)flags;
     mp_lv_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self->owner != MP_OBJ_NULL) {
+        self = MP_OBJ_TO_PTR(self->owner);
+    }
 
     bufinfo->buf = &self->lv_obj;
     bufinfo->len = sizeof(self->lv_obj);
@@ -1035,6 +1081,8 @@ STATIC mp_obj_t mp_lv_obj_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t
 {
     mp_lv_obj_t *lhs = MP_OBJ_TO_PTR(lhs_in);
     mp_lv_obj_t *rhs = MP_OBJ_TO_PTR(rhs_in);
+    if (lhs->owner != MP_OBJ_NULL) lhs = MP_OBJ_TO_PTR(lhs->owner);
+    if (rhs->owner != MP_OBJ_NULL) rhs = MP_OBJ_TO_PTR(rhs->owner);
     switch (op)
     {
         case MP_BINARY_OP_EQUAL:
@@ -1120,13 +1168,29 @@ STATIC mp_obj_t make_new_lv_struct(
     size_t count = (n_args > 0) && (mp_obj_is_int(args[0]))? mp_obj_get_int(args[0]): 1;
     *self = (mp_lv_struct_t){
         .base = {type},
-        .data = (other && other->data == NULL)? NULL: m_malloc(size * count)
+        .data = (other && other->data == NULL)? NULL: m_malloc(size * count),
+        .references = MP_OBJ_NULL,
+        .owner = MP_OBJ_NULL,
     };
     if (self->data) {
         if (other) {
             memcpy(self->data, other->data, size * count);
         } else {
             memset(self->data, 0, size * count);
+        }
+    }
+    if (other) {
+        // The copy holds the same pointers as the source, so it needs the same
+        // objects kept alive.
+        if (other->references != MP_OBJ_NULL) {
+            // `other` is a reference root: its keys are offsets into the buffer
+            // just copied verbatim, so they stay meaningful for the copy.
+            self->references = mp_obj_dict_copy(other->references);
+        } else if (other->owner != MP_OBJ_NULL) {
+            // `other` is a view into someone else's buffer (array element or
+            // by-ref field) and its references live on that owner. Pin `other`
+            // so the whole chain, and with it every reference, stays alive.
+            mp_lv_struct_store_reference(self, MP_QSTR___copy_source__, MP_OBJ_FROM_PTR(other));
         }
     }
     return MP_OBJ_FROM_PTR(self);
@@ -1188,7 +1252,9 @@ STATIC mp_obj_t lv_struct_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t valu
     element_at_index = m_new_obj(mp_lv_struct_t);
     *element_at_index = (mp_lv_struct_t){
         .base = {type},
-        .data = element_addr
+        .data = element_addr,
+        .references = MP_OBJ_NULL,
+        .owner = self_in,
     };
 
     if (value != MP_OBJ_SENTINEL){
@@ -1215,15 +1281,198 @@ GENMPY_UNUSED STATIC void *copy_buffer(const void *buffer, size_t size)
 
 // Reference an existing lv struct (or part of it)
 
-STATIC mp_obj_t lv_to_mp_struct(const mp_obj_type_t *type, void *lv_struct)
+STATIC mp_obj_t lv_to_mp_struct(const mp_obj_type_t *type, void *lv_struct, mp_obj_t owner)
 {
     if (lv_struct == NULL) return mp_const_none;
     mp_lv_struct_t *self = m_new_obj(mp_lv_struct_t);
     *self = (mp_lv_struct_t){
         .base = {type},
-        .data = lv_struct
+        .data = lv_struct,
+        .references = MP_OBJ_NULL,
+        .owner = owner,
     };
     return MP_OBJ_FROM_PTR(self);
+}
+
+// Retention dictionaries are only ever written, never read back: they exist so
+// that an object whose raw pointer was handed to LVGL stays reachable for the
+// GC. A value of MP_OBJ_NULL removes an entry instead of storing one.
+
+STATIC void mp_lv_dict_set_or_remove(mp_obj_t *references, mp_obj_t key, mp_obj_t value)
+{
+    if (value == MP_OBJ_NULL) {
+        if (*references != MP_OBJ_NULL) {
+            mp_map_lookup(mp_obj_dict_get_map(*references), key, MP_MAP_LOOKUP_REMOVE_IF_FOUND);
+        }
+        return;
+    }
+    if (*references == MP_OBJ_NULL) {
+        *references = mp_obj_new_dict(0);
+    }
+    mp_obj_dict_store(*references, key, value);
+}
+
+#ifdef LV_OBJ_T
+// Anything stored on a widget is released when the widget is deleted, together
+// with its wrapper, so this is the container to prefer whenever there is one.
+STATIC void mp_lv_obj_store_reference_key(mp_obj_t native_obj, mp_obj_t key, mp_obj_t value)
+{
+    mp_lv_obj_t *self = MP_OBJ_TO_PTR(native_obj);
+    if (self->owner != MP_OBJ_NULL) {
+        self = MP_OBJ_TO_PTR(self->owner);
+    }
+    if (self->lv_obj == NULL) return;
+    mp_lv_dict_set_or_remove(&self->references, key, value);
+}
+#endif
+
+// The outermost struct of an `owner` chain; its `references` dict holds the
+// objects that any struct in the chain points at.
+STATIC mp_lv_struct_t *mp_lv_struct_reference_owner(mp_lv_struct_t *self)
+{
+    // A malformed chain (two structs cast onto each other with
+    // __cast_instance__) must not spin forever, so bound the walk.
+    for (int depth = 0; depth < 16; depth++) {
+        if (self->owner == MP_OBJ_NULL || !MP_OBJ_IS_OBJ(self->owner)) break;
+        mp_obj_t native_owner = get_native_obj(self->owner);
+        if (native_owner == MP_OBJ_NULL || !MP_OBJ_IS_OBJ(native_owner) ||
+            MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(native_owner), buffer) != mp_blob_get_buffer) {
+            break;
+        }
+        mp_lv_struct_t *parent = MP_OBJ_TO_PTR(native_owner);
+        if (parent == self) break;
+        self = parent;
+    }
+    return self;
+}
+
+STATIC void mp_lv_struct_store_reference_key(mp_lv_struct_t *self, mp_obj_t key, mp_obj_t value)
+{
+    mp_lv_struct_t *reference_owner = mp_lv_struct_reference_owner(self);
+
+#ifdef LV_OBJ_T
+    // A struct handed out by a widget (lv_spangroup_new_span() and friends) is
+    // owned by that widget and outlives every wrapper Python holds for it.
+    // Storing on the widget makes the reference last exactly as long as the
+    // native struct, and releases it when the widget is deleted. Key it by the
+    // struct address so sibling structs of one widget do not collide.
+    if (reference_owner->owner != MP_OBJ_NULL && MP_OBJ_IS_OBJ(reference_owner->owner)) {
+        mp_obj_t native_owner = get_native_obj(reference_owner->owner);
+        if (native_owner != MP_OBJ_NULL && MP_OBJ_IS_OBJ(native_owner) &&
+            MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(native_owner), buffer) == mp_lv_obj_get_buffer) {
+            mp_obj_t key_parts[] = {
+                mp_obj_new_int_from_ull((unsigned long long)(uintptr_t)self->data),
+                key,
+            };
+            mp_lv_obj_store_reference_key(
+                native_owner, mp_obj_new_tuple(MP_ARRAY_SIZE(key_parts), key_parts), value);
+            return;
+        }
+    }
+#endif
+
+    // Key by the offset into the owning buffer so that a verbatim copy of that
+    // buffer (make_new_lv_struct) can reuse the keys unchanged.
+    uintptr_t offset = (uintptr_t)self->data - (uintptr_t)reference_owner->data;
+    mp_obj_t key_parts[] = {
+        mp_obj_new_int_from_ull((unsigned long long)offset),
+        key,
+    };
+    mp_lv_dict_set_or_remove(
+        &reference_owner->references, mp_obj_new_tuple(MP_ARRAY_SIZE(key_parts), key_parts), value);
+}
+
+STATIC void mp_lv_struct_store_reference(mp_lv_struct_t *self, qstr key, mp_obj_t value)
+{
+    mp_lv_struct_store_reference_key(self, MP_OBJ_NEW_QSTR(key), value);
+}
+
+STATIC void mp_lv_store_reference_key(mp_obj_t owner, mp_obj_t key, mp_obj_t value)
+{
+    mp_obj_t native_owner = get_native_obj(owner);
+    if (native_owner == MP_OBJ_NULL || !MP_OBJ_IS_OBJ(native_owner)) return;
+
+#ifdef LV_OBJ_T
+    if (MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(native_owner), buffer) == mp_lv_obj_get_buffer) {
+        mp_lv_obj_store_reference_key(native_owner, key, value);
+        return;
+    }
+#endif
+
+    if (MP_OBJ_TYPE_GET_SLOT_OR_NULL(mp_obj_get_type(native_owner), buffer) == mp_blob_get_buffer) {
+        mp_lv_struct_store_reference_key(MP_OBJ_TO_PTR(native_owner), key, value);
+    }
+}
+
+STATIC void mp_lv_store_reference(mp_obj_t owner, qstr key, mp_obj_t value)
+{
+    mp_lv_store_reference_key(owner, MP_OBJ_NEW_QSTR(key), value);
+}
+
+STATIC void mp_lv_store_reference_indexed(mp_obj_t owner, qstr key, mp_obj_t index, mp_obj_t value)
+{
+    mp_obj_t key_parts[] = {MP_OBJ_NEW_QSTR(key), index};
+    mp_lv_store_reference_key(owner, mp_obj_new_tuple(MP_ARRAY_SIZE(key_parts), key_parts), value);
+}
+
+STATIC void mp_lv_store_reference_pointer_indexed(
+    mp_obj_t owner, qstr key, mp_obj_t pointer, mp_obj_t value)
+{
+    mp_obj_t index = mp_obj_new_int_from_ull((unsigned long long)(uintptr_t)mp_to_ptr(pointer));
+    mp_lv_store_reference_indexed(owner, key, index, value);
+}
+
+STATIC void mp_lv_store_reference_pointer_selector_indexed(
+    mp_obj_t owner, qstr key, mp_obj_t pointer, mp_obj_t selector, mp_obj_t value)
+{
+    mp_obj_t index_parts[] = {
+        mp_obj_new_int_from_ull((unsigned long long)(uintptr_t)mp_to_ptr(pointer)),
+        selector,
+    };
+    mp_lv_store_reference_indexed(
+        owner, key, mp_obj_new_tuple(MP_ARRAY_SIZE(index_parts), index_parts), value);
+}
+
+// Last resort for natives that have no wrapper stable enough to hang a
+// reference on (lv_disp_t). Keyed by the raw owner pointer, so every producer
+// needs a matching mp_lv_clear_native_references() on the destroy path or the
+// entries live for the lifetime of the interpreter.
+STATIC void* mp_to_ptr(mp_obj_t self_in);
+MP_REGISTER_ROOT_POINTER(mp_obj_t mp_lv_native_references);
+
+STATIC mp_obj_t mp_lv_native_reference_owner_key(mp_obj_t owner)
+{
+    return mp_obj_new_int_from_ull((unsigned long long)(uintptr_t)mp_to_ptr(owner));
+}
+
+STATIC mp_obj_t mp_lv_native_reference_dict(mp_obj_t owner)
+{
+    mp_obj_t references = MP_STATE_PORT(mp_lv_native_references);
+    if (references == MP_OBJ_NULL) {
+        references = mp_obj_new_dict(0);
+        MP_STATE_PORT(mp_lv_native_references) = references;
+    }
+
+    mp_map_elem_t *elem = mp_map_lookup(
+        mp_obj_dict_get_map(references),
+        mp_lv_native_reference_owner_key(owner), MP_MAP_LOOKUP_ADD_IF_NOT_FOUND);
+    if (elem->value == MP_OBJ_NULL) {
+        elem->value = mp_obj_new_dict(0);
+    }
+    return elem->value;
+}
+
+STATIC void mp_lv_store_native_reference(mp_obj_t owner, qstr key, mp_obj_t value)
+{
+    mp_obj_dict_store(mp_lv_native_reference_dict(owner), MP_OBJ_NEW_QSTR(key), value);
+}
+
+STATIC void mp_lv_clear_native_references(mp_obj_t owner)
+{
+    if (MP_STATE_PORT(mp_lv_native_references) == MP_OBJ_NULL) return;
+    mp_map_lookup(
+        mp_obj_dict_get_map(MP_STATE_PORT(mp_lv_native_references)),
+        mp_lv_native_reference_owner_key(owner), MP_MAP_LOOKUP_REMOVE_IF_FOUND);
 }
 
 STATIC void call_parent_methods(mp_obj_t obj, qstr attr, mp_obj_t *dest)
@@ -1370,11 +1619,16 @@ STATIC MP_DEFINE_CONST_OBJ_TYPE(
     buffer, mp_blob_get_buffer
 );
 
-STATIC const mp_lv_struct_t mp_lv_null_obj = { {&mp_blob_type}, NULL };
+STATIC const mp_lv_struct_t mp_lv_null_obj = {
+    .base = {&mp_blob_type},
+    .data = NULL,
+    .references = MP_OBJ_NULL,
+    .owner = MP_OBJ_NULL,
+};
 
 STATIC inline mp_obj_t ptr_to_mp(void *data)
 {
-    return lv_to_mp_struct(&mp_blob_type, data);
+    return lv_to_mp_struct(&mp_blob_type, data, MP_OBJ_NULL);
 }
 
 // Cast pointer to struct
@@ -1384,7 +1638,9 @@ STATIC mp_obj_t mp_lv_cast(mp_obj_t type_obj, mp_obj_t ptr_obj)
     mp_lv_struct_t *self = m_new_obj(mp_lv_struct_t);
     *self = (mp_lv_struct_t){
         .base = {(const mp_obj_type_t*)type_obj},
-        .data = mp_to_ptr(ptr_obj)
+        .data = mp_to_ptr(ptr_obj),
+        .references = MP_OBJ_NULL,
+        .owner = ptr_obj,
     };
     return MP_OBJ_FROM_PTR(self);
 }
@@ -1395,6 +1651,8 @@ STATIC inline mp_obj_t mp_lv_cast_instance(mp_obj_t self_in, mp_obj_t ptr_obj)
 {
     mp_lv_struct_t *self = MP_OBJ_TO_PTR(self_in);
     self->data = mp_to_ptr(ptr_obj);
+    self->references = MP_OBJ_NULL;
+    self->owner = ptr_obj;
     return self_in;
 }
 
@@ -1634,7 +1892,12 @@ GENMPY_UNUSED STATIC mp_obj_t mp_array_from_ptr(void *lv_arr, size_t element_siz
 {
     mp_lv_array_t *self = m_new_obj(mp_lv_array_t);
     *self = (mp_lv_array_t){
-        { {&mp_lv_array_type}, lv_arr },
+        {
+            .base = {&mp_lv_array_type},
+            .data = lv_arr,
+            .references = MP_OBJ_NULL,
+            .owner = MP_OBJ_NULL,
+        },
         element_size,
         is_signed
     };
@@ -1904,7 +2167,9 @@ def try_generate_struct(struct_name, struct):
             raise MissingConversionException('Missing conversion to %s when generating struct %s.%s' % (type_name, struct_name, get_name(decl)))
 
         mp_to_lv_convertor = mp_to_lv[type_name]
-        lv_to_mp_convertor = lv_to_mp_byref[type_name] if type_name in lv_to_mp_byref else lv_to_mp[type_name]
+        is_byref = type_name in lv_to_mp_byref
+        lv_to_mp_convertor = lv_to_mp_byref[type_name] if is_byref else lv_to_mp[type_name]
+        read_owner = ', self_in' if is_byref else ''
 
         cast = '(void*)' if isinstance(decl.type, c_ast.PtrDecl) else '' # needed when field is const. casting to void overrides it
 
@@ -1944,14 +2209,19 @@ def try_generate_struct(struct_name, struct):
                 if is_writeable:
                     write_cases.append('case MP_QSTR_{field}: memcpy((void*)&data->{field}, {cast}{convertor}(dest[1]), {size}); break; // converting to {type_name}'.
                         format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast, size = memcpy_size))
-                read_cases.append('case MP_QSTR_{field}: dest[0] = {convertor}({cast}data->{field}); break; // converting from {type_name}'.
-                    format(field = sanitize(decl.name), convertor = lv_to_mp_convertor, type_name = type_name, cast = cast))
+                read_cases.append('case MP_QSTR_{field}: dest[0] = {convertor}({cast}data->{field}{owner}); break; // converting from {type_name}'.
+                    format(field = sanitize(decl.name), convertor = lv_to_mp_convertor, type_name = type_name, cast = cast,
+                        owner = read_owner))
             else:
                 if is_writeable:
-                    write_cases.append('case MP_QSTR_{field}: data->{field} = {cast}{convertor}(dest[1]); break; // converting to {type_name}'.
-                        format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast))
-                read_cases.append('case MP_QSTR_{field}: dest[0] = {convertor}({cast}data->{field}); break; // converting from {type_name}'.
-                    format(field = sanitize(decl.name), convertor = lv_to_mp_convertor, type_name = type_name, cast = cast))
+                    retain_reference = (' mp_lv_struct_store_reference(self, MP_QSTR_{field}, dest[1]);'.format(
+                        field=sanitize(decl.name)) if isinstance(decl.type, c_ast.PtrDecl) else '')
+                    write_cases.append('case MP_QSTR_{field}: data->{field} = {cast}{convertor}(dest[1]);{retain_reference} break; // converting to {type_name}'.
+                        format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast,
+                            retain_reference = retain_reference))
+                read_cases.append('case MP_QSTR_{field}: dest[0] = {convertor}({cast}data->{field}{owner}); break; // converting from {type_name}'.
+                    format(field = sanitize(decl.name), convertor = lv_to_mp_convertor, type_name = type_name, cast = cast,
+                        owner = read_owner))
     print('''
 /*
  * Struct {struct_name}
@@ -1969,11 +2239,16 @@ STATIC inline void* mp_write_ptr_{sanitized_struct_name}(mp_obj_t self_in)
 
 STATIC inline mp_obj_t mp_read_ptr_{sanitized_struct_name}(void *field)
 {{
-    return lv_to_mp_struct(get_mp_{sanitized_struct_name}_type(), field);
+    return lv_to_mp_struct(get_mp_{sanitized_struct_name}_type(), field, MP_OBJ_NULL);
+}}
+
+STATIC inline mp_obj_t mp_read_ptr_owned_{sanitized_struct_name}(void *field, mp_obj_t owner)
+{{
+    return lv_to_mp_struct(get_mp_{sanitized_struct_name}_type(), field, owner);
 }}
 
 #define mp_read_{sanitized_struct_name}(field) mp_read_ptr_{sanitized_struct_name}(copy_buffer(&field, sizeof({struct_tag}{struct_name})))
-#define mp_read_byref_{sanitized_struct_name}(field) mp_read_ptr_{sanitized_struct_name}(&field)
+#define mp_read_byref_{sanitized_struct_name}(field, owner) mp_read_ptr_owned_{sanitized_struct_name}(&field, owner)
 
 STATIC void mp_{sanitized_struct_name}_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest)
 {{
@@ -2389,9 +2664,10 @@ GENMPY_UNUSED STATIC {return_type} {func_name}_callback({func_args})
     {callback_return_declaration}
     nlr_buf_t nlr;
     nlr_jump_callback_node_t nesting_cleanup;
+    bool gil_already_held = lv_mp_thread_python_call_active();
 
     lv_mp_thread_lock();
-    MP_THREAD_GIL_ENTER();
+    if (!gil_already_held) MP_THREAD_GIL_ENTER();
     if (nlr_push(&nlr) == 0) {{
         {build_args}
         mp_obj_t callbacks = get_callback_dict_from_user_data({user_data});
@@ -2402,12 +2678,12 @@ GENMPY_UNUSED STATIC {return_type} {func_name}_callback({func_args})
         _nesting--;
         {return_value_conversion}
         nlr_pop();
-        MP_THREAD_GIL_EXIT();
+        if (!gil_already_held) MP_THREAD_GIL_EXIT();
         lv_mp_thread_unlock();
         {return_statement}
     }}
     else {{
-        MP_THREAD_GIL_EXIT();
+        if (!gil_already_held) MP_THREAD_GIL_EXIT();
         lv_mp_thread_unlock();
         nlr_jump(nlr.ret_val);
     }}
@@ -2513,6 +2789,146 @@ def build_mp_func_arg(arg, index, func, obj_name):
             convertor = mp_to_lv[arg_type],
             i = index)
 
+# These APIs retain pointer arguments after returning. Keep the corresponding
+# MicroPython objects alive for as long as the native owner uses them.
+retained_func_args = {
+    'lv_animimg_set_src': ((0, 1),),
+    'lv_canvas_set_buffer': ((0, 1),),
+    'lv_checkbox_set_text_static': ((0, 1),),
+    'lv_dropdown_set_options_static': ((0, 1),),
+    'lv_dropdown_set_symbol': ((0, 1),),
+    'lv_gif_set_src': ((0, 1),),
+    'lv_img_set_src': ((0, 1),),
+    'lv_label_set_text_static': ((0, 1),),
+    'lv_line_set_points': ((0, 1),),
+    'lv_menu_set_page_title_static': ((0, 1),),
+    # The span struct is owned by its spangroup (returned_struct_owner_args),
+    # so this reference ends up on the spangroup widget.
+    'lv_span_set_text_static': ((0, 1),),
+    'lv_style_set_arc_img_src': ((0, 1),),
+    'lv_style_set_bg_img_src': ((0, 1),),
+}
+
+retained_func_indexed_args = {
+    'lv_imgbtn_set_src': ((0, 2, 1), (0, 3, 1), (0, 4, 1)),
+}
+
+retained_func_pointer_indexed_args = {
+    'lv_chart_set_ext_x_array': ((0, 2, 1),),
+    'lv_chart_set_ext_y_array': ((0, 2, 1),),
+}
+
+# LVGL identifies an attached style by (style pointer, selector), so add,
+# replace and remove must share one key namespace: otherwise removing a style
+# would not drop the reference that adding it took.
+# func name -> (owner_arg, retained (value, pointer, selector), cleared (pointer, selector))
+STYLE_REFERENCE_KEY = 'lv_obj_style'
+styled_func_args = {
+    'lv_obj_add_style': (0, ((1, 1, 2),), ()),
+    'lv_obj_replace_style': (0, ((2, 2, 3),), ((1, 3),)),
+    'lv_obj_remove_style': (0, (), ((1, 2),)),
+}
+
+# Only emit the retention when the call reports that it took effect.
+retained_func_conditions = {
+    'lv_obj_replace_style': '_res',
+}
+
+# Structs handed out by these functions are owned by the widget in the given
+# argument and outlive any wrapper Python holds. Anchoring the wrapper to the
+# widget makes references stored through the struct land on the widget, so they
+# are released when it is deleted instead of leaking.
+# func name -> owner arg
+returned_struct_owner_args = {
+    'lv_spangroup_new_span': 0,
+    'lv_spangroup_get_child': 0,
+}
+
+# func name -> ((owner_arg, key),)
+cleared_func_references = {
+    # set_text() copies the text, so the static one is no longer referenced.
+    'lv_span_set_text': ((0, 'lv_span_set_text_static_1'),),
+    'lv_spangroup_del_span': ((1, 'lv_span_set_text_static_1'),),
+}
+
+retained_native_func_args = {
+    'lv_disp_set_draw_buffers': ((0, 1), (0, 2)),
+}
+
+cleared_native_func_owners = {
+    'lv_disp_remove': (0,),
+}
+
+customized_func_names = set(retained_func_args)
+customized_func_names.update(retained_func_indexed_args)
+customized_func_names.update(retained_func_pointer_indexed_args)
+customized_func_names.update(styled_func_args)
+customized_func_names.update(returned_struct_owner_args)
+customized_func_names.update(cleared_func_references)
+customized_func_names.update(retained_native_func_args)
+customized_func_names.update(cleared_native_func_owners)
+
+def build_retained_references(func):
+    references = [
+        'mp_lv_store_reference(mp_args[{owner}], MP_QSTR_{key}, mp_args[{value}]);'.format(
+            owner=owner,
+            key=sanitize('%s_%d' % (func.name, value)),
+            value=value)
+        for owner, value in retained_func_args.get(func.name, ())]
+    references.extend(
+        'mp_lv_store_reference_indexed(mp_args[{owner}], MP_QSTR_{key}, mp_args[{index}], mp_args[{value}]);'.format(
+            owner=owner,
+            key=sanitize('%s_%d' % (func.name, value)),
+            index=index,
+            value=value)
+        for owner, value, index in retained_func_indexed_args.get(func.name, ()))
+    references.extend(
+        'mp_lv_store_reference_pointer_indexed(mp_args[{owner}], MP_QSTR_{key}, mp_args[{index}], mp_args[{value}]);'.format(
+            owner=owner,
+            key=sanitize('%s_%d' % (func.name, value)),
+            index=index,
+            value=value)
+        for owner, value, index in retained_func_pointer_indexed_args.get(func.name, ()))
+    if func.name in styled_func_args:
+        owner, retained, cleared = styled_func_args[func.name]
+        # Clear first: replace_style() drops the old style and takes the new one.
+        references.extend(
+            'mp_lv_store_reference_pointer_selector_indexed(mp_args[{owner}], MP_QSTR_{key}, mp_args[{pointer}], mp_args[{selector}], MP_OBJ_NULL);'.format(
+                owner=owner,
+                key=sanitize(STYLE_REFERENCE_KEY),
+                pointer=pointer,
+                selector=selector)
+            for pointer, selector in cleared)
+        references.extend(
+            'mp_lv_store_reference_pointer_selector_indexed(mp_args[{owner}], MP_QSTR_{key}, mp_args[{pointer}], mp_args[{selector}], mp_args[{value}]);'.format(
+                owner=owner,
+                key=sanitize(STYLE_REFERENCE_KEY),
+                pointer=pointer,
+                selector=selector,
+                value=value)
+            for value, pointer, selector in retained)
+    references.extend(
+        'mp_lv_store_reference(mp_args[{owner}], MP_QSTR_{key}, MP_OBJ_NULL);'.format(
+            owner=owner,
+            key=sanitize(key))
+        for owner, key in cleared_func_references.get(func.name, ()))
+    references.extend(
+        'mp_lv_store_native_reference(mp_args[{owner}], MP_QSTR_{key}, mp_args[{value}]);'.format(
+            owner=owner,
+            key=sanitize('%s_%d' % (func.name, value)),
+            value=value)
+        for owner, value in retained_native_func_args.get(func.name, ()))
+    references.extend(
+        'mp_lv_clear_native_references(mp_args[{owner}]);'.format(owner=owner)
+        for owner in cleared_native_func_owners.get(func.name, ()))
+    if not references:
+        return ''
+    condition = retained_func_conditions.get(func.name)
+    if condition:
+        return 'if ({condition}) {{\n        {body}\n    }}'.format(
+            condition=condition, body='\n        '.join(references))
+    return '\n    '.join(references)
+
 def emit_func_obj(func_obj_name, func_name, param_count, func_ptr, is_static):
     print("""
 STATIC {builtin_macro}(mp_{func_obj_name}_mpobj, {param_count}, mp_{func_name}, {func_ptr});
@@ -2546,11 +2962,47 @@ def gen_mp_func(func, obj_name):
     else:
         param_count = len(args)
 
+    if func.name in ('lv_obj_set_user_data', 'lv_obj_get_user_data'):
+        # lv_obj.user_data is reserved for the canonical MicroPython wrapper.
+        # Expose application user data through the wrapper instead.
+        for i, arg in enumerate(args):
+            build_mp_func_arg(arg, i, func, obj_name)
+        if func.name == 'lv_obj_set_user_data':
+            func_metadata[func.name]['return_type'] = 'NoneType'
+            print("""
+STATIC mp_obj_t mp_lv_obj_set_user_data(size_t mp_n_args, const mp_obj_t *mp_args, void *lv_func_ptr)
+{
+    (void)mp_n_args;
+    (void)lv_func_ptr;
+    mp_lv_obj_t *self = mp_lv_obj_wrapper(mp_args[0]);
+    // Reject up front what get_user_data() would not be able to convert back.
+    (void)mp_to_ptr(mp_args[1]);
+    self->user_data = mp_args[1];
+    return mp_const_none;
+}
+            """)
+        else:
+            func_metadata[func.name]['return_type'] = 'void*'
+            print("""
+STATIC mp_obj_t mp_lv_obj_get_user_data(size_t mp_n_args, const mp_obj_t *mp_args, void *lv_func_ptr)
+{
+    (void)mp_n_args;
+    (void)lv_func_ptr;
+    mp_lv_obj_t *self = mp_lv_obj_wrapper(mp_args[0]);
+    return self->user_data == MP_OBJ_NULL ? mp_const_none : ptr_to_mp(mp_to_ptr(self->user_data));
+}
+            """)
+        emit_func_obj(func.name, func.name, param_count, func.name, is_static_member(func, base_obj_type))
+        generated_funcs[func.name] = True
+        return
+
     # If func prototype matches an already generated func, reuse it and only emit func obj that points to it.
     prototype_str = gen.visit(function_prototype(func))
     if prototype_str in func_prototypes:
         original_func = func_prototypes[prototype_str]
-        if generated_funcs[original_func.name] == True:
+        if (generated_funcs[original_func.name] == True and
+            func.name not in customized_func_names and
+            original_func.name not in customized_func_names):
             print("/* Reusing %s for %s */" % (original_func.name, func.name))
             emit_func_obj(func.name, original_func.name, param_count, func.name, is_static_member(func, base_obj_type))
             func_metadata[func.name]['return_type'] = func_metadata[original_func.name]['return_type']
@@ -2586,7 +3038,18 @@ def gen_mp_func(func, obj_name):
         build_result = "%s _res;" % qualified_return_type
         build_result_assignment = "_res = "
         cast = '(void*)' if isinstance(func.type.type, c_ast.PtrDecl) else '' # needed when field is const. casting to void overrides it
-        build_return_value = "{type}({cast}_res)".format(type = lv_to_mp[return_type], cast = cast)
+        convertor = lv_to_mp[return_type]
+        owner_arg = returned_struct_owner_args.get(func.name)
+        if owner_arg is None:
+            build_return_value = "{type}({cast}_res)".format(type = convertor, cast = cast)
+        else:
+            if not convertor.startswith('mp_read_ptr_'):
+                raise MissingConversionException(
+                    "Cannot own the %s returned by %s" % (return_type, func.name))
+            build_return_value = "{type}({cast}_res, mp_args[{owner}])".format(
+                type = convertor.replace('mp_read_ptr_', 'mp_read_ptr_owned_', 1),
+                cast = cast,
+                owner = owner_arg)
         func_metadata[func.name]['return_type'] = lv_mp_type[return_type]
     print("""
 /*
@@ -2598,22 +3061,9 @@ STATIC mp_obj_t mp_{func}(size_t mp_n_args, const mp_obj_t *mp_args, void *lv_fu
 {{
     {build_args}
     {build_result}
-    {build_return_declaration}
-    nlr_buf_t nlr;
-
-    // Keep the LVGL mutex held while C runs, but let callbacks acquire the GIL.
-    MP_THREAD_GIL_EXIT();
-    if (nlr_push(&nlr) == 0) {{
-        {build_result_assignment}(({func_ptr})lv_func_ptr)({send_args});
-        nlr_pop();
-        MP_THREAD_GIL_ENTER();
-        {build_return_conversion}
-        {build_return_statement}
-    }}
-    else {{
-        MP_THREAD_GIL_ENTER();
-        nlr_jump(nlr.ret_val);
-    }}
+    {build_result_assignment}(({func_ptr})lv_func_ptr)({send_args});
+    {build_retained_references}
+    return {build_return_value};
 }}
 
  """.format(
@@ -2630,9 +3080,7 @@ STATIC mp_obj_t mp_{func}(size_t mp_n_args, const mp_obj_t *mp_args, void *lv_fu
         build_result=build_result,
         build_result_assignment=build_result_assignment,
         build_return_value=build_return_value,
-        build_return_declaration='' if return_type == 'void' else 'mp_obj_t mp_result;',
-        build_return_conversion='' if return_type == 'void' else 'mp_result = %s;' % build_return_value,
-        build_return_statement='return mp_result;' if return_type != 'void' else 'return mp_const_none;'))
+        build_retained_references=build_retained_references(func)))
 
     emit_func_obj(func.name, func.name, param_count, func.name, is_static_member(func, base_obj_type))
     generated_funcs[func.name] = True # completed generating the function
@@ -2859,8 +3307,10 @@ typedef struct {{
  */
 
 STATIC const mp_lv_struct_t mp_{global_name} = {{
-    {{ &mp_{struct_name}_type }},
-    ({cast}*)&{global_name}
+    .base = {{ &mp_{struct_name}_type }},
+    .data = ({cast}*)&{global_name},
+    .references = MP_OBJ_NULL,
+    .owner = MP_OBJ_NULL,
 }};
     """.format(
             module_name = module_name,

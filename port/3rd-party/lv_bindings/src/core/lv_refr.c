@@ -17,6 +17,7 @@
 #include "../misc/lv_profiler.h"
 #include "../draw/lv_draw.h"
 #include "../font/lv_font_fmt_txt.h"
+#include "../lv_mp_thread.h"
 
 /*********************
  *      DEFINES
@@ -420,6 +421,10 @@ static void refr_invalid_areas(void)
             if(i == last_i) disp_refr->last_area = 1;
             disp_refr->last_part = 0;
             refr_area(&disp_refr->inv_areas[i]);
+
+            /*Between two areas the draw pipeline is idle, so this is a safe
+             *point to let other MicroPython threads run.*/
+            lv_mp_thread_gil_yield();
         }
     }
 
@@ -510,6 +515,10 @@ static void refr_area_part(lv_draw_ctx_t * draw_ctx)
     if(!lv_disp_is_double_buffered(disp_refr)) {
         while(disp_refr->flushing) {
             if(disp_refr->wait_cb) disp_refr->wait_cb(disp_refr);
+            /*flushing is cleared by lv_disp_flush_ready(), possibly from a
+             *Python callback on another thread. Spinning on it with the GIL
+             *held would never let that thread run.*/
+            lv_mp_thread_gil_yield();
         }
     }
 

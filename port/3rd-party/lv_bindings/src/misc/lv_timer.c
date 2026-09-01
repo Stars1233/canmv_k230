@@ -125,6 +125,11 @@ LV_ATTRIBUTE_TIMER_HANDLER uint32_t lv_timer_handler(void)
                     TIMER_TRACE("Start from the first timer again because a timer was created or deleted");
                     break;
                 }
+
+                /*A timer boundary is a safe place to let other MicroPython
+                 *threads run: nothing is half-allocated and the LVGL mutex is
+                 *still held, so they cannot enter LVGL behind our back.*/
+                lv_mp_thread_gil_yield();
             }
 
             LV_GC_ROOT(_lv_timer_act) = next; /*Load the next timer*/

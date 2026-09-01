@@ -42,7 +42,9 @@ shared_point = None
 timer_ref = None
 source_image = None
 source_img_obj = None
+gc_owned_img_obj = None
 native_image_updates = 0
+gc_cycles = 0
 
 
 def report_error(source, exc):
@@ -102,6 +104,12 @@ def timer_cb(timer):
         timer_calls += 1
         point_x = shared_point.x
         point_y = shared_point.y
+        if gc_owned_img_obj.get_user_data().__cast__().get("sentinel") != 0x1314:
+            raise RuntimeError("LVGL object user data was not retained")
+        if lv.label.__cast__(source_img_obj.get_user_data()) != callback_label:
+            raise RuntimeError("LVGL object pointer user data changed")
+        if worker_bar.get_user_data() is not None:
+            raise RuntimeError("LVGL None user data changed")
 
         callback_label.set_text(
             "Python timer callbacks: %d\nShared point read: (%d, %d)"
@@ -110,8 +118,8 @@ def timer_cb(timer):
 
         if error_text is None:
             status_label.set_text(
-                "PASS - objects: %d   image: %d   handlers: %d   callbacks: %d"
-                % (object_updates, native_image_updates, handler_calls, timer_calls)
+                "PASS - objects: %d   image: %d   handlers: %d   callbacks: %d   GC: %d"
+                % (object_updates, native_image_updates, handler_calls, timer_calls, gc_cycles)
             )
         else:
             status_label.set_text("FAIL - " + error_text)
@@ -121,7 +129,7 @@ def timer_cb(timer):
 
 def build_ui():
     global callback_label, shared_point, status_label, timer_ref, worker_bar
-    global source_image, source_img_obj
+    global gc_owned_img_obj, source_image, source_img_obj
 
     scr = lv.scr_act()
     scr.set_style_bg_color(lv.color_hex(0x101820), 0)
@@ -153,10 +161,40 @@ def build_ui():
     source_img_obj.align(lv.ALIGN.BOTTOM_MID, 0, -56)
     source_image.as_lvgl_img_src(source_img_obj)
 
+    # Neither the descriptor nor its byte buffer is retained by this script.
+    # The binding must keep both alive after set_src() returns.
+    gc_owned_img_obj = lv.img(scr)
+    img_dsc_array = lv.img_dsc_t(1)
+    img_dsc_array[0].header.cf = lv.COLOR_FORMAT.ARGB8888
+    img_dsc_array[0].header.w = 32
+    img_dsc_array[0].header.h = 32
+    img_dsc_array[0].data_size = 32 * 32 * 4
+    img_dsc_array[0].data = bytes((0x20, 0xA0, 0xFF, 0xFF)) * (32 * 32)
+    gc_owned_img_obj.set_src(img_dsc_array[0])
+    gc_owned_img_obj.set_user_data({"sentinel": 0x1314})
+    gc_owned_img_obj.align(lv.ALIGN.LEFT_MID, 24, 80)
+
+    # A copy of an array element points at the same byte buffer as the source,
+    # so the copy must keep that buffer alive on its own once img_dsc_array
+    # goes out of scope here.
+    copied_img_obj = lv.img(scr)
+    copied_img_obj.set_src(lv.img_dsc_t(img_dsc_array[0]))
+    copied_img_obj.align(lv.ALIGN.RIGHT_MID, -24, 80)
+
+    # lv_span_set_text_static() keeps the string pointer. The span belongs to
+    # the spangroup, so the binding must anchor the string there and release it
+    # only when the spangroup is deleted.
+    spangroup = lv.spangroup(scr)
+    spangroup.set_width(240)
+    spangroup.new_span().set_text_static("static span text " + str(0x1314))
+    spangroup.align(lv.ALIGN.TOP_LEFT, 24, 24)
+
     callback_label = lv.label(scr)
     callback_label.set_text("Python timer callbacks: 0\nShared point read: (0, 0)")
     callback_label.set_style_text_color(lv.color_hex(0x80D8FF), 0)
     callback_label.align(lv.ALIGN.CENTER, 0, 42)
+    source_img_obj.set_user_data(callback_label)
+    worker_bar.set_user_data(None)
 
     status_label = lv.label(scr)
     status_label.set_width(DISPLAY_WIDTH - 40)
@@ -169,7 +207,7 @@ def build_ui():
 
 
 def object_worker():
-    global object_updates, worker_label, workers_done, native_image_updates
+    global gc_cycles, native_image_updates, object_updates, worker_label, workers_done
 
     try:
         # The object is constructed from the worker after the main UI exists.
@@ -204,6 +242,9 @@ def object_worker():
             source_image.as_lvgl_img_src(source_img_obj)
             native_image_updates += 1
             object_updates += 1
+            if object_updates % 64 == 0:
+                gc.collect()
+                gc_cycles += 1
             time.sleep_ms(2)
     except BaseException as exc:
         report_error("object worker", exc)

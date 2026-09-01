@@ -6512,55 +6512,62 @@ static mp_obj_t py_image_as_lvgl_img_src(size_t n, const mp_obj_t* args)
 {
     mp_buffer_info_t buffer_info;
 
-    image_t* image = py_image_cobj(args[0]);
-
-    if ((PIXFORMAT_RGB565 != image->pixfmt) && (PIXFORMAT_RGB888 != image->pixfmt)) {
-        mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("only support RGB565/RGB888 image"));
-    }
-
     mp_obj_t lv_img_obj = args[1];
     mp_get_buffer_raise(lv_img_obj, &buffer_info, MP_BUFFER_READ);
 
-    lv_obj_t* obj = *(lv_obj_t**)buffer_info.buf;
-
-    bool is_img_obj;
-    MP_THREAD_GIL_EXIT();
-    lv_mp_thread_lock();
-    is_img_obj = obj->class_p == &lv_img_class;
-    lv_mp_thread_unlock();
-    MP_THREAD_GIL_ENTER();
-
-    if (!is_img_obj) {
+    /* Any buffer satisfies mp_get_buffer_raise(), so make sure this one really
+     * is an lv_obj_t wrapper before dereferencing what it points at. */
+    if (sizeof(lv_obj_t*) != buffer_info.len) {
         mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("not lv.img obj"));
     }
 
-    lv_img_dsc_t* dsc = m_malloc(sizeof(lv_img_dsc_t));
-    if (NULL == dsc) {
-        mp_raise_msg_varg(&mp_type_MemoryError, MP_ERROR_TEXT("no memory to alloc dsc"));
-    }
-
-    dsc->header.always_zero = 0;
-    dsc->header.w           = image->w;
-    dsc->header.h           = image->h;
-    dsc->header.cf          = (PIXFORMAT_RGB565 == image->pixfmt) ? LV_COLOR_FORMAT_RGB565 : LV_COLOR_FORMAT_RGB888;
-
-    dsc->data      = image->data;
-    dsc->data_size = image_size(image);
-
-    if (LV_COLOR_FORMAT_RGB888 == dsc->header.cf) {
-        rgb888_to_bgr888_inplace(image->data, image->w * image->h);
-    }
-
-    /* Let LVGL callbacks acquire the GIL while the native setter runs. */
-    nlr_buf_t nlr;
+    /* Keep the object valid across the class check and source update. */
     MP_THREAD_GIL_EXIT();
+    lv_mp_thread_lock();
+    MP_THREAD_GIL_ENTER();
+    lv_mp_thread_python_call_enter();
+
+    nlr_buf_t nlr;
     if (nlr_push(&nlr) == 0) {
+        lv_obj_t* obj = *(lv_obj_t**)buffer_info.buf;
+        if (obj == NULL) {
+            mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("deleted lv.img obj"));
+        }
+        if (obj->class_p != &lv_img_class) {
+            mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("not lv.img obj"));
+        }
+
+        image_t* image = py_image_cobj(args[0]);
+        if ((PIXFORMAT_RGB565 != image->pixfmt) && (PIXFORMAT_RGB888 != image->pixfmt)) {
+            mp_raise_msg(&mp_type_ValueError, MP_ERROR_TEXT("only support RGB565/RGB888 image"));
+        }
+
+        /* m_malloc() raises MemoryError rather than returning NULL. The
+         * descriptor stays reachable through the lv_img obj, which LVGL also
+         * allocates from the MicroPython heap. */
+        lv_img_dsc_t* dsc = m_malloc(sizeof(lv_img_dsc_t));
+
+        dsc->header.always_zero = 0;
+        dsc->header.w           = image->w;
+        dsc->header.h           = image->h;
+        dsc->header.cf          = (PIXFORMAT_RGB565 == image->pixfmt) ? LV_COLOR_FORMAT_RGB565 : LV_COLOR_FORMAT_RGB888;
+
+        dsc->data      = image->data;
+        dsc->data_size = image_size(image);
+
+        if (LV_COLOR_FORMAT_RGB888 == dsc->header.cf) {
+            rgb888_to_bgr888_inplace(image->data, image->w * image->h);
+        }
+
+        /* lv_img_set_src takes the same mutex recursively. */
         lv_img_set_src(obj, dsc);
         nlr_pop();
-        MP_THREAD_GIL_ENTER();
+        lv_mp_thread_python_call_exit();
+        lv_mp_thread_unlock();
     }
     else {
-        MP_THREAD_GIL_ENTER();
+        lv_mp_thread_python_call_exit();
+        lv_mp_thread_unlock();
         nlr_jump(nlr.ret_val);
     }
 
