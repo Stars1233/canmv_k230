@@ -423,8 +423,11 @@ static int py_display_unbind_layer_inst(k_vo_layer_id layer)
 
     k_mpp_chn bind_src, bind_dst = { K_ID_VO, 0, layer };
 
+    // This is intentionally idempotent.  The vendor API logs
+    // "dest have not bind any src" when a layer was already unbound; it is
+    // an expected teardown/bind-preparation state, not an unbind failure.
     if (0x00 != kd_mpi_sys_get_bind_by_dest(&bind_dst, &bind_src)) {
-        return 0; // dest not binded.
+        return 0;
     }
 
     return kd_mpi_sys_unbind(&bind_src, &bind_dst);
@@ -1010,7 +1013,7 @@ static mp_obj_t py_display_init_wrap(mp_uint_t n_args, const mp_obj_t* pos_args,
     }
 
     if (0x00 != kd_display_init_ex(panel_map.type, panel_map.width, panel_map.height, arg_flag, panel_map.fps)) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init panel failed"));
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init panel failed, check the panel is connected, such as the HDMI bridge."));
     }
 
     int arg_osd_num = args[ARG_osd_num].u_int;
@@ -1502,7 +1505,7 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
     }
 
     py_display_buffer_t* buffer = NULL;
-    py_display_buffer_t  new_buffer;
+    py_display_buffer_t  new_buffer = { 0 };
 
     int arg_show_direct = mp_obj_get_int(args[ARG_direct_show].u_obj);
 
@@ -1528,8 +1531,6 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
             }
         }
     } else {
-        hal_rvv_memset(&new_buffer, 0, sizeof(new_buffer));
-
         if (0x00
             != py_display_alloc_single_buffer(&new_buffer, py_display_inst.osd_layer_vb_pool_id,
                                               pix_fmt_bpp * img_width * img_height)) {
@@ -1543,11 +1544,13 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
     hal_rvv_memset(&attr, 0x00, sizeof(attr));
 
     if (0x00 != kd_display_layer_get_attr(arg_layer, &attr)) {
+        py_display_free_single_buffer(&new_buffer);
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("get vo layer attr failed"));
     }
 
     if ((attr.position.x != arg_x) || (attr.position.y != arg_y)) {
         if (0x00 != kd_display_layer_update_position(arg_layer, arg_x, arg_y)) {
+            py_display_free_single_buffer(&new_buffer);
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set vo layer attr failed 1"));
         }
         layer_attr->position.x = arg_x;
@@ -1556,6 +1559,7 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
 
     if ((attr.img_size.width != img_width) || (attr.img_size.height != img_height)) {
         if (0x00 != kd_display_layer_update_layer_image_size(arg_layer, img_width, img_height)) {
+            py_display_free_single_buffer(&new_buffer);
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set vo layer attr failed 2"));
         }
         layer_attr->img_size.width  = img_width;
@@ -1564,6 +1568,7 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
 
     if (attr.pixel_format != pix_fmt) {
         if (0x00 != kd_display_layer_update_pixel_format(arg_layer, pix_fmt)) {
+            py_display_free_single_buffer(&new_buffer);
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set vo layer attr failed 3"));
         }
         layer_attr->pixel_format = pix_fmt;
@@ -1571,6 +1576,7 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
 
     if ((-1 != arg_alpha) && (attr.global_alpha != arg_alpha)) {
         if (0x00 != kd_display_layer_update_alpha(arg_layer, arg_alpha)) {
+            py_display_free_single_buffer(&new_buffer);
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("set vo layer attr failed 4"));
         }
         layer_attr->global_alpha = arg_alpha;
@@ -1586,9 +1592,7 @@ static mp_obj_t py_display_show_image_wrap(mp_uint_t n_args, const mp_obj_t* pos
         }
     } else {
         if (0x00 != py_display_show_image_to_buffer(arg_layer, arg_img, buffer, pix_fmt, pix_fmt_bpp)) {
-            if (!py_display_inst.rotated) {
-                py_display_free_single_buffer(buffer);
-            }
+            py_display_free_single_buffer(&new_buffer);
             mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("show image failed"));
         }
 

@@ -105,7 +105,7 @@ void from_numpy(cv_and_ndarray_convert_info *info,cv::Mat& mat_data)
     mat_data = cv::Mat(height,width,cv_type,info->data_);
 }
 
-void to_numpy(cv::Mat& mat_data, cv_and_ndarray_convert_info *info)
+bool to_numpy(cv::Mat& mat_data, cv_and_ndarray_convert_info *info)
 {
     info->dtype_ = get_dtype_for_mp(mat_data.type());
     hal_rvv_memset(info->shape_,0,sizeof(size_t)*3);
@@ -121,16 +121,37 @@ void to_numpy(cv::Mat& mat_data, cv_and_ndarray_convert_info *info)
 
     info->ndim_ = mat_data.dims;
     info->len_ = mat_data.total();
-    info->data_ = (void *)malloc(info->len_ * mat_data.elemSize());
-    hal_rvv_memcpy(info->data_, mat_data.data, mat_data.total() * mat_data.elemSize());
+    size_t elem_size = mat_data.elemSize();
+    if (elem_size != 0 && info->len_ > SIZE_MAX / elem_size) {
+        info->data_ = NULL;
+        return false;
+    }
+    size_t data_size = info->len_ * elem_size;
+    info->data_ = (void *)malloc(data_size);
+    if (info->data_ == NULL && data_size != 0) {
+        return false;
+    }
+    if (data_size != 0) {
+        hal_rvv_memcpy(info->data_, mat_data.data, data_size);
+    }
+    return true;
 }
 
-void invert_affine_transform(float *data,cv_and_ndarray_convert_info *info)
+void cv_and_ndarray_convert_info_free(void *context)
+{
+    cv_and_ndarray_convert_info *info = static_cast<cv_and_ndarray_convert_info *>(context);
+    if (info != NULL) {
+        free(info->data_);
+        info->data_ = NULL;
+    }
+}
+
+bool invert_affine_transform(float *data,cv_and_ndarray_convert_info *info)
 {
     cv::Mat matrix(2, 3, CV_32F,data);
     cv::Mat matrix_inv;
     cv::invertAffineTransform(matrix, matrix_inv);
-    to_numpy(matrix_inv,info);
+    return to_numpy(matrix_inv,info);
 }
 
 void draw_polylines(cv_and_ndarray_convert_info *in_info,generic_array *pts,bool is_closed,generic_array *color,int thickness,int line_type,int shift)

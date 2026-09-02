@@ -241,6 +241,9 @@ PersonKPOutput* person_kp_postprocess(float *data, FrameSize frame_size, FrameSi
 
     *box_cnt = output.size();
     PersonKPOutput *personKPOutput = (PersonKPOutput *)malloc(*box_cnt * sizeof(PersonKPOutput));
+    if (*box_cnt > 0 && personKPOutput == NULL) {
+        return NULL;
+    }
     for (int i = 0; i < *box_cnt; i++)
     {
         personKPOutput[i].confidence = output[i].confidence;
@@ -257,4 +260,9 @@ PersonKPOutput* person_kp_postprocess(float *data, FrameSize frame_size, FrameSi
         }
     }
     return personKPOutput;
+}
+
+void person_kp_free_outputs(void *context)
+{
+    free(context);
 }

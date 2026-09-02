@@ -96,10 +96,18 @@ YoloLicensePlateDetInfo* yolo_license_plate_det_postprocess(float *output0, Fram
 	pose_nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
 	YoloLicensePlateDetInfo* yolo_license_plate_det_res = (YoloLicensePlateDetInfo *)malloc(*box_cnt * sizeof(YoloLicensePlateDetInfo));
+	if (*box_cnt > 0 && yolo_license_plate_det_res == NULL) {
+		return NULL;
+	}
 	for (int i = 0; i < *box_cnt; i++)
 	{
 		yolo_license_plate_det_res[i].score= results[i].score;
         hal_rvv_memcpy(yolo_license_plate_det_res[i].box_kps,results[i].box_kps,12*sizeof(float));
     }
 	return yolo_license_plate_det_res;
+}
+
+void yolo_license_plate_det_free_outputs(void *context)
+{
+    free(context);
 }

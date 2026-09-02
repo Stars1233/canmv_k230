@@ -11,6 +11,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "aidemo_wrap.h"
+#include "aidemo_size.h"
 
 using namespace std;
 
@@ -19,6 +20,14 @@ using std::vector;
 
 uint8_t* body_seg_postprocess(float* data, int num_class, FrameSize ori_shape, FrameSize dst_shape,uint8_t* color)
 {
+    size_t ori_pixels;
+    size_t dst_result_size;
+    if (!aidemo_checked_image_size(ori_shape.width, ori_shape.height, 1, &ori_pixels)
+        || !aidemo_checked_image_size(dst_shape.width, dst_shape.height, 4, &dst_result_size)) {
+        return NULL;
+    }
+    (void)ori_pixels;
+
     float* output = data;
     cv::Mat images_pred_color = cv::Mat::zeros(ori_shape.height, ori_shape.width, CV_8UC4);
     for (int y = 0; y < ori_shape.height; ++y)
@@ -53,7 +62,17 @@ uint8_t* body_seg_postprocess(float* data, int num_class, FrameSize ori_shape, F
     }
     cv::resize(images_pred_color, images_pred_color, cv::Size(dst_shape.width, dst_shape.height));
 
-    uint8_t *result = (uint8_t *)malloc(dst_shape.width * dst_shape.height * 4 * sizeof(uint8_t));
-    hal_rvv_memcpy(result, images_pred_color.data, sizeof(uint8_t) * dst_shape.width * dst_shape.height * 4);
+    uint8_t *result = (uint8_t *)malloc(dst_result_size);
+    if (result == NULL && dst_result_size != 0) {
+        return NULL;
+    }
+    if (dst_result_size != 0) {
+        hal_rvv_memcpy(result, images_pred_color.data, dst_result_size);
+    }
     return result;
+}
+
+void body_seg_free_output(void *context)
+{
+    free(context);
 }

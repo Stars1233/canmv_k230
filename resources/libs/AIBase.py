@@ -56,9 +56,17 @@ class AIBase:
             # 获取kmodel的推理输出tensor,输出可能为多个，因此返回的是一个列表
             for i in range(self.kpu.outputs_size()):
                 output_data = self.kpu.get_output_tensor(i)
-                result = output_data.to_numpy()
-                self.results.append(result)
-                del output_data
+                try:
+                    result = output_data.to_numpy()
+                    self.results.append(result)
+                finally:
+                    release = getattr(output_data, "release", None)
+                    if callable(release):
+                        try:
+                            release()
+                        except Exception:
+                            pass
+                    output_data = None
             return self.results
 
     # 基类后处理接口
@@ -75,12 +83,51 @@ class AIBase:
 
     # AIBase销毁函数
     def deinit(self):
+        if getattr(self, "_deinitialized", False):
+            return
         with ScopedTiming("deinit",self.debug_mode > 0):
-            self.kpu.__del__()
-            if hasattr(self,"ai2d"):
-                del self.ai2d
-            self.tensors.clear()
-            del self.tensors
-            nn.shrink_memory_pool()
-            gc.collect()
+            self.cur_img = None
+
+            if hasattr(self, "tensors"):
+                self.tensors.clear()
+                self.tensors = []
+            if hasattr(self, "results"):
+                self.results.clear()
+                self.results = []
+            if hasattr(self, "masks"):
+                self.masks = None
+
+            # The interpreter keeps references to its bound input/output
+            # tensors. Drop it before releasing the Ai2d-owned tensors.
+            kpu = getattr(self, "kpu", None)
+            self.kpu = None
+            cleanup_error = None
+            if kpu is not None:
+                try:
+                    kpu.release()
+                except Exception as error:
+                    self.kpu = kpu
+                    cleanup_error = error
+
+            ai2d = getattr(self, "ai2d", None)
+            self.ai2d = None
+            if ai2d is not None:
+                try:
+                    deinit = getattr(ai2d, "deinit", None)
+                    if callable(deinit):
+                        deinit()
+                except Exception as error:
+                    self.ai2d = ai2d
+                    if cleanup_error is None:
+                        cleanup_error = error
+            try:
+                gc.collect()
+                nn.shrink_memory_pool()
+                gc.collect()
+            except Exception as error:
+                if cleanup_error is None:
+                    cleanup_error = error
             time.sleep_ms(100)
+            if cleanup_error is not None:
+                raise cleanup_error
+            self._deinitialized = True

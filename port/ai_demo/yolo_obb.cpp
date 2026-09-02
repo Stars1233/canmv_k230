@@ -149,6 +149,9 @@ YoloObbInfo* yolo_obb_postprocess(float *output0, FrameSize frame_shape, FrameSi
 	rotate_nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
 	YoloObbInfo* yolo_obb_res = (YoloObbInfo *)malloc(*box_cnt * sizeof(YoloObbInfo));
+	if (*box_cnt > 0 && yolo_obb_res == NULL) {
+		return NULL;
+	}
 	for (int i = 0; i < *box_cnt; i++)
 	{
         std::vector<std::pair<int, int>> corners=calculate_obb_corners(results[i].box.x, results[i].box.y, results[i].box.width, results[i].box.height, results[i].angle);
@@ -164,6 +167,11 @@ YoloObbInfo* yolo_obb_postprocess(float *output0, FrameSize frame_shape, FrameSi
 		yolo_obb_res[i].index = results[i].index;
 	}
 	return yolo_obb_res;
+}
+
+void yolo_obb_free_outputs(void *context)
+{
+    free(context);
 }
 
 YoloObbInfo* yolo26_obb_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, int max_box_cnt, int *box_cnt)
@@ -202,6 +210,9 @@ YoloObbInfo* yolo26_obb_postprocess(float *output0, FrameSize frame_shape, Frame
 
     *box_cnt = MIN(results.size(),max_box_cnt);
 	YoloObbInfo* yolo_obb_res = (YoloObbInfo *)malloc(*box_cnt * sizeof(YoloObbInfo));
+	if (*box_cnt > 0 && yolo_obb_res == NULL) {
+		return NULL;
+	}
 	for (int i = 0; i < *box_cnt; i++)
 	{
         std::vector<std::pair<int, int>> corners=calculate_obb_corners(results[i].box.x, results[i].box.y, results[i].box.width, results[i].box.height, results[i].angle);

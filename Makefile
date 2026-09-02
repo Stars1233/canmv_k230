@@ -162,13 +162,19 @@ endif
 copy_sdcard: copy_examples
 	@echo "Copy user-customized sdcard resources"
 
-	@mkdir -p ${SDK_BUILD_IMAGES_DIR}/sdcard/
+	@mkdir -p "$(SDK_BUILD_IMAGES_DIR)/sdcard/"
 
 	@if [ -d "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" ]; then \
-		rsync -aq --delete --exclude='.git' --exclude='micropython' "$(SDK_CANMV_SRC_DIR)/resources/sdcard/" "${SDK_BUILD_IMAGES_DIR}/sdcard/"; \
+		rsync -aq --delete \
+			--filter='H /.git' \
+			--filter='H /micropython' \
+			--filter='P /micropython' \
+			--filter='H __pycache__/' \
+			--filter='H *.pyc' \
+			"$(SDK_CANMV_SRC_DIR)/resources/sdcard/" \
+			"$(SDK_BUILD_IMAGES_DIR)/sdcard/"; \
 	else \
 		echo "No sdcard resources found in $(SDK_CANMV_SRC_DIR)/resources/sdcard/"; \
 	fi
 
 endif
-

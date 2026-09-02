@@ -7,9 +7,12 @@
 #include "nncase/runtime/util.h"
 #include "nncase/runtime/result.h"
 #include "nncase/version.h"
+#include "hal_rvv_ops.h"
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <memory>
+#include <stdint.h>
 
 // define C struct of c++ class
 
@@ -85,7 +88,7 @@ char get_dtype_for_mp(nncase::typecode_t dtype)
     case nncase::typecode_t::dt_float64:
         return 'd';
     default:
-        throw std::runtime_error("Unsupported data type.");
+        return 0;
     }
 }
 
@@ -129,16 +132,18 @@ void shrink_memory_pool()
 // func 
 Kpu *Kpu_create()
 {
-    Kpu *kpu = new Kpu;
+    std::unique_ptr<Kpu> kpu(new Kpu{});
     kpu->interp = new nncase::runtime::interpreter();
-    return kpu;
+    return kpu.release();
 }
 
 void Kpu_destroy(Kpu* p) {
+    if (p == nullptr) {
+        return;
+    }
     delete p->interp;
     p->interp = nullptr;
     delete p;
-    p = nullptr;
 }
 
 bool Kpu_run(Kpu* p){
@@ -168,8 +173,8 @@ bool Kpu_set_input_tensor(Kpu* p, size_t index, runtime_tensor *tensor)
 
 runtime_tensor* Kpu_get_input_tensor(Kpu* p, size_t index)
 {
-    runtime_tensor *tensor = new runtime_tensor();
     auto data = p->interp->input_tensor(index).expect("kpu get input tensor failed.");
+    runtime_tensor *tensor = new runtime_tensor();
     tensor->r_tensor = new nncase::runtime::runtime_tensor(data.impl());
     return tensor;
 }
@@ -182,8 +187,8 @@ bool Kpu_set_output_tensor(Kpu* p, size_t index, runtime_tensor *tensor)
 
 runtime_tensor* Kpu_get_output_tensor(Kpu* p, size_t index)
 {
-    runtime_tensor *tensor = new runtime_tensor();
     auto data = p->interp->output_tensor(index).expect("kpu get input tensor failed.");
+    runtime_tensor *tensor = new runtime_tensor();
     tensor->r_tensor = new nncase::runtime::runtime_tensor(data.impl());
     return tensor;
 }
@@ -216,7 +221,7 @@ runtime_tensor* from_numpy(int dtype, finite_data shape, void* data, uint64_t ph
 {
     if(dtype == -1)
         throw std::runtime_error("Unsupported data type.");
-    runtime_tensor *tensor = new runtime_tensor;
+    std::unique_ptr<runtime_tensor> tensor(new runtime_tensor{});
     std::vector<int32_t> shape_data(shape.data_size, 0);
 
     for (int i = 0; i < shape.data_size; i++)
@@ -237,30 +242,106 @@ runtime_tensor* from_numpy(int dtype, finite_data shape, void* data, uint64_t ph
                           .expect("cannot create input tensor");
     nncase::runtime::host_runtime_tensor::sync(local_data, nncase::runtime::sync_op_t::sync_write_back, true).expect("sync write_back failed");
     tensor->r_tensor = new nncase::runtime::runtime_tensor(local_data.impl());
-    return tensor;
+    return tensor.release();
 }
 
 void to_numpy(runtime_tensor * tensor, rt_to_ndarray_info *info)
 {
-    info->dtype_ = get_dtype_for_mp(tensor->r_tensor->datatype());
-    auto shape = tensor->r_tensor->shape();
-    info->ndim_ = shape.size();
-    info->len_ = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
-    
-    for(int i = 0; i < info->ndim_; i++)
-    {
-        info->shape_[i] = shape[i];
-        info->strides_[i] = tensor->r_tensor->strides()[i];
+    if (info == nullptr) {
+        return;
     }
 
-    info->data_ =std::move((void *)nncase::runtime::host_runtime_tensor::map(*tensor->r_tensor, nncase::runtime::map_access_t::map_read).unwrap().buffer().data());
+    *info = {};
+    info->status_ = RT_TO_NDARRAY_ERROR;
+    if (tensor == nullptr || tensor->r_tensor == nullptr) {
+        return;
+    }
+
+    info->dtype_ = get_dtype_for_mp(tensor->r_tensor->datatype());
+    if (info->dtype_ == 0) {
+        info->status_ = RT_TO_NDARRAY_DTYPE_UNSUPPORTED;
+        return;
+    }
+
+    auto shape = tensor->r_tensor->shape();
+    auto strides = tensor->r_tensor->strides();
+    if (shape.empty() || shape.size() > sizeof(info->shape_) / sizeof(info->shape_[0])) {
+        info->status_ = RT_TO_NDARRAY_RANK_UNSUPPORTED;
+        return;
+    }
+    if (strides.size() != shape.size()) {
+        info->status_ = RT_TO_NDARRAY_LAYOUT_UNSUPPORTED;
+        return;
+    }
+
+    size_t element_count = 1;
+    for (auto dimension : shape) {
+        if (dimension <= 0
+            || element_count > SIZE_MAX / static_cast<size_t>(dimension)) {
+            info->status_ = RT_TO_NDARRAY_SHAPE_UNSUPPORTED;
+            return;
+        }
+        element_count *= static_cast<size_t>(dimension);
+    }
+
+    info->ndim_ = static_cast<uint8_t>(shape.size());
+    info->len_ = element_count;
+    
+    for (size_t i = 0; i < info->ndim_; i++)
+    {
+        info->shape_[i] = shape[i];
+        info->strides_[i] = strides[i];
+    }
+
+    info->data_ = nullptr;
+    info->status_ = RT_TO_NDARRAY_OK;
+}
+
+bool to_numpy_copy(runtime_tensor *tensor, void *data, size_t data_bytes)
+{
+    if (tensor == nullptr || tensor->r_tensor == nullptr || data == nullptr) {
+        return false;
+    }
+
+    auto shape = tensor->r_tensor->shape();
+    size_t element_count = 1;
+    for (auto dimension : shape) {
+        if (dimension <= 0
+            || element_count > SIZE_MAX / static_cast<size_t>(dimension)) {
+            return false;
+        }
+        element_count *= static_cast<size_t>(dimension);
+    }
+    size_t element_size = typecode_bytes(tensor->r_tensor->datatype());
+    if (element_size == 0 || element_count > SIZE_MAX / element_size) {
+        return false;
+    }
+    size_t required_bytes = element_count * element_size;
+    if (data_bytes < required_bytes) {
+        return false;
+    }
+
+    auto mapped_result = nncase::runtime::host_runtime_tensor::map(
+        *tensor->r_tensor, nncase::runtime::map_access_t::map_read);
+    if (!mapped_result.is_ok()) {
+        return false;
+    }
+
+    // Keep the mapping alive until the copy completes. The mapped buffer owns
+    // the temporary mapping and unmaps it when this scope ends.
+    auto mapped = std::move(mapped_result).unwrap();
+    if (mapped.buffer().size() < required_bytes) {
+        return false;
+    }
+    hal_rvv_memcpy(data, mapped.buffer().data(), required_bytes);
+    return true;
 
 }
 
 
 ai2d* ai2d_create()
 {
-    ai2d *p = new ai2d;
+    std::unique_ptr<ai2d> p(new ai2d{});
     // datatype
     p->ai2d_datatype.src_format = nncase::runtime::k230::ai2d_format::NCHW_FMT;
     p->ai2d_datatype.dst_format = nncase::runtime::k230::ai2d_format::NCHW_FMT;
@@ -292,13 +373,15 @@ ai2d* ai2d_create()
     p->ai2d_affine_param.bound_smooth = 0;
     p->ai2d_affine_param.cord_round = 0;
     p->ai2d_affine_param.M = {0, 0, 0, 0, 0, 0};
-    return p;
+    return p.release();
 }
 
 void ai2d_destroy(ai2d *p)
-{   
+{
+    if (p == nullptr) {
+        return;
+    }
     delete p;
-    p = nullptr;
 }
 
 m_builder* ai2d_build(ai2d *p, finite_data input_shape, finite_data output_shape)
@@ -320,18 +403,21 @@ m_builder* ai2d_build(ai2d *p, finite_data input_shape, finite_data output_shape
 
     if(in_shape_[3]<=32 && p->ai2d_pad_param.paddings[3].before>0)
         throw std::runtime_error("[ERROR] ai2d pad: input width is <=32, the left pad should not be set. You can set the right pad first, then set the left pad.");
-    m_builder *mbuilder = new m_builder;
-    mbuilder->builder = new nncase::F::k230::ai2d_builder(in_shape,
-                                                          out_shape,
-                                                          p->ai2d_datatype,
-                                                          p->ai2d_crop_param,
-                                                          p->ai2d_shift_param,
-                                                          p->ai2d_pad_param,
-                                                          p->ai2d_resize_param,
-                                                          p->ai2d_affine_param);
+    using ai2d_builder_type = nncase::F::k230::ai2d_builder;
+    std::unique_ptr<ai2d_builder_type> builder(new ai2d_builder_type(
+        in_shape,
+        out_shape,
+        p->ai2d_datatype,
+        p->ai2d_crop_param,
+        p->ai2d_shift_param,
+        p->ai2d_pad_param,
+        p->ai2d_resize_param,
+        p->ai2d_affine_param));
 
-    mbuilder->builder->build_schedule().expect("ai2d build schedule failed.");
-    return mbuilder;
+    builder->build_schedule().expect("ai2d build schedule failed.");
+    std::unique_ptr<m_builder> mbuilder(new m_builder{});
+    mbuilder->builder = builder.release();
+    return mbuilder.release();
 }
 
 bool ai2d_run(m_builder* p, runtime_tensor *in_tensor, runtime_tensor *out_tensor)
@@ -397,18 +483,22 @@ void ai2d_set_affine_param(ai2d *p, ai2d_affine_param affine_params)
 
 void runtime_tensor_release(runtime_tensor *tensor)
 {
+    if (tensor == nullptr) {
+        return;
+    }
     delete tensor->r_tensor;
     tensor->r_tensor = nullptr;
     delete tensor;
-    tensor = nullptr;
 }
 
 void ai2d_release(m_builder *p)
 {
+    if (p == nullptr) {
+        return;
+    }
     delete p->builder;
     p->builder = nullptr;
     delete p;
-    p = nullptr;
 }
 
 char* version()

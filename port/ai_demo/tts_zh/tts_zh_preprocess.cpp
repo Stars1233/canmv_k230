@@ -135,13 +135,25 @@ TtsZhOutput* tts_zh_frontend_preprocess(TtsZh* ttszh_,const char* text){
     // }
     // std::cout << std::endl;
     TtsZhOutput* tts_zh_out = (TtsZhOutput *)malloc(sizeof(TtsZhOutput));
+    if (tts_zh_out == NULL) {
+        return NULL;
+    }
     tts_zh_out[0].size = sequence_all.size();
     tts_zh_out[0].data = (float *)malloc(tts_zh_out->size * sizeof(float));
+	if (tts_zh_out[0].data == NULL && tts_zh_out[0].size != 0) {
+		free(tts_zh_out);
+		return NULL;
+	}
     for (size_t i = 0; i < tts_zh_out[0].size; ++i) {
         tts_zh_out[0].data [i] = sequence_all[i];
     }
     tts_zh_out[0].len_size=padding_phonemes.size();
     tts_zh_out[0].len_data=(int *)malloc(tts_zh_out->len_size * sizeof(int));
+	if (tts_zh_out[0].len_data == NULL && tts_zh_out[0].len_size != 0) {
+		free(tts_zh_out[0].data);
+		free(tts_zh_out);
+		return NULL;
+	}
     for(size_t i=0;i<tts_zh_out[0].len_size;++i){
         tts_zh_out[0].len_data[i]=padding_phonemes[i];
     }
@@ -149,6 +161,17 @@ TtsZhOutput* tts_zh_frontend_preprocess(TtsZh* ttszh_,const char* text){
 
 }
 
+void tts_zh_free_output(void *context)
+{
+    TtsZhOutput *output = static_cast<TtsZhOutput *>(context);
+    if (output == NULL) {
+        return;
+    }
+
+    free(output->data);
+    free(output->len_data);
+    free(output);
+}
 
 void tts_save_wav(float* wav_data,int wav_len,const char* wav_filename,int sample_rate){
     // 将数组输入转为vector适配函数输入

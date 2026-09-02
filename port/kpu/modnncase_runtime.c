@@ -47,6 +47,7 @@ STATIC mp_obj_t mp_from_numpy(mp_obj_t ndarray)
 {
     ndarray_obj_t *self = MP_ROM_PTR(ndarray);
     mp_runtime_tensor_obj_t *tensor = m_new_obj_with_finaliser(mp_runtime_tensor_obj_t);
+    tensor->r_tensor = NULL;
     finite_data shape;
     shape.data_size = self->ndim;
     int all_size = 1;
@@ -55,7 +56,7 @@ STATIC mp_obj_t mp_from_numpy(mp_obj_t ndarray)
         shape.data[i] = (float)self->shape[ULAB_MAX_DIMS - self->ndim + i];
         all_size*=self->shape[ULAB_MAX_DIMS - self->ndim + i];
     }
-    
+
     int dtype = mp_dtype_to_nncase((char)self->dtype);
     tensor->r_tensor = from_numpy(dtype, shape, self->array, self->phy_addr);
     tensor->base.type = &rt_type;
@@ -110,5 +111,4 @@ const mp_obj_module_t mp_module_nncase_runtime = {
 
 MP_REGISTER_EXTENSIBLE_MODULE(MP_QSTR_nncase_runtime, mp_module_nncase_runtime);
 
-#endif // 
- 
+#endif //

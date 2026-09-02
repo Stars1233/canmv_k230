@@ -59,27 +59,78 @@ typedef struct _py_media_vbmgmt_buffer {
     k_vb_blk_handle handle;
 } py_media_vbmgmt_buffer_t;
 
+typedef struct _py_media_vbmgmt_pending_buffer {
+    struct list_head         list;
+    py_media_vbmgmt_buffer_t buffer;
+} py_media_vbmgmt_pending_buffer_t;
+
 typedef struct _py_media_vbmgmt_buffer_obj {
     mp_obj_base_t            base;
     int                      is_destroyed;
+    int                      is_tracked;
+    py_media_vbmgmt_pending_buffer_t* cleanup_record;
+    struct list_head         list;
     py_media_vbmgmt_buffer_t _cobj;
 } py_media_vbmgmt_buffer_obj_t;
 
-mp_obj_t py_media_vbmgmt_buffer_from_struct(py_media_vbmgmt_buffer_t* buffer)
+STATIC LIST_HEAD(py_media_vbmgmt_buffer_list_head);
+STATIC LIST_HEAD(py_media_vbmgmt_pending_buffer_list_head);
+STATIC unsigned int py_media_vbmgmt_buffer_cleanup_failures;
+
+STATIC void py_media_vbmgmt_buffer_reset_resource(py_media_vbmgmt_buffer_t* buffer)
 {
-    py_media_vbmgmt_buffer_obj_t* o = m_new_obj(py_media_vbmgmt_buffer_obj_t);
-    o->base.type                    = &py_media_vbmgmt_buffer_type;
+    memset(buffer, 0x00, sizeof(*buffer));
+    buffer->poolid = VB_INVALID_POOLID;
+    buffer->handle = VB_INVALID_HANDLE;
+}
 
-    if (buffer) {
-        memcpy(&o->_cobj, buffer, sizeof(*buffer));
-
-        mp_obj_list_append(MP_STATE_PORT(py_media_vbmgmt_buffer_list), o);
-    } else {
-        memset(&o->_cobj, 0x00, sizeof(py_media_vbmgmt_buffer_t));
-        o->_cobj.handle = VB_INVALID_HANDLE;
+STATIC bool py_media_vbmgmt_buffer_ensure_cleanup_record(py_media_vbmgmt_buffer_obj_t* self)
+{
+    if (self->cleanup_record != NULL) {
+        return true;
     }
 
-    o->is_destroyed = 0;
+    self->cleanup_record = malloc(sizeof(*self->cleanup_record));
+    if (self->cleanup_record == NULL) {
+        return false;
+    }
+
+    INIT_LIST_HEAD(&self->cleanup_record->list);
+    py_media_vbmgmt_buffer_reset_resource(&self->cleanup_record->buffer);
+    return true;
+}
+
+STATIC void py_media_vbmgmt_buffer_set_struct(mp_obj_t buffer_obj, const py_media_vbmgmt_buffer_t* buffer)
+{
+    py_media_vbmgmt_buffer_obj_t* self = MP_OBJ_TO_PTR(buffer_obj);
+    if (!py_media_vbmgmt_buffer_ensure_cleanup_record(self)) {
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("VB buffer cleanup tracking allocation failed"));
+    }
+    memcpy(&self->_cobj, buffer, sizeof(*buffer));
+    list_add_tail(&self->list, &py_media_vbmgmt_buffer_list_head);
+    self->is_destroyed = 0;
+    self->is_tracked   = 1;
+}
+
+mp_obj_t py_media_vbmgmt_buffer_from_struct(py_media_vbmgmt_buffer_t* buffer)
+{
+    py_media_vbmgmt_buffer_obj_t* o = m_new_obj_with_finaliser(py_media_vbmgmt_buffer_obj_t);
+    o->base.type                    = &py_media_vbmgmt_buffer_type;
+    o->is_destroyed                 = 0;
+    o->is_tracked                   = 0;
+    o->cleanup_record               = NULL;
+    INIT_LIST_HEAD(&o->list);
+    py_media_vbmgmt_buffer_reset_resource(&o->_cobj);
+
+    // Allocate the fallback record before acquiring a native buffer. It can
+    // outlive the MicroPython object if a GC-finaliser cleanup must be retried.
+    if (!py_media_vbmgmt_buffer_ensure_cleanup_record(o)) {
+        mp_raise_msg(&mp_type_MemoryError, MP_ERROR_TEXT("VB buffer cleanup tracking allocation failed"));
+    }
+
+    if (buffer) {
+        py_media_vbmgmt_buffer_set_struct(MP_OBJ_FROM_PTR(o), buffer);
+    }
 
     return MP_OBJ_FROM_PTR(o);
 }
@@ -137,55 +188,151 @@ STATIC void py_media_vbmgmt_buffer_attr(mp_obj_t self_in, qstr attr, mp_obj_t* d
     }
 }
 
+STATIC bool py_media_vbmgmt_buffer_release_resource(py_media_vbmgmt_buffer_t* buffer)
+{
+    k_s32 result;
+
+    if (VB_INVALID_HANDLE != buffer->handle) {
+        if (buffer->virt_addr && buffer->blk_size) {
+            result = kd_mpi_sys_munmap(buffer->virt_addr, buffer->blk_size);
+            if (K_SUCCESS != result) {
+                printf("vb_buffer unmap block failed %p, %ld\n", buffer->virt_addr, buffer->blk_size);
+                return false;
+            }
+            buffer->virt_addr = NULL;
+        }
+
+        result = kd_mpi_vb_release_block(buffer->handle);
+        if (K_SUCCESS != result) {
+            printf("vb_buffer release block failed %d\n", buffer->handle);
+            return false;
+        }
+        buffer->handle = VB_INVALID_HANDLE;
+    } else if (buffer->virt_addr && buffer->phys_addr) {
+        result = kd_mpi_sys_mmz_free(buffer->phys_addr, buffer->virt_addr);
+        if (K_SUCCESS != result) {
+            printf("mmz_buffer free failed 0x%lx, %p\n", buffer->phys_addr, buffer->virt_addr);
+            return false;
+        }
+        buffer->virt_addr = NULL;
+    } else if (buffer->virt_addr && buffer->blk_size) {
+        result = kd_mpi_sys_munmap(buffer->virt_addr, buffer->blk_size);
+        if (K_SUCCESS != result) {
+            printf("vb_buffer unmap block failed %p, %ld\n", buffer->virt_addr, buffer->blk_size);
+            return false;
+        }
+        buffer->virt_addr = NULL;
+    }
+
+    py_media_vbmgmt_buffer_reset_resource(buffer);
+    return true;
+}
+
+STATIC void py_media_vbmgmt_buffer_untrack(py_media_vbmgmt_buffer_obj_t* self)
+{
+    if (self->is_tracked) {
+        list_del(&self->list);
+        INIT_LIST_HEAD(&self->list);
+        self->is_tracked = 0;
+    }
+}
+
+STATIC bool py_media_vbmgmt_buffer_queue_cleanup(py_media_vbmgmt_buffer_obj_t* self)
+{
+    // set_struct() normally arms this record before attaching a resource. The
+    // lazy allocation also keeps reused or legacy-created objects recoverable,
+    // and uses only the system heap so it is safe in a GC finaliser.
+    if (!py_media_vbmgmt_buffer_ensure_cleanup_record(self)) {
+        printf("VB buffer cleanup record allocation failed\n");
+        return false;
+    }
+    py_media_vbmgmt_pending_buffer_t* pending = self->cleanup_record;
+
+    memcpy(&pending->buffer, &self->_cobj, sizeof(pending->buffer));
+    list_add_tail(&pending->list, &py_media_vbmgmt_pending_buffer_list_head);
+    py_media_vbmgmt_buffer_cleanup_failures++;
+    self->cleanup_record = NULL;
+
+    py_media_vbmgmt_buffer_reset_resource(&self->_cobj);
+    self->is_destroyed = 1;
+    py_media_vbmgmt_buffer_untrack(self);
+    return true;
+}
+
+STATIC void py_media_vbmgmt_buffer_retry_pending_cleanup(void)
+{
+    py_media_vbmgmt_pending_buffer_t *pending, *pending_tmp;
+    list_for_each_entry_safe(pending, pending_tmp, &py_media_vbmgmt_pending_buffer_list_head, list)
+    {
+        if (py_media_vbmgmt_buffer_release_resource(&pending->buffer)) {
+            list_del(&pending->list);
+            free(pending);
+            py_media_vbmgmt_buffer_cleanup_failures--;
+        }
+    }
+}
+
 STATIC mp_obj_t py_media_vbmgmt_buffer_destroy_r(mp_obj_t self_in)
 {
-    k_s32                         result = 0;
     py_media_vbmgmt_buffer_obj_t* self   = MP_OBJ_TO_PTR(self_in);
     py_media_vbmgmt_buffer_t*     buffer = py_media_vbmgmt_buffer_cobj(self);
 
     if (self->is_destroyed) {
         return mp_const_true;
     }
+
+    if (!py_media_vbmgmt_buffer_release_resource(buffer)) {
+        return mp_const_false;
+    }
     self->is_destroyed = 1;
 
-    if (VB_INVALID_HANDLE != buffer->handle) {
-        if (K_SUCCESS != (result = kd_mpi_vb_release_block(buffer->handle))) {
-            printf("vb_buffer release block failed %d\n", buffer->handle);
-        }
-        buffer->handle = VB_INVALID_HANDLE;
-    }
-
-    if (buffer->virt_addr && buffer->blk_size) {
-        if (K_SUCCESS != (result = kd_mpi_sys_munmap(buffer->virt_addr, buffer->blk_size))) {
-            printf("vb_buffer umap block failed %p, %ld\n", buffer->virt_addr, buffer->blk_size);
-        }
-
-        buffer->virt_addr = 0;
-        buffer->blk_size  = 0;
-    }
-
-    return mp_obj_new_bool(K_SUCCESS == result);
+    return mp_const_true;
 }
 
 STATIC mp_obj_t py_media_vbmgmt_buffer_destroy(mp_obj_t self_in)
 {
-    mp_obj_list_remove(MP_STATE_PORT(py_media_vbmgmt_buffer_list), self_in);
+    py_media_vbmgmt_buffer_obj_t* self = MP_OBJ_TO_PTR(self_in);
 
-    return py_media_vbmgmt_buffer_destroy_r(self_in);
+    // A normal buffer release provides an inexpensive opportunity to recover
+    // transient failures without waiting for VM or media-manager teardown.
+    py_media_vbmgmt_buffer_retry_pending_cleanup();
+
+    mp_obj_t result = py_media_vbmgmt_buffer_destroy_r(self_in);
+
+    if (result == mp_const_false) {
+        // Transfer ownership to native storage before this object can be
+        // reclaimed by GC. The pending record is retried across soft resets.
+        if (!py_media_vbmgmt_buffer_queue_cleanup(self)) {
+            return mp_const_false;
+        }
+    } else {
+        py_media_vbmgmt_buffer_untrack(self);
+        free(self->cleanup_record);
+        self->cleanup_record = NULL;
+    }
+
+    return result;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_media_vbmgmt_buffer_destroy_obj, py_media_vbmgmt_buffer_destroy);
 
 STATIC mp_obj_t py_media_vbmgmt_buffer_get(size_t n_args, const mp_obj_t* args)
 {
     py_media_vbmgmt_buffer_t buffer;
+    mp_obj_t                  buffer_obj;
+    mp_int_t                  block_size;
 
     memset(&buffer, 0x00, sizeof(buffer));
 
-    buffer.poolid   = VB_INVALID_POOLID;
-    buffer.blk_size = mp_obj_get_int(args[0]);
+    buffer.poolid = VB_INVALID_POOLID;
+    block_size    = mp_obj_get_int(args[0]);
+    if (0x00 >= block_size) {
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid buffer size"));
+    }
+    buffer.blk_size = (k_u64)block_size;
     if (0x02 == n_args) {
         buffer.poolid = mp_obj_get_int(args[1]);
     }
+    buffer_obj = py_media_vbmgmt_buffer_from_struct(NULL);
 
     buffer.handle = kd_mpi_vb_get_block(buffer.poolid, buffer.blk_size, (void*)0);
     if (VB_INVALID_HANDLE == buffer.handle) {
@@ -210,7 +357,8 @@ STATIC mp_obj_t py_media_vbmgmt_buffer_get(size_t n_args, const mp_obj_t* args)
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("MediaManager get buffer failed 4."));
     }
 
-    return py_media_vbmgmt_buffer_from_struct(&buffer);
+    py_media_vbmgmt_buffer_set_struct(buffer_obj, &buffer);
+    return buffer_obj;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(py_media_vbmgmt_buffer_get_obj, 1, 2, py_media_vbmgmt_buffer_get);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(py_media_vbmgmt_buffer_get_method, MP_ROM_PTR(&py_media_vbmgmt_buffer_get_obj));
@@ -218,22 +366,27 @@ STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(py_media_vbmgmt_buffer_get_method, MP_RO
 STATIC mp_obj_t py_media_vbmgmt_buffer_alloc(mp_obj_t size_obj)
 {
     py_media_vbmgmt_buffer_t buffer;
+    mp_obj_t                  buffer_obj;
+    mp_int_t                  block_size;
 
     memset(&buffer, 0x00, sizeof(buffer));
 
-    buffer.poolid   = VB_INVALID_POOLID;
-    buffer.handle   = VB_INVALID_HANDLE;
-    buffer.blk_size = mp_obj_get_int(size_obj);
+    buffer.poolid = VB_INVALID_POOLID;
+    buffer.handle = VB_INVALID_HANDLE;
+    block_size    = mp_obj_get_int(size_obj);
 
-    if (0x00 >= buffer.blk_size) {
-        mp_raise_ValueError(MP_ERROR_TEXT("invaild alloc size"));
+    if (0x00 >= block_size) {
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid alloc size"));
     }
+    buffer.blk_size = (k_u64)block_size;
+    buffer_obj = py_media_vbmgmt_buffer_from_struct(NULL);
 
     if (K_SUCCESS != kd_mpi_sys_mmz_alloc_cached(&buffer.phys_addr, &buffer.virt_addr, "mgnt", "anonymous", buffer.blk_size)) {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("alloc failed"));
     }
 
-    return py_media_vbmgmt_buffer_from_struct(&buffer);
+    py_media_vbmgmt_buffer_set_struct(buffer_obj, &buffer);
+    return buffer_obj;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_media_vbmgmt_buffer_alloc_obj, py_media_vbmgmt_buffer_alloc);
 STATIC MP_DEFINE_CONST_STATICMETHOD_OBJ(py_media_vbmgmt_buffer_alloc_method, MP_ROM_PTR(&py_media_vbmgmt_buffer_alloc_obj));
@@ -256,6 +409,15 @@ STATIC mp_obj_t py_media_vbmgmt_buffer_flush_cache(mp_obj_t self_in)
     return mp_const_false;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_media_vbmgmt_buffer_flush_cache_obj, py_media_vbmgmt_buffer_flush_cache);
+
+//| # Auto-generated CanMV stub docs. Edit the signatures/docstrings here.
+//| module: _media
+//| class Buffer:
+//|     """Native video-buffer allocation."""
+//|     def destroy(self, /) -> bool:
+//|         """Release this buffer. False means immediate release failed; native cleanup is queued for retry when tracking storage is available."""
+//|     def free(self, /) -> bool:
+//|         """Alias of destroy()."""
 
 STATIC const mp_rom_map_elem_t py_media_vbmgmt_buffer_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&py_media_vbmgmt_buffer_destroy_obj) },
@@ -600,16 +762,18 @@ static int py_media_vbmgmt_inited = 0;
 void py_media_vbmgmt_init(void)
 {
     k_s32 ret;
+    extern k_s32 vb_mgmt_init(void);
 
-    MP_STATE_PORT(py_media_vbmgmt_link_list)   = mp_obj_new_list(0, NULL);
-    MP_STATE_PORT(py_media_vbmgmt_buffer_list) = mp_obj_new_list(0, NULL);
+    MP_STATE_PORT(py_media_vbmgmt_link_list) = mp_obj_new_list(0, NULL);
+
+    // This resets only the per-VM producer bookkeeping; it does not initialize
+    // the shared VB backend. Backend configuration remains gated below.
+    vb_mgmt_init();
+    py_media_vbmgmt_buffer_retry_pending_cleanup();
 
     if (py_media_vbmgmt_inited) {
         return;
     }
-
-    extern k_s32 vb_mgmt_init(void);
-    vb_mgmt_init();
 
     k_vb_config vb_cfg = { .max_pool_cnt = VB_MAX_COMM_POOLS };
     if (K_SUCCESS != (ret = kd_mpi_vb_set_config(&vb_cfg))) {
@@ -643,14 +807,14 @@ void py_media_vbmgmt_deinit_pre(void)
         MP_STATE_PORT(py_media_vbmgmt_link_list) = MP_OBJ_NULL;
     }
 
-    if (MP_OBJ_NULL != MP_STATE_PORT(py_media_vbmgmt_buffer_list)) {
-        for (mp_uint_t i = 0; i < MP_STATE_PORT(py_media_vbmgmt_buffer_list)->len; i++) {
-            py_media_vbmgmt_buffer_obj_t* buffer = MP_STATE_PORT(py_media_vbmgmt_buffer_list)->items[i];
+    // A CSC channel may be an endpoint in the link list above. Unbind it
+    // before stopping and destroying the channel.
+    py_nonai_2d_csc_destroy_all();
 
-            py_media_vbmgmt_buffer_destroy_r(buffer);
-            // m_del_obj(py_media_vbmgmt_buffer_obj_t, buffer);
-        }
-        MP_STATE_PORT(py_media_vbmgmt_buffer_list) = MP_OBJ_NULL;
+    py_media_vbmgmt_buffer_obj_t *buffer, *buffer_tmp;
+    list_for_each_entry_safe(buffer, buffer_tmp, &py_media_vbmgmt_buffer_list_head, list)
+    {
+        py_media_vbmgmt_buffer_destroy(MP_OBJ_FROM_PTR(buffer));
     }
 }
 
@@ -661,14 +825,23 @@ void py_media_vbmgmt_deinit(void)
     if (0x00 == py_media_vbmgmt_inited) {
         return;
     }
-    py_media_vbmgmt_inited = 0;
 
+    // Producers must be stopped on every soft reset. Only the shared VB
+    // backend needs to remain alive while a failed buffer cleanup is pending.
     vb_mgmt_deinit();
 
 #if defined(CONFIG_ENABLE_UVC_CAMERA)
     extern void mod_uvc_exit();
     mod_uvc_exit();
 #endif
+
+    py_media_vbmgmt_buffer_retry_pending_cleanup();
+    if (py_media_vbmgmt_buffer_cleanup_failures) {
+        printf("MediaManager, keep VB backend initialized: %u buffer cleanup failure(s).\n",
+               py_media_vbmgmt_buffer_cleanup_failures);
+        return;
+    }
+    py_media_vbmgmt_inited = 0;
 
     vbmgmt_pool_desroy_all();
 
@@ -732,4 +905,3 @@ MP_DEFINE_CONST_OBJ_TYPE(
 /* clang-format on */
 
 MP_REGISTER_ROOT_POINTER(struct _mp_obj_list_t* py_media_vbmgmt_link_list);
-MP_REGISTER_ROOT_POINTER(struct _mp_obj_list_t* py_media_vbmgmt_buffer_list);

@@ -7,6 +7,8 @@
 #include <iostream>
 #include <unistd.h>
 #include <algorithm>
+#include <climits>
+#include <new>
 
 typedef struct {
     float* kps;
@@ -16,6 +18,14 @@ typedef struct {
 	float confidence;
 	int index;
 }YoloPoseBox;
+
+static void free_yolo_pose_boxes(std::vector<YoloPoseBox> &boxes)
+{
+    for (size_t i = 0; i < boxes.size(); i++) {
+        free(boxes[i].kps);
+        boxes[i].kps = NULL;
+    }
+}
 
 float yolov8_pose_get_iou(cv::Rect rect1, cv::Rect rect2)
 {
@@ -56,12 +66,23 @@ void yolov8_pose_nms(std::vector<YoloPoseBox> &bboxes, float confThreshold, floa
         }
     }
 
-    // 移除那些置信度小于0的框
-    bboxes.erase(std::remove_if(bboxes.begin(), bboxes.end(), [](const YoloPoseBox &b) { return b.confidence < 0; }), bboxes.end());
+    // Remove suppressed boxes and release their keypoint buffers before erase.
+    bboxes.erase(std::remove_if(bboxes.begin(), bboxes.end(), [](YoloPoseBox &b) {
+        if (b.confidence >= 0) {
+            return false;
+        }
+        free(b.kps);
+        b.kps = NULL;
+        return true;
+    }), bboxes.end());
 }
 
 YoloPoseInfo* yolov8_pose_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int calss_num,int kp_num,int kp_dim, float conf_thresh, float nms_thresh, int max_box_cnt,int *box_cnt)
 {
+	*box_cnt = -1;
+	if (kp_num <= 0 || kp_dim <= 0 || kp_num > (INT_MAX - 5) / kp_dim) {
+		return NULL;
+	}
     float ratio_w=input_shape.width/(frame_shape.width*1.0);
     float ratio_h=input_shape.height/(frame_shape.height*1.0);
     float scale=MIN(ratio_w,ratio_h);
@@ -93,6 +114,10 @@ YoloPoseInfo* yolov8_pose_postprocess(float *output0, FrameSize frame_shape, Fra
             bbox.kp_num=kp_num;
             bbox.kp_dim=kp_dim;
             bbox.kps = (float*)malloc(kps_size * sizeof(float));
+			if (bbox.kps == NULL && kps_size != 0) {
+				free_yolo_pose_boxes(results);
+				return NULL;
+			}
             if(kp_dim==3){
                 for (int j = 0; j < kps_size; j++) {
                     if(j%3==0)
@@ -111,35 +136,31 @@ YoloPoseInfo* yolov8_pose_postprocess(float *output0, FrameSize frame_shape, Fra
                     bbox.kps[j] = kps[j]/scale*(display_shape.height/(frame_shape.height*1.0));
                 }
             }
-            results.push_back(bbox);
+			try {
+				results.push_back(bbox);
+			} catch (const std::bad_alloc &) {
+				free(bbox.kps);
+				free_yolo_pose_boxes(results);
+				return NULL;
+			}
         }
     }
 	//执行非最大抑制以消除具有较低置信度的冗余重叠框（NMS）
 	yolov8_pose_nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
     YoloPoseInfo* yolo_pose_res = (YoloPoseInfo *)malloc(*box_cnt * sizeof(YoloPoseInfo));
-    if(yolo_pose_res == NULL) {
-        // 分配失败时清理已分配的 kps 内存
-        for(size_t i = 0; i < results.size(); i++) {
-            if(results[i].kps != NULL) {
-                free(results[i].kps);
-            }
-        }
+    if (*box_cnt > 0 && yolo_pose_res == NULL) {
+        free_yolo_pose_boxes(results);
         return NULL;
     }
     for (int i = 0; i < *box_cnt; i++) {
         yolo_pose_res[i].kps = (float*)malloc(kps_size * sizeof(float));
-        if(yolo_pose_res[i].kps == NULL) {
-            // 分配失败时清理已分配的内存
+        if (yolo_pose_res[i].kps == NULL && kps_size != 0) {
             for(int j = 0; j < i; j++) {
                 free(yolo_pose_res[j].kps);
             }
             free(yolo_pose_res);
-            for(size_t k = 0; k < results.size(); k++) {
-                if(results[k].kps != NULL) {
-                    free(results[k].kps);
-                }
-            }
+            free_yolo_pose_boxes(results);
             return NULL;
         }
     }
@@ -151,16 +172,22 @@ YoloPoseInfo* yolov8_pose_postprocess(float *output0, FrameSize frame_shape, Fra
 		yolo_pose_res[i].y = results[i].box.y;
 		yolo_pose_res[i].w = results[i].box.width;
 		yolo_pose_res[i].h = results[i].box.height;
-		memcpy(yolo_pose_res[i].kps, results[i].kps, kps_size * sizeof(float));
-        free(results[i].kps);
+		if (kps_size != 0) {
+			memcpy(yolo_pose_res[i].kps, results[i].kps, kps_size * sizeof(float));
+		}
 		yolo_pose_res[i].kp_num = results[i].kp_num;
 		yolo_pose_res[i].kp_dim = results[i].kp_dim;
 	}
+	free_yolo_pose_boxes(results);
 	return yolo_pose_res;
 }
 
 YoloPoseInfo* yolo26_pose_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,int kp_num,int kp_dim,float conf_thresh,int max_box_cnt, int *box_cnt)
 {
+	*box_cnt = -1;
+	if (kp_num <= 0 || kp_dim <= 0 || kp_num > (INT_MAX - 6) / kp_dim) {
+		return NULL;
+	}
     float ratio_w=input_shape.width/(frame_shape.width*1.0);
     float ratio_h=input_shape.height/(frame_shape.height*1.0);
     float scale=MIN(ratio_w,ratio_h);
@@ -194,6 +221,10 @@ YoloPoseInfo* yolo26_pose_postprocess(float *output0, FrameSize frame_shape, Fra
             bbox.kp_num=kp_num;
             bbox.kp_dim=kp_dim;
             bbox.kps = (float*)malloc(kps_size * sizeof(float));
+			if (bbox.kps == NULL && kps_size != 0) {
+				free_yolo_pose_boxes(results);
+				return NULL;
+			}
             if(kp_dim==3){
                 for (int j = 0; j < kps_size; j++) {
                     if(j%3==0)
@@ -213,33 +244,29 @@ YoloPoseInfo* yolo26_pose_postprocess(float *output0, FrameSize frame_shape, Fra
                 }
             }
            
-            results.push_back(bbox);
+			try {
+				results.push_back(bbox);
+			} catch (const std::bad_alloc &) {
+				free(bbox.kps);
+				free_yolo_pose_boxes(results);
+				return NULL;
+			}
         }
     }
     *box_cnt = MIN(results.size(),max_box_cnt);
     YoloPoseInfo* yolo_pose_res = (YoloPoseInfo *)malloc(*box_cnt * sizeof(YoloPoseInfo));
-    if(yolo_pose_res == NULL) {
-        // 分配失败时清理已分配的 kps 内存
-        for(size_t i = 0; i < results.size(); i++) {
-            if(results[i].kps != NULL) {
-                free(results[i].kps);
-            }
-        }
+    if (*box_cnt > 0 && yolo_pose_res == NULL) {
+        free_yolo_pose_boxes(results);
         return NULL;
     }
     for (int i = 0; i < *box_cnt; i++) {
         yolo_pose_res[i].kps = (float*)malloc(kps_size * sizeof(float));
-        if(yolo_pose_res[i].kps == NULL) {
-            // 分配失败时清理已分配的内存
+        if (yolo_pose_res[i].kps == NULL && kps_size != 0) {
             for(int j = 0; j < i; j++) {
                 free(yolo_pose_res[j].kps);
             }
             free(yolo_pose_res);
-            for(size_t k = 0; k < results.size(); k++) {
-                if(results[k].kps != NULL) {
-                    free(results[k].kps);
-                }
-            }
+            free_yolo_pose_boxes(results);
             return NULL;
         }
     }
@@ -251,10 +278,24 @@ YoloPoseInfo* yolo26_pose_postprocess(float *output0, FrameSize frame_shape, Fra
 		yolo_pose_res[i].y = results[i].box.y;
 		yolo_pose_res[i].w = results[i].box.width;
 		yolo_pose_res[i].h = results[i].box.height;
-		memcpy(yolo_pose_res[i].kps, results[i].kps, kps_size * sizeof(float));
-        free(results[i].kps);
+		if (kps_size != 0) {
+			memcpy(yolo_pose_res[i].kps, results[i].kps, kps_size * sizeof(float));
+		}
 		yolo_pose_res[i].kp_num = results[i].kp_num;
 		yolo_pose_res[i].kp_dim = results[i].kp_dim;
 	}
+	free_yolo_pose_boxes(results);
 	return yolo_pose_res;
+}
+
+void yolo_pose_free_outputs(YoloPoseInfo *outputs, int count)
+{
+    if (outputs == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < count; i++) {
+        free(outputs[i].kps);
+    }
+    free(outputs);
 }

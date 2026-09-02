@@ -99,6 +99,9 @@ YUNetFaceDetInfo* yunet_postprocess(float **outputs, FrameSize frame_shape, Fram
 	yunet_det_nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
 	YUNetFaceDetInfo* yunet_face_det_res = (YUNetFaceDetInfo *)malloc(*box_cnt * sizeof(YUNetFaceDetInfo));
+	if (*box_cnt > 0 && yunet_face_det_res == NULL) {
+		return NULL;
+	}
 	for (int i = 0; i < *box_cnt; i++)
 	{
 		yunet_face_det_res[i].score = results[i].score;
@@ -108,4 +111,9 @@ YUNetFaceDetInfo* yunet_postprocess(float **outputs, FrameSize frame_shape, Fram
 		yunet_face_det_res[i].h = results[i].box.height;
 	}
 	return yunet_face_det_res;
+}
+
+void yunet_free_outputs(void *context)
+{
+    free(context);
 }

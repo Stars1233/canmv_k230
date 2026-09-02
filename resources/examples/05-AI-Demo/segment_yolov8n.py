@@ -33,7 +33,7 @@ class SegmentationApp(AIBase):
         # 检测框预置颜色值
         self.color_four=get_colors(len(self.labels))
         # 分割结果的numpy.array，用于给到aidemo后处理接口
-        self.masks=np.zeros((1,self.display_size[1],self.display_size[0],4))
+        self.masks=np.zeros((1,self.display_size[1],self.display_size[0],4),dtype=np.uint8)
         # Ai2d实例，用于实现模型预处理
         self.ai2d=Ai2d(debug_mode)
         # 设置Ai2d的输入输出格式和类型

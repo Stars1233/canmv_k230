@@ -129,7 +129,7 @@ def demuxer_mp4(filename):
     if (video_track == False):
         raise ValueError("video track not found")
 
-    if (track_info.video_info.codec_id == K_MP4_CODEC_ID_H264):
+    if (video_info.codec_id == K_MP4_CODEC_ID_H264):
         vdec_payload_type = K_PT_H264
     else:
         vdec_payload_type = K_PT_H265
@@ -170,7 +170,7 @@ def demuxer_mp4(filename):
             if (frame_data.eof):
                 sub_thread_flag = False
                 main_thread_flag = False
-                raise OSError("get frame data failed")
+                break
 
             if (frame_data.codec_id == K_MP4_CODEC_ID_H264 or frame_data.codec_id == K_MP4_CODEC_ID_H265):
                 data = uctypes.bytes_at(frame_data.data,frame_data.data_length)

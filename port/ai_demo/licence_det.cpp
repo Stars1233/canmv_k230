@@ -246,16 +246,24 @@ BoxPoint8* licence_det_post_process(float* p_outputs_0,float* p_outputs_1,float*
 	int objs_num = min_size * (1 + 4 + 16);
 	sortable_obj_t* s = (sortable_obj_t*)malloc(objs_num * sizeof(sortable_obj_t));
 	float* s_probs = (float*)malloc(objs_num * sizeof(float));
+	float* boxes = (float*)malloc(objs_num * LOC_SIZE * sizeof(float));
+	float* landmarks = (float*)malloc(objs_num * LAND_SIZE * sizeof(float));
+	if (s == NULL || s_probs == NULL || boxes == NULL || landmarks == NULL) {
+		free(s);
+		free(s_probs);
+		free(boxes);
+		free(landmarks);
+		*box_cnt = -1;
+		return NULL;
+	}
 	int obj_cnt = 0;
 	deal_conf(conf0, s_probs, s, 16 * min_size / 2, obj_cnt);
 	deal_conf(conf1, s_probs, s, 4 * min_size / 2, obj_cnt);
 	deal_conf(conf2, s_probs, s, 1 * min_size / 2, obj_cnt);
-	float* boxes = (float*)malloc(objs_num * LOC_SIZE * sizeof(float));
 	obj_cnt = 0;
 	deal_loc(loc0, boxes, 16 * min_size / 2, obj_cnt);
 	deal_loc(loc1, boxes, 4 * min_size / 2, obj_cnt);
 	deal_loc(loc2, boxes, 1 * min_size / 2, obj_cnt);
-	float* landmarks = (float*)malloc(objs_num * LAND_SIZE * sizeof(float));
 	obj_cnt = 0;
 	deal_landms(landms0, landmarks, 16 * min_size / 2, obj_cnt);
 	deal_landms(landms1, landmarks, 4 * min_size / 2, obj_cnt);
@@ -296,6 +304,13 @@ BoxPoint8* licence_det_post_process(float* p_outputs_0,float* p_outputs_1,float*
 
     *box_cnt = valid_landmarks.size();
     BoxPoint8 *boxPoint = (BoxPoint8 *)malloc(*box_cnt * sizeof(BoxPoint8));
+	if (*box_cnt > 0 && boxPoint == NULL) {
+		free(s_probs);
+		free(boxes);
+		free(landmarks);
+		free(s);
+		return NULL;
+	}
 	for (int i = 0; i < *box_cnt; i++)
 	{
 		boxPoint[i].points8[0] = (valid_landmarks[i].points[2 * 0 + 0] * kmodel_frame_size.width) / scale;
@@ -313,4 +328,9 @@ BoxPoint8* licence_det_post_process(float* p_outputs_0,float* p_outputs_1,float*
 	free(landmarks);
 	free(s);
     return boxPoint;
+}
+
+void licence_det_free_outputs(void *context)
+{
+    free(context);
 }

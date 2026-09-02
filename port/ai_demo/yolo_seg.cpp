@@ -3,10 +3,12 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include "aidemo_wrap.h"
+#include "aidemo_size.h"
 #include <stdlib.h>
 #include <iostream>
 #include <unistd.h>
 #include <algorithm>
+#include <limits.h>
 
 typedef struct {
 	cv::Rect box;
@@ -185,6 +187,67 @@ void draw_yolo_segmentation(cv::Mat& frame,std::vector<OutputSeg>& results,std::
 	}
 }
 
+static SegOutputs make_seg_outputs(const cv::Mat& osd_frame,
+                                   const std::vector<OutputSeg>& results,
+                                   FrameSize display_shape,
+                                   int *box_cnt)
+{
+	SegOutputs segOutputs = {};
+	*box_cnt = -1;
+
+	size_t masks_size;
+	if (!aidemo_checked_image_size(display_shape.width, display_shape.height, 4, &masks_size)) {
+		return segOutputs;
+	}
+	if (results.size() > (size_t)INT_MAX) {
+		return segOutputs;
+	}
+	*box_cnt = results.size();
+	if (masks_size != 0) {
+		segOutputs.masks_results = (uint8_t *)malloc(masks_size);
+		if (segOutputs.masks_results == NULL) {
+			*box_cnt = -1;
+			return segOutputs;
+		}
+		hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, masks_size);
+	}
+
+	if (*box_cnt == 0) {
+		return segOutputs;
+	}
+
+	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
+	if (segOutputs.segOutput == NULL) {
+		free(segOutputs.masks_results);
+		segOutputs.masks_results = NULL;
+		*box_cnt = -1;
+		return segOutputs;
+	}
+
+	for (int i = 0; i < *box_cnt; i++) {
+		segOutputs.segOutput[i].confidence = results[i].confidence;
+		segOutputs.segOutput[i].id = results[i].id;
+		segOutputs.segOutput[i].box[0] = results[i].box.x;
+		segOutputs.segOutput[i].box[1] = results[i].box.y;
+		segOutputs.segOutput[i].box[2] = results[i].box.width;
+		segOutputs.segOutput[i].box[3] = results[i].box.height;
+	}
+
+	return segOutputs;
+}
+
+void yolo_seg_free_outputs(void *context)
+{
+	SegOutputs *segOutputs = static_cast<SegOutputs *>(context);
+	if (segOutputs == NULL) {
+		return;
+	}
+
+	free(segOutputs->masks_results);
+	segOutputs->masks_results = NULL;
+	free(segOutputs->segOutput);
+	segOutputs->segOutput = NULL;
+}
 
 SegOutputs yolov5_seg_postprocess(float *output0, float *output1, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, float nms_thresh, float mask_thresh, int *box_cnt)
 {
@@ -288,22 +351,7 @@ SegOutputs yolov5_seg_postprocess(float *output0, float *output1, FrameSize fram
 	cv::Mat osd_frame(display_shape.height, display_shape.width, CV_8UC4, cv::Scalar(0, 0, 0, 0));
 	draw_yolo_segmentation(osd_frame, results,class_colors);
 
-	SegOutputs segOutputs;
-	segOutputs.masks_results = (uint8_t *)malloc(display_shape.width * display_shape.height * 4 * sizeof(uint8_t));
-    hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
-	*box_cnt = results.size();
-	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
-	for (int i = 0; i < *box_cnt; i++)
-	{
-		segOutputs.segOutput[i].confidence = results[i].confidence;
-		segOutputs.segOutput[i].id = results[i].id;
-		segOutputs.segOutput[i].box[0] = results[i].box.x;
-		segOutputs.segOutput[i].box[1] = results[i].box.y;
-		segOutputs.segOutput[i].box[2] = results[i].box.width;
-		segOutputs.segOutput[i].box[3] = results[i].box.height;
-	}
-
-	return segOutputs;
+	return make_seg_outputs(osd_frame, results, display_shape, box_cnt);
 }
 
 SegOutputs yolov8_seg_postprocess(float *output0, float *output1, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, float nms_thresh, float mask_thresh, int *box_cnt)
@@ -405,21 +453,7 @@ SegOutputs yolov8_seg_postprocess(float *output0, float *output1, FrameSize fram
 	cv::Mat osd_frame(display_shape.height, display_shape.width, CV_8UC4, cv::Scalar(0, 0, 0, 0));
 	draw_yolo_segmentation(osd_frame, results,class_colors);
 
-	SegOutputs segOutputs;
-	segOutputs.masks_results = (uint8_t *)malloc(display_shape.width * display_shape.height * 4 * sizeof(uint8_t));
-    hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
-	*box_cnt = results.size();
-	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
-	for (int i = 0; i < *box_cnt; i++)
-	{
-		segOutputs.segOutput[i].confidence = results[i].confidence;
-		segOutputs.segOutput[i].id = results[i].id;
-		segOutputs.segOutput[i].box[0] = results[i].box.x;
-		segOutputs.segOutput[i].box[1] = results[i].box.y;
-		segOutputs.segOutput[i].box[2] = results[i].box.width;
-		segOutputs.segOutput[i].box[3] = results[i].box.height;
-	}
-	return segOutputs;
+	return make_seg_outputs(osd_frame, results, display_shape, box_cnt);
 }
 
 SegOutputs yolo26_seg_postprocess(float *output0, float *output1, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, float mask_thresh, int *box_cnt)
@@ -513,20 +547,5 @@ SegOutputs yolo26_seg_postprocess(float *output0, float *output1, FrameSize fram
 	cv::Mat osd_frame(display_shape.height, display_shape.width, CV_8UC4, cv::Scalar(0, 0, 0, 0));
 	draw_yolo_segmentation(osd_frame, results,class_colors);
 
-	SegOutputs segOutputs;
-	segOutputs.masks_results = (uint8_t *)malloc(display_shape.width * display_shape.height * 4 * sizeof(uint8_t));
-    memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_shape.width * display_shape.height * 4 );
-	*box_cnt = results.size();
-	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
-	for (int i = 0; i < *box_cnt; i++)
-	{
-		segOutputs.segOutput[i].confidence = results[i].confidence;
-		segOutputs.segOutput[i].id = results[i].id;
-		segOutputs.segOutput[i].box[0] = results[i].box.x;
-		segOutputs.segOutput[i].box[1] = results[i].box.y;
-		segOutputs.segOutput[i].box[2] = results[i].box.width;
-		segOutputs.segOutput[i].box[3] = results[i].box.height;
-	}
-	return segOutputs;
+	return make_seg_outputs(osd_frame, results, display_shape, box_cnt);
 }
-

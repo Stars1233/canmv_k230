@@ -35,6 +35,7 @@ extern "C" {
     tensor_desc Kpu_get_output_desc(Kpu *p, size_t index);
     runtime_tensor* from_numpy(int dtype, finite_data shape, void* data, uint64_t phy_addr);
     void to_numpy(runtime_tensor* tensor, rt_to_ndarray_info *info);
+    bool to_numpy_copy(runtime_tensor* tensor, void *data, size_t data_bytes);
     ai2d *ai2d_create();
     void ai2d_destroy(ai2d *p);
     m_builder* ai2d_build(ai2d *p, finite_data input_shape, finite_data output_shape);

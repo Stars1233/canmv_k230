@@ -64,15 +64,58 @@ class Ai2d:
     # 构造ai2d预处理器
     def build(self,ai2d_input_shape,ai2d_output_shape,input_np=None):
         with ScopedTiming("ai2d build",self.debug_mode > 0):
-            # ai2d构造函数
-            self.ai2d_builder = self.ai2d.build(ai2d_input_shape, ai2d_output_shape)
-            # 定义ai2d输出数据(即kmodel的输入数据，所以数据分辨率和模型的input_size一致)，并转换成tensor
-            output_data = np.ones((ai2d_output_shape[0],ai2d_output_shape[1],ai2d_output_shape[2],ai2d_output_shape[3]),dtype=np.uint8)
-            self.ai2d_output_tensor = nn.from_numpy(output_data)
+            new_builder = self.ai2d.build(ai2d_input_shape, ai2d_output_shape)
+            try:
+                # 定义ai2d输出数据(即kmodel的输入数据，所以数据分辨率和模型的input_size一致)，并转换成tensor
+                output_data = np.ones((ai2d_output_shape[0],ai2d_output_shape[1],ai2d_output_shape[2],ai2d_output_shape[3]),dtype=np.uint8)
+                new_output_tensor = nn.from_numpy(output_data)
+            except Exception as build_error:
+                try:
+                    self._release_native(new_builder)
+                except Exception:
+                    pass
+                raise build_error
+
+            old_builder = self.ai2d_builder
+            old_input_tensor = self.ai2d_input_tensor
+            old_output_tensor = self.ai2d_output_tensor
+            self.ai2d_builder = new_builder
+            self.ai2d_input_tensor = None
+            self.ai2d_output_tensor = new_output_tensor
+
+            self._release_native(old_builder)
+            self._release_native(old_input_tensor)
+            self._release_native(old_output_tensor)
 
     # 使用ai2d完成预处理
     def run(self,input_np):
-        self.ai2d_input_tensor = nn.from_numpy(input_np)
+        new_input_tensor = nn.from_numpy(input_np)
         # 运行ai2d做初始化
-        self.ai2d_builder.run(self.ai2d_input_tensor, self.ai2d_output_tensor)
+        self.ai2d_builder.run(new_input_tensor, self.ai2d_output_tensor)
+        old_input_tensor = self.ai2d_input_tensor
+        self.ai2d_input_tensor = new_input_tensor
+        self._release_native(old_input_tensor)
         return self.ai2d_output_tensor
+
+    def deinit(self):
+        """Drop all native objects owned by this wrapper."""
+        cleanup_error = None
+        for name in ("ai2d_builder", "ai2d_input_tensor", "ai2d_output_tensor", "ai2d"):
+            native_obj = getattr(self, name, None)
+            setattr(self, name, None)
+            try:
+                self._release_native(native_obj)
+            except Exception as error:
+                setattr(self, name, native_obj)
+                if cleanup_error is None:
+                    cleanup_error = error
+        if cleanup_error is not None:
+            raise cleanup_error
+
+    @staticmethod
+    def _release_native(value):
+        if value is None:
+            return
+        release = getattr(value, "release", None)
+        if callable(release):
+            release()

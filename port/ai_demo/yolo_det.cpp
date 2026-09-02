@@ -94,6 +94,9 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
     nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
     YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
+    if (*box_cnt > 0 && yolo_det_res == NULL) {
+        return NULL;
+    }
     for (int i = 0; i < *box_cnt; i++)
     {
         yolo_det_res[i].confidence = results[i].confidence;
@@ -104,6 +107,11 @@ YoloDetInfo* yolov8_det_postprocess(float *output0, FrameSize frame_shape, Frame
         yolo_det_res[i].h = results[i].box.height;
     }
     return yolo_det_res;
+}
+
+void yolo_det_free_outputs(void *context)
+{
+    free(context);
 }
 
 YoloDetInfo* yolov5_det_postprocess(float *output0, FrameSize frame_shape, FrameSize input_shape, FrameSize display_shape, int class_num,float conf_thresh, float nms_thresh,int max_box_cnt, int *box_cnt)
@@ -144,6 +152,9 @@ YoloDetInfo* yolov5_det_postprocess(float *output0, FrameSize frame_shape, Frame
     nms(results, conf_thresh, nms_thresh);
     *box_cnt = MIN(results.size(),max_box_cnt);
     YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
+    if (*box_cnt > 0 && yolo_det_res == NULL) {
+        return NULL;
+    }
     for (int i = 0; i < *box_cnt; i++)
     {
         yolo_det_res[i].confidence = results[i].confidence;
@@ -189,6 +200,9 @@ YoloDetInfo* yolo26_det_postprocess(float *output0, FrameSize frame_shape, Frame
     }
     *box_cnt = MIN(results.size(),max_box_cnt);
     YoloDetInfo* yolo_det_res = (YoloDetInfo *)malloc(*box_cnt * sizeof(YoloDetInfo));
+    if (*box_cnt > 0 && yolo_det_res == NULL) {
+        return NULL;
+    }
     for (int i = 0; i < *box_cnt; i++)
     {
         yolo_det_res[i].confidence = results[i].confidence;

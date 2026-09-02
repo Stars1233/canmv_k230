@@ -26,6 +26,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include "aidemo_wrap.h"
+#include "aidemo_size.h"
 
 typedef struct BoxPoint
 {
@@ -34,12 +35,29 @@ typedef struct BoxPoint
 
 float* mask_resize(float* dest, FrameSize ori_shape, FrameSize tag_shape)
 {
+    size_t result_size;
+    if (!aidemo_checked_image_size(ori_shape.width, ori_shape.height, 1, &result_size)
+        || !aidemo_checked_image_size(tag_shape.width, tag_shape.height, 1, &result_size)
+        || result_size > SIZE_MAX / sizeof(float)) {
+        return NULL;
+    }
+
     cv::Mat dest_mat(ori_shape.height, ori_shape.width, CV_32FC1, dest);
     cv::Mat mask;
     resize(dest_mat, mask, cv::Size(tag_shape.width, tag_shape.height), cv::INTER_NEAREST);
-    float *result = (float *)malloc(tag_shape.width * tag_shape.height * sizeof(float));
-    hal_rvv_memcpy(result, mask.data, sizeof(float) * tag_shape.width * tag_shape.height);
+    float *result = (float *)malloc(result_size * sizeof(float));
+    if (result == NULL && result_size != 0) {
+        return NULL;
+    }
+    if (result_size != 0) {
+        hal_rvv_memcpy(result, mask.data, result_size * sizeof(float));
+    }
     return result;
+}
+
+void mask_resize_free_output(void *context)
+{
+    free(context);
 }
 
 std::vector<size_t> sort_indices_(const std::vector<cv::Point2f>& vec) 
@@ -156,17 +174,37 @@ ArrayWrapperMat1* ocr_rec_pre_process(uint8_t* data, FrameSize ori_shape, BoxPoi
     }
 
     ArrayWrapperMat1 *arrayWrapperMat1 = (ArrayWrapperMat1 *)malloc(box_cnt * sizeof(ArrayWrapperMat1));
+	if (box_cnt > 0 && arrayWrapperMat1 == NULL) {
+		return NULL;
+	}
 
     for(int i = 0; i < results_det.size(); i++)
     {
         std::vector<cv::Point2f> sort_vtd(4);
         cv::Mat crop;
         warppersp_(ori_img, crop, results_det[i], sort_vtd);
-        cv::Mat crop_gray;
-        cv::cvtColor(crop, crop_gray, cv::COLOR_BGR2GRAY);
+		cv::Mat crop_gray;
+		cv::cvtColor(crop, crop_gray, cv::COLOR_BGR2GRAY);
 
-        arrayWrapperMat1[i].data = (uint8_t *)malloc(crop_gray.cols * crop_gray.rows * sizeof(uint8_t));
-        hal_rvv_memcpy(arrayWrapperMat1[i].data, crop_gray.data, crop_gray.cols * crop_gray.rows * sizeof(uint8_t));
+		size_t crop_size;
+		if (!aidemo_checked_image_size(crop_gray.cols, crop_gray.rows, 1, &crop_size)) {
+			for (int j = 0; j < i; j++) {
+				free(arrayWrapperMat1[j].data);
+			}
+			free(arrayWrapperMat1);
+			return NULL;
+		}
+		arrayWrapperMat1[i].data = (uint8_t *)malloc(crop_size);
+		if (arrayWrapperMat1[i].data == NULL && crop_size != 0) {
+			for (int j = 0; j < i; j++) {
+				free(arrayWrapperMat1[j].data);
+			}
+			free(arrayWrapperMat1);
+			return NULL;
+		}
+		if (crop_size != 0) {
+			hal_rvv_memcpy(arrayWrapperMat1[i].data, crop_gray.data, crop_size);
+		}
         arrayWrapperMat1[i].framesize.width = crop_gray.cols;
         arrayWrapperMat1[i].framesize.height = crop_gray.rows;
         for(int j = 0; j < 4; j++)
@@ -176,4 +214,16 @@ ArrayWrapperMat1* ocr_rec_pre_process(uint8_t* data, FrameSize ori_shape, BoxPoi
         }
     }
     return arrayWrapperMat1;
+}
+
+void ocr_rec_free_outputs(ArrayWrapperMat1 *outputs, int count)
+{
+    if (outputs == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < count; i++) {
+        free(outputs[i].data);
+    }
+    free(outputs);
 }

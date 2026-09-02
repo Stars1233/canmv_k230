@@ -24,6 +24,7 @@
  */
 #include <vector>
 #include <math.h>
+#include <new>
 #include <string.h>
 #include "aidemo_wrap.h"
 
@@ -242,9 +243,15 @@ FaceDetectionInfoVector* face_detetion_post_process(float obj_thresh,float nms_t
     nms_thresh_ = nms_thresh;
     min_size_ = (net_len == 320 ? 200 : 800);
     objs_num_ = min_size_ * (1 + 4 + 16);
-    so_ = new NMSRoiObj[objs_num_];
-    boxes_ = new float[objs_num_ * LOC_SIZE];
-    landmarks_ = new float[objs_num_ * LAND_SIZE];
+    so_ = new (std::nothrow) NMSRoiObj[objs_num_];
+    boxes_ = new (std::nothrow) float[objs_num_ * LOC_SIZE];
+    landmarks_ = new (std::nothrow) float[objs_num_ * LAND_SIZE];
+    if (so_ == NULL || boxes_ == NULL || landmarks_ == NULL) {
+        delete[] so_;
+        delete[] boxes_;
+        delete[] landmarks_;
+        return NULL;
+    }
     g_anchors = anchors;
 
     face_deal_conf(p_outputs_[3], so_, 16 * min_size_ / 2, obj_cnt);
@@ -264,6 +271,12 @@ FaceDetectionInfoVector* face_detetion_post_process(float obj_thresh,float nms_t
     face_get_final_box(*frame_size, results);
 
     FaceDetectionInfoVector* mp_results = (FaceDetectionInfoVector *)malloc(sizeof(FaceDetectionInfoVector));
+    if (mp_results == NULL) {
+        delete[] so_;
+        delete[] boxes_;
+        delete[] landmarks_;
+        return NULL;
+    }
     mp_results->vec_len = results.size();
     mp_results->bbox = NULL;
     mp_results->sparse_kps = NULL;
@@ -273,6 +286,16 @@ FaceDetectionInfoVector* face_detetion_post_process(float obj_thresh,float nms_t
         mp_results->bbox = (Bbox *)malloc((results.size()) * sizeof(Bbox));
         mp_results->sparse_kps = (SparseLandmarks *)malloc((results.size()) * sizeof(SparseLandmarks));
         mp_results->score = (float *)malloc((results.size()) * sizeof(float));
+        if (mp_results->bbox == NULL || mp_results->sparse_kps == NULL || mp_results->score == NULL) {
+            free(mp_results->bbox);
+            free(mp_results->sparse_kps);
+            free(mp_results->score);
+            free(mp_results);
+            delete[] so_;
+            delete[] boxes_;
+            delete[] landmarks_;
+            return NULL;
+        }
         for(int ret_i = 0;ret_i <results.size();++ret_i)
         {
             (mp_results->bbox + ret_i)->x = results[ret_i].bbox.x;
@@ -290,3 +313,15 @@ FaceDetectionInfoVector* face_detetion_post_process(float obj_thresh,float nms_t
     return mp_results;
 }
 
+void face_detection_free_outputs(void *context)
+{
+    FaceDetectionInfoVector *outputs = static_cast<FaceDetectionInfoVector *>(context);
+    if (outputs == NULL) {
+        return;
+    }
+
+    free(outputs->bbox);
+    free(outputs->sparse_kps);
+    free(outputs->score);
+    free(outputs);
+}

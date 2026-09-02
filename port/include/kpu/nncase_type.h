@@ -105,8 +105,18 @@ struct tensor_desc
     size_t size;
 };
 
+typedef enum rt_to_ndarray_status {
+    RT_TO_NDARRAY_ERROR = 0,
+    RT_TO_NDARRAY_OK,
+    RT_TO_NDARRAY_DTYPE_UNSUPPORTED,
+    RT_TO_NDARRAY_RANK_UNSUPPORTED,
+    RT_TO_NDARRAY_SHAPE_UNSUPPORTED,
+    RT_TO_NDARRAY_LAYOUT_UNSUPPORTED,
+} rt_to_ndarray_status_t;
+
 struct rt_to_ndarray_info
 {
+    rt_to_ndarray_status_t status_;
     uint8_t dtype_;
     uint8_t ndim_;
     size_t len_;

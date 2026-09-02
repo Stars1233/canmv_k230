@@ -63,3 +63,5 @@ int  py_display_wbc_quality(void);
 int  py_display_wbc_dump(k_video_frame_info* vf_info, int timeout_ms, int force);
 int  py_display_wbc_dump_relase(void);
 void py_display_deinit(void);
+
+void py_nonai_2d_csc_destroy_all(void);

@@ -1,4 +1,5 @@
 #include <vector>
+#include <cstdlib>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -29,9 +30,15 @@ int* opencv_grayscale_findblobs(FrameSize frame_shape,uint8_t* data, int thresho
     *ret_num = temp_results.size() / 4;
     if (*ret_num == 0) return nullptr;
     // 分配内存并复制数据
-    int* ret = new int[*ret_num * 4];
+    int* ret = (int *)malloc(*ret_num * 4 * sizeof(int));
+    if (ret == nullptr) {
+        return nullptr;
+    }
     std::copy(temp_results.begin(), temp_results.end(), ret);
     return ret;
 }
 
-
+void opencv_grayscale_findblobs_free_outputs(void *context)
+{
+    free(context);
+}

@@ -150,7 +150,9 @@ class PipeLine:
     def destroy(self):
         with ScopedTiming("deinit PipeLine",self.debug_mode > 0):
             os.exitpoint(os.EXITPOINT_ENABLE_SLEEP)
-            # stop sensor
-            self.sensor.stop()
-            # deinit lcd
-            Display.deinit()
+            try:
+                # stop sensor
+                self.sensor.stop()
+            finally:
+                # deinit lcd even when sensor cleanup reports an error
+                Display.deinit()

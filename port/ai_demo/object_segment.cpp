@@ -27,10 +27,12 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include "aidemo_wrap.h"
+#include "aidemo_size.h"
 
 #include <stdlib.h>
 #include <iostream>
 #include <unistd.h>
+#include <limits.h>
 
 #define SEGCHANNELS 32
 #define CLASSES_COUNT 80
@@ -205,6 +207,68 @@ void draw_segmentation(cv::Mat& frame,std::vector<OutputSeg>& results)
 	}
 }
 
+static SegOutputs make_seg_outputs(const cv::Mat& osd_frame,
+                                   const std::vector<OutputSeg>& results,
+                                   FrameSize display_frame_size,
+                                   int *box_cnt)
+{
+	SegOutputs segOutputs = {};
+	*box_cnt = -1;
+
+	size_t masks_size;
+	if (!aidemo_checked_image_size(display_frame_size.width, display_frame_size.height, 4, &masks_size)) {
+		return segOutputs;
+	}
+	if (results.size() > (size_t)INT_MAX) {
+		return segOutputs;
+	}
+	*box_cnt = results.size();
+	if (masks_size != 0) {
+		segOutputs.masks_results = (uint8_t *)malloc(masks_size);
+		if (segOutputs.masks_results == NULL) {
+			*box_cnt = -1;
+			return segOutputs;
+		}
+		hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, masks_size);
+	}
+
+	if (*box_cnt == 0) {
+		return segOutputs;
+	}
+
+	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
+	if (segOutputs.segOutput == NULL) {
+		free(segOutputs.masks_results);
+		segOutputs.masks_results = NULL;
+		*box_cnt = -1;
+		return segOutputs;
+	}
+
+	for (int i = 0; i < *box_cnt; i++) {
+		segOutputs.segOutput[i].confidence = results[i].confidence;
+		segOutputs.segOutput[i].id = results[i].id;
+		segOutputs.segOutput[i].box[0] = results[i].box.x;
+		segOutputs.segOutput[i].box[1] = results[i].box.y;
+		segOutputs.segOutput[i].box[2] = results[i].box.width;
+		segOutputs.segOutput[i].box[3] = results[i].box.height;
+	}
+
+	return segOutputs;
+}
+
+void object_seg_free_outputs(void *context)
+{
+	SegOutputs *segOutputs = static_cast<SegOutputs *>(context);
+	if (segOutputs == NULL) {
+		return;
+	}
+
+	free(segOutputs->masks_results);
+	segOutputs->masks_results = NULL;
+	free(segOutputs->segOutput);
+	segOutputs->segOutput = NULL;
+}
+
 
 SegOutputs object_seg_post_process(float *data_0, float *data_1, FrameSize frame_size, FrameSize kmodel_frame_size, FrameSize display_frame_size, float conf_thres, float nms_thres, float mask_thres, int *box_cnt)
 {
@@ -323,20 +387,5 @@ SegOutputs object_seg_post_process(float *data_0, float *data_1, FrameSize frame
 	draw_segmentation(osd_frame, results);
 
 
-	SegOutputs segOutputs;
-	segOutputs.masks_results = (uint8_t *)malloc(display_frame_size.width * display_frame_size.height * 4 * sizeof(uint8_t));
-    hal_rvv_memcpy(segOutputs.masks_results, osd_frame.data, sizeof(uint8_t) * display_frame_size.width * display_frame_size.height * 4 );
-	*box_cnt = results.size();
-	segOutputs.segOutput = (SegOutput *)malloc(*box_cnt * sizeof(SegOutput));
-	for (int i = 0; i < *box_cnt; i++)
-	{
-		segOutputs.segOutput[i].confidence = results[i].confidence;
-		segOutputs.segOutput[i].id = results[i].id;
-		segOutputs.segOutput[i].box[0] = results[i].box.x;
-		segOutputs.segOutput[i].box[1] = results[i].box.y;
-		segOutputs.segOutput[i].box[2] = results[i].box.width;
-		segOutputs.segOutput[i].box[3] = results[i].box.height;
-	}
-
-	return segOutputs;
+	return make_seg_outputs(osd_frame, results, display_frame_size, box_cnt);
 }

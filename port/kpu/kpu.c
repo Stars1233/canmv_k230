@@ -13,6 +13,7 @@
 #include "ulab_tools.h"
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <stdint.h>
 
 #include "hal_rvv_ops.h"
 
@@ -109,6 +110,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
 STATIC mp_obj_t mp_kpu_make_new(const mp_obj_type_t* type, size_t n_args, size_t n_kw, const mp_obj_t* args) {
     mp_arg_check_num(n_args, n_kw, 0, 0, false);
     kpu_obj_t *self = m_new_obj_with_finaliser(kpu_obj_t);
+    self->interp = NULL;
     self->interp = Kpu_create();
     self->base.type = &kpu_type;
     return MP_OBJ_FROM_PTR(self);
@@ -179,6 +181,7 @@ STATIC mp_obj_t mp_kpu_get_input_tensor(mp_obj_t self_in, mp_obj_t index_in) {
     kpu_obj_t *self = MP_OBJ_TO_PTR(self_in);
     size_t index = mp_obj_get_int(index_in);
     mp_runtime_tensor_obj_t *tensor = m_new_obj_with_finaliser(mp_runtime_tensor_obj_t);
+    tensor->r_tensor = NULL;
     tensor->r_tensor = Kpu_get_input_tensor(self->interp, index);
     tensor->base.type = &rt_type;
     return MP_OBJ_TO_PTR(tensor);
@@ -202,6 +205,7 @@ STATIC mp_obj_t mp_kpu_get_output_tensor(mp_obj_t self_in, mp_obj_t index_in) {
     kpu_obj_t *self = MP_OBJ_TO_PTR(self_in);
     size_t index = mp_obj_get_int(index_in);
     mp_runtime_tensor_obj_t *tensor = m_new_obj_with_finaliser(mp_runtime_tensor_obj_t);
+    tensor->r_tensor = NULL;
     tensor->r_tensor = Kpu_get_output_tensor(self->interp, index);
     tensor->base.type = &rt_type;
     return MP_OBJ_TO_PTR(tensor);
@@ -288,6 +292,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(kpu_get_output_desc_obj, mp_kpu_get_output_desc
 //| """CanMV kpu module."""
 //| def __del__(self, /) -> Any:
 //|     """Perform del for kpu."""
+//| def release(self, /) -> Any:
+//|     """Release resources held by kpu."""
 //| def get_input_tensor(self, index: Any, /) -> Any:
 //|     """Return input tensor for kpu."""
 //| def get_output_tensor(self, index: Any, /) -> Any:
@@ -312,6 +318,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(kpu_get_output_desc_obj, mp_kpu_get_output_desc
 STATIC const mp_rom_map_elem_t kpu_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_kpu) },
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&kpu_destroy_obj) },
+    { MP_ROM_QSTR(MP_QSTR_release), MP_ROM_PTR(&kpu_destroy_obj) },
     { MP_ROM_QSTR(MP_QSTR_load_kmodel), MP_ROM_PTR(&kpu_load_kmodel_obj) },
     { MP_ROM_QSTR(MP_QSTR_run), MP_ROM_PTR(&kpu_run_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_input_tensor), MP_ROM_PTR(&kpu_get_input_tensor_obj) },
@@ -342,31 +349,88 @@ MP_DEFINE_CONST_OBJ_TYPE(
 
 
 STATIC mp_obj_t mp_to_numpy(mp_obj_t self_in) {
-
     mp_runtime_tensor_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    rt_to_ndarray_info info;
+    rt_to_ndarray_info info = {0};
+
     to_numpy(self->r_tensor, &info);
-    size_t *mp_shape = m_new(size_t, ULAB_MAX_DIMS);
-    int32_t *mp_stride = m_new(int32_t, ULAB_MAX_DIMS);
-    size_t size_bytes = ulab_binary_get_size(info.dtype_);
-    for(int i=0; i<info.ndim_; i++) {
-        mp_shape[ULAB_MAX_DIMS - 1-i] = (size_t)info.shape_[info.ndim_ - 1 - i];
-        mp_stride[ULAB_MAX_DIMS - 1-i] = (int32_t)info.strides_[info.ndim_ - 1 - i]*size_bytes;
+    switch (info.status_) {
+    case RT_TO_NDARRAY_OK:
+        break;
+    case RT_TO_NDARRAY_DTYPE_UNSUPPORTED:
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor dtype unsupported"));
+    case RT_TO_NDARRAY_RANK_UNSUPPORTED:
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor rank unsupported"));
+    case RT_TO_NDARRAY_SHAPE_UNSUPPORTED:
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor shape unsupported"));
+    case RT_TO_NDARRAY_LAYOUT_UNSUPPORTED:
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor layout unsupported"));
+    default:
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor metadata unavailable"));
     }
-    ndarray_obj_t *result = ndarray_new_ndarray(info.ndim_, mp_shape, mp_stride, info.dtype_);
-    hal_rvv_memcpy((void *)result->origin, (void *)info.data_, result->len * result->itemsize);
-    
-    free(info.data_);
-    info.data_ = NULL;
-    m_del(size_t, mp_shape, ULAB_MAX_DIMS);
-    m_del(int32_t, mp_stride, ULAB_MAX_DIMS);
+
+    if (info.ndim_ > ULAB_MAX_DIMS) {
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor rank unsupported"));
+    }
+
+    size_t element_count = 1;
+    for (size_t i = info.ndim_; i > 0; --i) {
+        size_t index = i - 1;
+        if (info.shape_[index] == 0) {
+            mp_raise_ValueError(MP_ERROR_TEXT("tensor shape unsupported"));
+        }
+        // nncase runtime strides are expressed in elements, not bytes.
+        if (info.strides_[index] != element_count) {
+            mp_raise_msg_varg(&mp_type_ValueError,
+                MP_ERROR_TEXT("tensor layout unsupported at axis %u: expected stride %lu elements, got %lu"),
+                (unsigned int)index, (unsigned long)element_count, (unsigned long)info.strides_[index]);
+        }
+        if (element_count > SIZE_MAX / info.shape_[index]) {
+            mp_raise_ValueError(MP_ERROR_TEXT("tensor shape unsupported"));
+        }
+        element_count *= info.shape_[index];
+    }
+
+    size_t item_size = ulab_binary_get_size(info.dtype_);
+    if (item_size == 0 || element_count > SIZE_MAX / item_size) {
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor size unsupported"));
+    }
+    size_t data_bytes = element_count * item_size;
+
+    // ndarray_new_ndarray copies this metadata synchronously. Keeping it on
+    // the stack avoids a temporary GC allocation on every inference result.
+    size_t shape[ULAB_MAX_DIMS] = {0};
+    int32_t strides[ULAB_MAX_DIMS] = {0};
+    size_t output_stride = item_size;
+    for (size_t i = 0; i < info.ndim_; ++i) {
+        size_t index = ULAB_MAX_DIMS - 1 - i;
+        shape[index] = info.shape_[info.ndim_ - 1 - i];
+        if (output_stride > INT32_MAX) {
+            mp_raise_ValueError(MP_ERROR_TEXT("tensor stride unsupported"));
+        }
+        strides[index] = (int32_t)output_stride;
+        if (i + 1 < info.ndim_) {
+            if (output_stride > SIZE_MAX / shape[index]) {
+                mp_raise_ValueError(MP_ERROR_TEXT("tensor shape unsupported"));
+            }
+            output_stride *= shape[index];
+        }
+    }
+
+    ndarray_obj_t *result = ndarray_new_ndarray(info.ndim_, shape, strides, info.dtype_);
+    if (!to_numpy_copy(self->r_tensor, (void *)result->origin, data_bytes)) {
+        mp_raise_ValueError(MP_ERROR_TEXT("tensor copy failed"));
+    }
     return MP_OBJ_FROM_PTR(result);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_to_numpy_obj, mp_to_numpy);
 
 static mp_obj_t mp_runtime_tensor_release(mp_obj_t runtime_tensor_obj) {
     mp_runtime_tensor_obj_t *self = MP_OBJ_TO_PTR(runtime_tensor_obj);
-    runtime_tensor_release(self->r_tensor);
+    if (self->r_tensor != NULL) {
+        runtime_tensor *tensor = self->r_tensor;
+        self->r_tensor = NULL;
+        runtime_tensor_release(tensor);
+    }
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_runtime_tensor_del_obj, mp_runtime_tensor_release);
@@ -375,6 +439,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_runtime_tensor_del_obj, mp_runtime_tensor_re
 //| """CanMV runtime_tensor module."""
 //| def __del__(self, /) -> Any:
 //|     """Perform del for runtime_tensor."""
+//| def release(self, /) -> Any:
+//|     """Release resources held by runtime_tensor."""
 //| def to_numpy(self, /) -> Any:
 //|     """Convert runtime_tensor to numpy."""
 
@@ -382,6 +448,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_runtime_tensor_del_obj, mp_runtime_tensor_re
 STATIC const mp_rom_map_elem_t mp_rt_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_runtime_tensor) },
     { MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&mp_runtime_tensor_del_obj) },
+    { MP_ROM_QSTR(MP_QSTR_release), MP_ROM_PTR(&mp_runtime_tensor_del_obj) },
     { MP_ROM_QSTR(MP_QSTR_to_numpy), MP_ROM_PTR(&mp_to_numpy_obj) },
 };
 
@@ -400,9 +467,3 @@ MP_DEFINE_CONST_OBJ_TYPE(
     MP_TYPE_FLAG_NONE,
     locals_dict, &mp_rt_dict
 );
-
-
-
-
-
-
