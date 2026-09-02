@@ -25,6 +25,7 @@
 #include "../misc/lv_math.h"
 #include "../misc/lv_log.h"
 #include "../lv_mp_thread.h"
+#include "py/nlr.h"
 #include "../libs/bmp/lv_bmp.h"
 #include "../libs/ffmpeg/lv_ffmpeg.h"
 #include "../libs/freetype/lv_freetype.h"
@@ -106,6 +107,14 @@ const lv_obj_class_t lv_obj_class = {
  *   GLOBAL FUNCTIONS
  **********************/
 
+extern void mp_lv_reset_vm_state(void);
+
+static void lv_obj_thread_nlr_unlock(void * ctx)
+{
+    (void)ctx;
+    lv_mp_thread_unlock();
+}
+
 bool lv_is_initialized(void)
 {
     bool initialized;
@@ -118,7 +127,10 @@ bool lv_is_initialized(void)
 
 void lv_init(void)
 {
+    nlr_jump_callback_node_t lock_cleanup;
+
     lv_mp_thread_lock();
+    nlr_push_jump_callback(&lock_cleanup, lv_obj_thread_nlr_unlock);
 
     /*Do nothing if already initialized*/
     if(lv_initialized) {
@@ -285,6 +297,7 @@ void lv_init(void)
     lv_initialized = true;
 
     LV_LOG_TRACE("finished");
+    nlr_pop_jump_callback(false);
     lv_mp_thread_unlock();
 }
 
@@ -292,10 +305,18 @@ void lv_init(void)
 
 void lv_deinit(void)
 {
+    nlr_jump_callback_node_t lock_cleanup;
+
     lv_mp_thread_lock();
+    nlr_push_jump_callback(&lock_cleanup, lv_obj_thread_nlr_unlock);
 
     if(!lv_initialized) {
+#if LV_USE_LOG
+        lv_log_register_print_cb(NULL);
+#endif
+        mp_lv_reset_vm_state();
         LV_LOG_WARN("lv_deinit: already deinited");
+        nlr_pop_jump_callback(false);
         lv_mp_thread_unlock();
         return;
     }
@@ -309,12 +330,18 @@ void lv_deinit(void)
 #endif
     lv_initialized = false;
 
-    LV_LOG_INFO("lv_deinit done");
-
 #if LV_USE_LOG
+    /*Do not invoke a Python log callback after its binding root is cleared.*/
     lv_log_register_print_cb(NULL);
 #endif
 
+    /*Keep the generated binding roots in step with every native deinit path,
+     *including the implicit deinit performed by lv_init().*/
+    mp_lv_reset_vm_state();
+
+    LV_LOG_INFO("lv_deinit done");
+
+    nlr_pop_jump_callback(false);
     lv_mp_thread_unlock();
 }
 #endif

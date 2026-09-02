@@ -14,6 +14,7 @@
 #include "../misc/lv_printf.h"
 #include "../misc/lv_profiler.h"
 #include "../lv_mp_thread.h"
+#include "py/nlr.h"
 
 /*********************
  *      DEFINES
@@ -24,6 +25,10 @@
 /**********************
  *      TYPEDEFS
  **********************/
+typedef struct {
+    nlr_jump_callback_node_t callback;
+    bool reset_timer_already_running;
+} lv_timer_nlr_cleanup_t;
 
 /**********************
  *  STATIC PROTOTYPES
@@ -31,6 +36,7 @@
 static bool lv_timer_exec(lv_timer_t * timer);
 static uint32_t lv_timer_time_remaining(lv_timer_t * timer);
 static void lv_timer_handler_resume(void);
+static void lv_timer_nlr_cleanup(void * ctx);
 
 /**********************
  *  STATIC VARIABLES
@@ -76,19 +82,28 @@ void _lv_timer_core_init(void)
  */
 LV_ATTRIBUTE_TIMER_HANDLER uint32_t lv_timer_handler(void)
 {
+    lv_timer_nlr_cleanup_t cleanup = {
+        .reset_timer_already_running = false,
+    };
+
     lv_mp_thread_lock();
+    nlr_push_jump_callback(&cleanup.callback, lv_timer_nlr_cleanup);
 
     TIMER_TRACE("begin");
 
     if(timer_already_running) {
         TIMER_TRACE("already running, concurrent calls are not allow, returning");
+        nlr_pop_jump_callback(false);
         lv_mp_thread_unlock();
         return 1;
     }
     timer_already_running = true;
+    cleanup.reset_timer_already_running = true;
 
     if(lv_timer_run == false) {
         timer_already_running = false; /*Release mutex*/
+        cleanup.reset_timer_already_running = false;
+        nlr_pop_jump_callback(false);
         lv_mp_thread_unlock();
         return 1;
     }
@@ -159,9 +174,11 @@ LV_ATTRIBUTE_TIMER_HANDLER uint32_t lv_timer_handler(void)
 
     timer_time_until_next = time_until_next;
     timer_already_running = false; /*Release the mutex*/
+    cleanup.reset_timer_already_running = false;
 
     TIMER_TRACE("finished (%" LV_PRIu32 " ms until the next timer call)", time_until_next);
     LV_PROFILER_END;
+    nlr_pop_jump_callback(false);
     lv_mp_thread_unlock();
     return time_until_next;
 }
@@ -169,13 +186,30 @@ LV_ATTRIBUTE_TIMER_HANDLER uint32_t lv_timer_handler(void)
 LV_ATTRIBUTE_TIMER_HANDLER void lv_timer_periodic_handler(void)
 {
     static uint32_t last_tick = 0;
+    lv_timer_nlr_cleanup_t cleanup = {
+        .reset_timer_already_running = false,
+    };
 
     lv_mp_thread_lock();
+    nlr_push_jump_callback(&cleanup.callback, lv_timer_nlr_cleanup);
     if(lv_tick_elaps(last_tick) >= timer_time_until_next) {
         TIMER_TRACE("calling lv_timer_handler()");
         lv_timer_handler();
         last_tick = lv_tick_get();
     }
+    nlr_pop_jump_callback(false);
+    lv_mp_thread_unlock();
+}
+
+static void lv_timer_nlr_cleanup(void * ctx)
+{
+    lv_timer_nlr_cleanup_t * cleanup = ctx;
+
+    if(cleanup->reset_timer_already_running) {
+        timer_already_running = false;
+    }
+    /* The periodic handler can nest lv_timer_handler(). On an NLR jump both
+     * callbacks run and each releases one level of the recursive LVGL lock. */
     lv_mp_thread_unlock();
 }
 

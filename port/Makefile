@@ -276,7 +276,11 @@ LV_CFLAGS := -DMICROPY_FREETYPE=1
 
 LVGL_BINDING_DIR = 3rd-party/lv_bindings
 LVGL_DIR = $(LVGL_BINDING_DIR)/lvgl
-ALL_LVGL_SRC = $(shell find $(LVGL_DIR) -type f -name '*.h') $(LVGL_BINDING_DIR)/lv_conf.h
+LVGL_CONFIG_HEADERS = $(LVGL_BINDING_DIR)/lv_conf.h
+ifeq ($(CONFIG_BOARD_K230_CANMV_YAHBOOM),y)
+LVGL_CONFIG_HEADERS += $(LVGL_BINDING_DIR)/yb_config/lv_conf_yb.h
+endif
+ALL_LVGL_SRC = $(shell find $(LVGL_DIR) -type f -name '*.h') $(LVGL_CONFIG_HEADERS)
 LVGL_PP = $(BUILD)/lvgl/lvgl.pp.c
 LVGL_MPY = $(BUILD)/lvgl/lv_mpy.c
 LVGL_MPY_METADATA = $(BUILD)/lvgl/lv_mpy.json
@@ -322,7 +326,6 @@ ifeq ($(CONFIG_BOARD_K230_CANMV_YAHBOOM),y)
 # add yb_config/lv_font_yb source file
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/yb_config/lv_font_yb_cn_16.c
 LVGL_SRC_C += $(LVGL_BINDING_DIR)/yb_config/lv_font_yb_cn_22.c
-# include yb_config/lv_conf_yb.h
 CFLAGS += -I$(LVGL_BINDING_DIR)/yb_config
 CFLAGS += -DLV_CONF_PATH=$(LVGL_BINDING_DIR)/yb_config/lv_conf_yb.h
 LV_CFLAGS := -DLV_CONF_PATH=$(LVGL_BINDING_DIR)/yb_config/lv_conf_yb.h
@@ -333,6 +336,9 @@ CFLAGS += -I$(LVGL_DIR)/src/widgets/img
 CFLAGS += -I$(LVGL_BINDING_DIR)/src
 
 CANMV_SRC_C += $(LVGL_SRC_C)
+# LVGL_SRC_C entries are relative to $(TOP), as required by the object rules.
+LVGL_OBJ = $(addprefix $(BUILD)/,$(LVGL_SRC_C:.c=.o))
+$(LVGL_OBJ): $(LVGL_CONFIG_HEADERS)
 CLEAN_EXTRA += $(LVGL_PP) $(LVGL_MPY)
 
 # cpp source files

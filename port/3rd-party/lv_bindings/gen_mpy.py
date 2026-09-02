@@ -1440,6 +1440,18 @@ STATIC void mp_lv_store_reference_pointer_selector_indexed(
 STATIC void* mp_to_ptr(mp_obj_t self_in);
 MP_REGISTER_ROOT_POINTER(mp_obj_t mp_lv_native_references);
 
+// Call only while LVGL access is serialized and after native LVGL has stopped
+// using objects reachable through these roots. Python wrappers may still exist;
+// they must not be passed back to LVGL after this reset.
+void mp_lv_reset_vm_state(void)
+{
+#if defined(LV_OBJ_T)
+    MP_STATE_PORT(lvgl_root_pointers) = NULL;
+    MP_STATE_PORT(mp_lv_user_data) = NULL;
+#endif
+    MP_STATE_PORT(mp_lv_native_references) = MP_OBJ_NULL;
+}
+
 STATIC mp_obj_t mp_lv_native_reference_owner_key(mp_obj_t owner)
 {
     return mp_obj_new_int_from_ull((unsigned long long)(uintptr_t)mp_to_ptr(owner));

@@ -33,6 +33,8 @@ error_text = None
 object_updates = 0
 handler_calls = 0
 timer_calls = 0
+timer_exception_seen = False
+timer_recovery_seen = False
 
 worker_bar = None
 worker_label = None
@@ -125,6 +127,45 @@ def timer_cb(timer):
             status_label.set_text("FAIL - " + error_text)
     except BaseException as exc:
         report_error("timer callback", exc)
+
+
+def exception_timer_cb(timer):
+    global timer_exception_seen
+
+    timer_exception_seen = True
+    raise RuntimeError("intentional timer callback exception")
+
+
+def recovery_timer_cb(timer):
+    global timer_recovery_seen
+
+    timer_recovery_seen = True
+
+
+def test_timer_exception_recovery():
+    exception_timer = lv.timer_create(exception_timer_cb, 1, None)
+    exception_timer.set_repeat_count(1)
+    exception_timer.ready()
+
+    try:
+        lv.timer_handler()
+    except RuntimeError as exc:
+        if str(exc) != "intentional timer callback exception":
+            raise
+    else:
+        raise RuntimeError("timer callback exception did not propagate")
+
+    if not timer_exception_seen:
+        raise RuntimeError("exception timer callback did not run")
+
+    recovery_timer = lv.timer_create(recovery_timer_cb, 1, None)
+    recovery_timer.set_repeat_count(1)
+    recovery_timer.ready()
+    lv.timer_handler()
+    if not timer_recovery_seen:
+        raise RuntimeError("timer handler did not recover after callback exception")
+
+    print("LVGL timer exception recovery: PASS")
 
 
 def build_ui():
@@ -284,10 +325,12 @@ def stop_workers():
     global running
 
     running = False
-    deadline = time.ticks_add(time.ticks_ms(), 1000)
+    warning_deadline = time.ticks_add(time.ticks_ms(), 1000)
+    warning_printed = False
     while workers_done < workers_started:
-        if time.ticks_diff(deadline, time.ticks_ms()) <= 0:
-            break
+        if not warning_printed and time.ticks_diff(warning_deadline, time.ticks_ms()) <= 0:
+            print("LVGL workers are still stopping; waiting before teardown")
+            warning_printed = True
         time.sleep_ms(10)
 
 
@@ -298,6 +341,7 @@ def main():
         Display.init(DISPLAY_TYPE, width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, to_ide=True)
         display_started = True
         lvgl_setup()
+        test_timer_exception_recovery()
         build_ui()
         start_workers()
 
@@ -318,9 +362,7 @@ def main():
         report_error("main", exc)
     finally:
         stop_workers()
-        if workers_done < workers_started:
-            print("LVGL workers did not stop; skipping LVGL deinit")
-        elif lvgl_started:
+        if lvgl_started:
             try:
                 lv.deinit()
             except BaseException as exc:
