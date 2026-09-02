@@ -382,7 +382,7 @@ STATIC mp_obj_t machine_touch_make_new(const mp_obj_type_t* type, size_t n_args,
         }
 
         self->config_set.pin_intr   = -1;
-        self->config_set.intr_value = 1;
+        self->config_set.intr_value = DRV_TOUCH_INTR_FALLING;
         if (mp_const_none != args_parsed[ARG_int].u_obj) {
             self->config_set.pin_intr = mp_obj_get_int(args_parsed[ARG_int].u_obj);
         }
