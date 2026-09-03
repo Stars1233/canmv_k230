@@ -35,6 +35,7 @@ typedef struct {
     char* ice_url;
     char* ice_username;
     char* ice_credential;
+    char* local_ip;
     uint32_t stop_requested;
     uint32_t worker_started;
     uint32_t closed;
@@ -100,9 +101,11 @@ static void webrtc_close_internal(webrtc_peer_obj_t* self)
     free(self->ice_url);
     free(self->ice_username);
     free(self->ice_credential);
+    free(self->local_ip);
     self->ice_url = NULL;
     self->ice_username = NULL;
     self->ice_credential = NULL;
+    self->local_ip = NULL;
     __atomic_store_n(&self->state, PEER_CONNECTION_CLOSED, __ATOMIC_RELEASE);
 
     if (MP_STATE_PORT(webrtc_active_obj) == self) {
@@ -144,6 +147,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
         ARG_ice_server,
         ARG_ice_username,
         ARG_ice_credential,
+        ARG_local_ip,
     };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_video_codec, MP_ARG_INT, { .u_int = CODEC_H265 } },
@@ -152,6 +156,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
         { MP_QSTR_ice_server, MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_ice_username, MP_ARG_OBJ, { .u_obj = mp_const_none } },
         { MP_QSTR_ice_credential, MP_ARG_OBJ, { .u_obj = mp_const_none } },
+        { MP_QSTR_local_ip, MP_ARG_OBJ, { .u_obj = mp_const_none } },
     };
     mp_map_t kw_args;
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -160,6 +165,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
     const char* ice_url;
     const char* ice_username;
     const char* ice_credential;
+    const char* local_ip;
     int error;
 
     mp_arg_check_num(n_args, n_kw, 0, 3, true);
@@ -189,18 +195,24 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
     ice_credential = args[ARG_ice_credential].u_obj == mp_const_none
                          ? NULL
                          : mp_obj_str_get_str(args[ARG_ice_credential].u_obj);
+    local_ip = args[ARG_local_ip].u_obj == mp_const_none
+                   ? NULL
+                   : mp_obj_str_get_str(args[ARG_local_ip].u_obj);
 
     self = m_new_obj_with_finaliser(webrtc_peer_obj_t);
     memset(self, 0, sizeof(*self));
     self->ice_url = webrtc_strdup_value(ice_url);
     self->ice_username = webrtc_strdup_value(ice_username);
     self->ice_credential = webrtc_strdup_value(ice_credential);
+    self->local_ip = webrtc_strdup_value(local_ip);
     if ((ice_url != NULL && self->ice_url == NULL) ||
         (ice_username != NULL && self->ice_username == NULL) ||
-        (ice_credential != NULL && self->ice_credential == NULL)) {
+        (ice_credential != NULL && self->ice_credential == NULL) ||
+        (local_ip != NULL && self->local_ip == NULL)) {
         free(self->ice_url);
         free(self->ice_username);
         free(self->ice_credential);
+        free(self->local_ip);
         mp_raise_OSError(MP_ENOMEM);
     }
     __atomic_store_n(&self->state, PEER_CONNECTION_CLOSED, __ATOMIC_RELAXED);
@@ -210,6 +222,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
         free(self->ice_url);
         free(self->ice_username);
         free(self->ice_credential);
+        free(self->local_ip);
         mp_raise_OSError(error);
     }
     if (peer_init() != 0) {
@@ -217,6 +230,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
         free(self->ice_url);
         free(self->ice_username);
         free(self->ice_credential);
+        free(self->local_ip);
         mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("libpeer initialization failed"));
     }
 
@@ -228,6 +242,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
     config.ice_servers[0].urls = self->ice_url;
     config.ice_servers[0].username = self->ice_username;
     config.ice_servers[0].credential = self->ice_credential;
+    config.local_ip = self->local_ip;
 
     self->pc = peer_connection_create(&config);
     if (self->pc == NULL) {
@@ -236,6 +251,7 @@ static mp_obj_t webrtc_peer_make_new(const mp_obj_type_t* type, size_t n_args, s
         free(self->ice_url);
         free(self->ice_username);
         free(self->ice_credential);
+        free(self->local_ip);
         mp_raise_OSError(MP_ENOMEM);
     }
     peer_connection_oniceconnectionstatechange(self->pc, webrtc_state_changed);
@@ -410,7 +426,7 @@ static MP_DEFINE_CONST_FUN_OBJ_1(webrtc_close_obj, webrtc_close);
 //| module: webrtc
 //| class PeerConnection:
 //|     """A native libpeer WebRTC connection with a background protocol worker."""
-//|     def __init__(self, video_codec: int = CODEC_H265, audio_codec: int = CODEC_NONE, audio_sample_rate: int = 48000, *, ice_server: str | None = None, ice_username: str | None = None, ice_credential: str | None = None) -> None: ...
+//|     def __init__(self, video_codec: int = CODEC_H265, audio_codec: int = CODEC_NONE, audio_sample_rate: int = 48000, *, ice_server: str | None = None, ice_username: str | None = None, ice_credential: str | None = None, local_ip: str | None = None) -> None: ...
 //|     def create_offer(self) -> str: ...
 //|     def create_answer(self) -> str: ...
 //|     def set_remote_description(self, sdp: str, type: int = SDP_TYPE_ANSWER) -> None: ...
